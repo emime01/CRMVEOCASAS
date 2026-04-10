@@ -1,52 +1,5 @@
 import { useState, useEffect } from "react";
-
-const KEY = "$2a$10$BEkST1829rW1MngDe/hVteb2Q9U7HEiuPmmsKms3WHdn7yXBk.vSS";
-const BASE = "https://api.jsonbin.io/v3/b";
-const H = { "Content-Type":"application/json", "X-Master-Key": KEY, "X-Bin-Versioning":"false" };
-
-const INIT = {
-  ventas: [],
-  kpis: [],
-  producciones: [],
-  disponibilidad: [
-    {producto:"Propiedades",total:10,used:3},{producto:"Destacadas",total:10,used:5},
-    {producto:"Superdestacadas",total:10,used:2},{producto:"Super destacada Home Venta",total:10,used:4},
-    {producto:"Destacada Home Venta",total:10,used:6},{producto:"Super destacada Home Alquiler",total:10,used:1},
-    {producto:"Destacada Home Alquiler",total:10,used:3},{producto:"Índice",total:10,used:7},
-    {producto:"Producción",total:10,used:2},{producto:"Banner",total:10,used:4},{producto:"Desarrollos",total:10,used:1},
-  ],
-  posts: [
-    {id:1,fecha:"2025-04-10",platform:"Instagram",content:"Nueva propiedad destacada en Recoleta",status:"programado"},
-  ],
-  facturas: [
-    {id:1,folio:"F-001",client:"Inmobiliaria Sur",amount:7140000,date:"2025-01-05",status:"pagada"},
-    {id:2,folio:"F-002",client:"Norte Propiedades",amount:1428000,date:"2025-02-05",status:"pendiente"},
-  ],
-};
-
-async function dbRead(table) {
-  const id = localStorage.getItem("bin_" + table);
-  if (!id) return null;
-  try {
-    const r = await fetch(`${BASE}/${id}/latest`, { headers: H });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j.record;
-  } catch { return null; }
-}
-
-async function dbWrite(table, data) {
-  const id = localStorage.getItem("bin_" + table);
-  try {
-    if (!id) {
-      const r = await fetch(BASE, { method:"POST", headers:{ ...H, "X-Bin-Name":`veo_${table}` }, body: JSON.stringify(data) });
-      const j = await r.json();
-      localStorage.setItem("bin_" + table, j.metadata.id);
-    } else {
-      await fetch(`${BASE}/${id}`, { method:"PUT", headers: H, body: JSON.stringify(data) });
-    }
-  } catch(e) { console.error("dbWrite error", e); }
-}
+import { supabase } from "./supabase";
 
 const C = { red:"#C0001A", black:"#111111", white:"#FFFFFF", gray:"#F5F5F5", grayMid:"#E0E0E0", grayDark:"#555555", grayText:"#888888" };
 
@@ -82,7 +35,12 @@ const Stat = ({label,value,sub,color}) => (
 export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("");
-  const [db, setDb] = useState({ ventas:[], kpis:[], producciones:[], disponibilidad:[], posts:[], facturas:[] });
+  const [sales, setSales] = useState([]);
+  const [availability, setAvailability] = useState([]);
+  const [kpis, setKpis] = useState([]);
+  const [productions, setProductions] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modalSale, setModalSale] = useState(null);
@@ -94,57 +52,59 @@ export default function App() {
   const [postForm, setPostForm] = useState({fecha:"",platform:"Instagram",content:"",status:"borrador"});
   const [saleForm, setSaleForm] = useState({});
 
-  const defaultTab = r => ({ gerente:"ventas", vendedor:"dashboard", marketing:"producciones", admin:"facturacion" }[r]||"dashboard");
+  const defaultTab = r => ({gerente:"ventas",vendedor:"dashboard",marketing:"producciones",admin:"facturacion"}[r]||"dashboard");
 
   const login = async (u) => {
     setUser(u);
     setTab(defaultTab(u.role));
     setLoading(true);
-    const tables = ["ventas","kpis","producciones","disponibilidad","posts","facturas"];
-    const results = await Promise.all(tables.map(t => dbRead(t)));
-    const newDb = {};
-    tables.forEach((t,i) => { newDb[t] = results[i] ?? INIT[t] ?? []; });
-    setDb(newDb);
-    // init bins that don't exist yet
-    for (let i=0; i<tables.length; i++) {
-      if (!results[i]) await dbWrite(tables[i], newDb[tables[i]]);
-    }
+    const [s,av,k,pr,po,inv] = await Promise.all([
+      supabase.from("ventas").select("*").order("created_at",{ascending:false}),
+      supabase.from("disponibilidad").select("*"),
+      supabase.from("kpis").select("*"),
+      supabase.from("producciones").select("*").order("created_at",{ascending:false}),
+      supabase.from("posts_social").select("*").order("fecha"),
+      supabase.from("facturas").select("*").order("created_at",{ascending:false}),
+    ]);
+    if(s.data) setSales(s.data);
+    if(av.data) setAvailability(av.data);
+    if(k.data) setKpis(k.data);
+    if(pr.data) setProductions(pr.data);
+    if(po.data) setPosts(po.data);
+    if(inv.data) setInvoices(inv.data);
     setLoading(false);
   };
 
-  const logout = () => { setUser(null); setDb({ ventas:[], kpis:[], producciones:[], disponibilidad:[], posts:[], facturas:[] }); };
+  const logout = () => { setUser(null); setSales([]); setAvailability([]); setKpis([]); setProductions([]); setPosts([]); setInvoices([]); };
 
-  const save = async (table, data) => {
-    setSaving(true);
-    setDb(prev => ({ ...prev, [table]: data }));
-    await dbWrite(table, data);
-    setSaving(false);
-  };
-
-  const mySales = user ? db.ventas.filter(s => s.ejecutivo === user.id) : [];
+  const mySales = user ? sales.filter(s => s.ejecutivo===user.id) : [];
 
   const initSaleForm = () => setSaleForm({ inmobiliaria:"", razon_social:"", rut:"", mail:"", telefono:"", direccion:"", crm:"SIN CRM", ejecutivo:user?.id||"sebastian", detalle:"", propiedades:0, destacadas_q:0, superdestacadas_q:0, produccion_q:0, indice:0, destacadas_home:0, fecha_inicio:"", fecha_fin:"", valor_mensual:0, subtotal:0, metodo_pago:"Transferencia", productos_seleccionados:[] });
 
   const saveSale = async (form) => {
+    setSaving(true);
     const total = Math.round((parseFloat(form.subtotal)||0)*1.19);
-    const newSale = { ...form, id: Date.now(), total };
-    const newVentas = [newSale, ...db.ventas];
-    await save("ventas", newVentas);
-    if (parseInt(form.produccion_q) > 0) {
-      const newProd = { id: Date.now()+1, cliente: form.inmobiliaria, ejecutivo: form.ejecutivo, produccion_q: parseInt(form.produccion_q), fecha:"", confirmado:false };
-      await save("producciones", [newProd, ...db.producciones]);
+    const {data,error} = await supabase.from("ventas").insert([{...form,total}]).select().single();
+    if(data){ setSales(prev=>[data,...prev]);
+      if(parseInt(form.produccion_q)>0){
+        const {data:pd} = await supabase.from("producciones").insert([{cliente:form.inmobiliaria,ejecutivo:form.ejecutivo,produccion_q:parseInt(form.produccion_q),venta_id:data.id}]).select().single();
+        if(pd) setProductions(prev=>[pd,...prev]);
+      }
     }
+    setSaving(false);
     setShowSaleForm(false);
   };
 
   const saveKPI = async () => {
-    const existing = db.kpis.filter(k => !(k.ejecutivo===user.id && k.semana===kpiWeek));
-    const updated = [...existing, { ejecutivo:user.id, semana:kpiWeek, ...kpiForm }];
-    await save("kpis", updated);
+    setSaving(true);
+    const payload = {ejecutivo:user.id,semana:kpiWeek,...kpiForm};
+    const {data} = await supabase.from("kpis").upsert([payload],{onConflict:"ejecutivo,semana"}).select().single();
+    if(data) setKpis(prev=>[...prev.filter(k=>!(k.ejecutivo===data.ejecutivo&&k.semana===data.semana)),data]);
     setKpiForm({});
+    setSaving(false);
   };
 
-  const myKpi = (uid, week) => db.kpis.find(k => k.ejecutivo===uid && k.semana===week) || {};
+  const myKpi = (uid,week) => kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
 
   const TABS = {
     vendedor:[{id:"dashboard",label:"Dashboard"},{id:"ventas",label:"Mis Ventas"},{id:"kpis",label:"KPIs"},{id:"producciones",label:"Producciones"},{id:"disponibilidad",label:"Disponibilidad"}],
@@ -153,7 +113,7 @@ export default function App() {
     admin:[{id:"facturacion",label:"Facturación"},{id:"clientes",label:"Clientes"},{id:"reportes",label:"Reportes"}],
   };
 
-  if (!user) return (
+  if(!user) return (
     <div style={{minHeight:"100vh",background:C.black,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
       <div style={{marginBottom:"2rem",textAlign:"center"}}>
         <div style={{fontSize:32,fontWeight:700,color:C.white,letterSpacing:2}}>VEO<span style={{color:C.red}}>CASAS</span></div>
@@ -189,7 +149,7 @@ export default function App() {
         </div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
-        {saving && <span style={{fontSize:11,color:C.grayText}}>Guardando...</span>}
+        {saving&&<span style={{fontSize:11,color:C.grayText}}>Guardando...</span>}
         <div style={{width:30,height:30,borderRadius:"50%",background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:600}}>{user.avatar}</div>
         <span style={{color:C.white,fontSize:13}}>{user.name}</span>
         <button onClick={logout} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${C.grayDark}`,background:"transparent",color:C.grayText,fontSize:12,cursor:"pointer"}}>Salir</button>
@@ -241,7 +201,7 @@ export default function App() {
   );
 
   const SaleFormModal = ({onClose}) => {
-    const [form, setForm] = useState(saleForm);
+    const [form,setForm] = useState(saleForm);
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
     const toggle = p => setForm(f=>({...f,productos_seleccionados:f.productos_seleccionados.includes(p)?f.productos_seleccionados.filter(x=>x!==p):[...f.productos_seleccionados,p]}));
     const total = Math.round((parseFloat(form.subtotal)||0)*1.19);
@@ -304,10 +264,8 @@ export default function App() {
     );
   };
 
-  // ── SCREENS ──────────────────────────────────────────────
-
   const Dashboard = () => {
-    const lastKpi = myKpi(user.id, kpiWeek);
+    const lastKpi = myKpi(user.id,kpiWeek);
     const total = mySales.reduce((a,s)=>a+(s.total||0),0);
     return (
       <div style={{padding:"1.5rem",maxWidth:900}}>
@@ -345,7 +303,7 @@ export default function App() {
   };
 
   const Ventas = () => {
-    const list = user.role==="gerente" ? db.ventas : mySales;
+    const list = user.role==="gerente" ? sales : mySales;
     const total = list.reduce((a,s)=>a+(s.total||0),0);
     return (
       <div style={{padding:"1.5rem",maxWidth:900}}>
@@ -370,7 +328,7 @@ export default function App() {
   };
 
   const KPIs = () => {
-    if (user.role==="gerente") return (
+    if(user.role==="gerente") return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <div style={{fontSize:18,fontWeight:600}}>KPIs del Equipo</div>
@@ -399,7 +357,7 @@ export default function App() {
         })}
       </div>
     );
-    const cur = myKpi(user.id, kpiWeek);
+    const cur = myKpi(user.id,kpiWeek);
     const fields = [["contactados","Contactados"],["contactados_efectivos","Contactados efectivos"],["reuniones_agendadas","Reuniones agendadas"],["reuniones_efectivas","Reuniones efectivas"],["concrecion","Concreción (%)"],["ticket_promedio","Ticket promedio"],["posible_concrecion","Posible concreción"],["control_calidad","Control calidad"]];
     return (
       <div style={{padding:"1.5rem",maxWidth:700}}>
@@ -431,7 +389,7 @@ export default function App() {
     <div style={{padding:"1.5rem",maxWidth:800}}>
       <div style={{fontSize:18,fontWeight:600,marginBottom:20}}>Disponibilidad de Productos</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        {db.disponibilidad.map(a=>{
+        {availability.map(a=>{
           const p=Math.round((a.used/a.total)*100);
           const color=p>=90?C.red:p>=60?"#E67E22":"#27AE60";
           return (
@@ -451,8 +409,8 @@ export default function App() {
                   <button onClick={async()=>{
                     const t=parseInt(document.getElementById(`t-${a.producto}`).value)||a.total;
                     const u=parseInt(document.getElementById(`u-${a.producto}`).value)||a.used;
-                    const updated=db.disponibilidad.map(x=>x.producto===a.producto?{...x,total:t,used:u}:x);
-                    await save("disponibilidad",updated);
+                    await supabase.from("disponibilidad").update({total:t,used:u}).eq("producto",a.producto);
+                    setAvailability(prev=>prev.map(x=>x.producto===a.producto?{...x,total:t,used:u}:x));
                     setEditAvail(null);
                   }} style={{padding:"4px 10px",background:C.red,color:C.white,border:"none",borderRadius:6,cursor:"pointer",fontSize:12}}>OK</button>
                   <button onClick={()=>setEditAvail(null)} style={{padding:"4px 8px",border:`1px solid ${C.grayMid}`,background:"none",borderRadius:6,cursor:"pointer",fontSize:12}}>×</button>
@@ -468,7 +426,7 @@ export default function App() {
   );
 
   const Producciones = () => {
-    const list = user.role==="vendedor" ? db.producciones.filter(p=>p.ejecutivo===user.id) : db.producciones;
+    const list = user.role==="vendedor" ? productions.filter(p=>p.ejecutivo===user.id) : productions;
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
         <div style={{fontSize:18,fontWeight:600,marginBottom:20}}>{user.role==="marketing"?"Producciones a confirmar":user.role==="gerente"?"Producciones":"Mis Producciones"}</div>
@@ -487,14 +445,14 @@ export default function App() {
                     {p.confirmado?<span style={{background:"#e8f8f0",color:"#27AE60",padding:"4px 10px",borderRadius:12,fontSize:12,fontWeight:500}}>Confirmado</span>:<span style={{background:"#fff5e0",color:"#E67E22",padding:"4px 10px",borderRadius:12,fontSize:12,fontWeight:500}}>Pendiente</span>}
                     {(user.role==="marketing"||user.role==="vendedor")&&(
                       <input type="date" value={p.fecha||""} onChange={async e=>{
-                        const updated=db.producciones.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x);
-                        await save("producciones",updated);
+                        await supabase.from("producciones").update({fecha:e.target.value}).eq("id",p.id);
+                        setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));
                       }} style={{...inp,width:145}}/>
                     )}
                     {user.role==="marketing"&&!p.confirmado&&(
                       <button onClick={async()=>{
-                        const updated=db.producciones.map(x=>x.id===p.id?{...x,confirmado:true}:x);
-                        await save("producciones",updated);
+                        await supabase.from("producciones").update({confirmado:true}).eq("id",p.id);
+                        setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));
                       }} style={{padding:"6px 12px",background:C.red,color:C.white,border:"none",borderRadius:7,cursor:"pointer",fontSize:12}}>Confirmar</button>
                     )}
                   </div>
@@ -510,7 +468,7 @@ export default function App() {
               {["L","M","M","J","V","S","D"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:11,color:C.grayText,padding:"4px 0"}}>{d}</div>)}
               {Array.from({length:30},(_,i)=>{
                 const day=i+1;
-                const has=db.producciones.some(p=>p.confirmado&&p.fecha&&new Date(p.fecha).getDate()===day);
+                const has=productions.some(p=>p.confirmado&&p.fecha&&new Date(p.fecha).getDate()===day);
                 return <div key={i} style={{textAlign:"center",padding:"8px 2px",borderRadius:6,background:has?C.red:C.gray,color:has?C.white:C.black,fontSize:12}}>{day}</div>;
               })}
             </div>
@@ -527,7 +485,7 @@ export default function App() {
         <button onClick={()=>setShowPostForm(true)} style={{padding:"8px 16px",background:C.red,color:C.white,border:"none",borderRadius:8,cursor:"pointer",fontWeight:500,fontSize:13}}>+ Nuevo Post</button>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {db.posts.map(p=>(
+        {posts.map(p=>(
           <div key={p.id} style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:10,padding:"14px 16px",display:"flex",gap:14,alignItems:"flex-start"}}>
             <div style={{padding:"6px 10px",background:C.gray,borderRadius:8,fontSize:11,fontWeight:500,minWidth:80,textAlign:"center"}}>{p.fecha}</div>
             <div style={{flex:1}}>
@@ -537,10 +495,13 @@ export default function App() {
               </div>
               <div style={{fontSize:13}}>{p.content}</div>
             </div>
-            <button onClick={async()=>{const updated=db.posts.filter(x=>x.id!==p.id);await save("posts",updated);}} style={{border:"none",background:"none",color:C.grayText,cursor:"pointer",fontSize:18}}>×</button>
+            <button onClick={async()=>{
+              await supabase.from("posts_social").delete().eq("id",p.id);
+              setPosts(prev=>prev.filter(x=>x.id!==p.id));
+            }} style={{border:"none",background:"none",color:C.grayText,cursor:"pointer",fontSize:18}}>×</button>
           </div>
         ))}
-        {!db.posts.length&&<div style={{color:C.grayText,fontSize:13,textAlign:"center",padding:"2rem"}}>Sin posts programados</div>}
+        {!posts.length&&<div style={{color:C.grayText,fontSize:13,textAlign:"center",padding:"2rem"}}>Sin posts programados</div>}
       </div>
       {showPostForm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}} onClick={()=>setShowPostForm(false)}>
@@ -554,7 +515,12 @@ export default function App() {
             </div>
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
               <button onClick={()=>setShowPostForm(false)} style={{padding:"7px 16px",border:`1px solid ${C.grayMid}`,borderRadius:7,background:"none",cursor:"pointer"}}>Cancelar</button>
-              <button onClick={async()=>{const np={...postForm,id:Date.now()};await save("posts",[...db.posts,np]);setShowPostForm(false);setPostForm({fecha:"",platform:"Instagram",content:"",status:"borrador"});}} style={{padding:"7px 16px",background:C.red,color:C.white,border:"none",borderRadius:7,cursor:"pointer",fontWeight:500}}>Agregar</button>
+              <button onClick={async()=>{
+                const {data} = await supabase.from("posts_social").insert([{fecha:postForm.fecha,platform:postForm.platform,content:postForm.content,status:postForm.status}]).select().single();
+                if(data) setPosts(prev=>[...prev,data]);
+                setShowPostForm(false);
+                setPostForm({fecha:"",platform:"Instagram",content:"",status:"borrador"});
+              }} style={{padding:"7px 16px",background:C.red,color:C.white,border:"none",borderRadius:7,cursor:"pointer",fontWeight:500}}>Agregar</button>
             </div>
           </div>
         </div>
@@ -566,16 +532,16 @@ export default function App() {
     <div style={{padding:"1.5rem",maxWidth:900}}>
       <div style={{fontSize:18,fontWeight:600,marginBottom:20}}>Facturación</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
-        <Stat label="Facturado total" value={fmt(db.facturas.reduce((a,i)=>a+(i.amount||0),0))} color={C.red}/>
-        <Stat label="Pendiente cobro" value={fmt(db.facturas.filter(i=>i.status==="pendiente").reduce((a,i)=>a+(i.amount||0),0))} color="#E67E22"/>
-        <Stat label="Facturas emitidas" value={db.facturas.length}/>
-        <Stat label="Cobradas" value={db.facturas.filter(i=>i.status==="pagada").length}/>
+        <Stat label="Facturado total" value={fmt(invoices.reduce((a,i)=>a+(i.amount||0),0))} color={C.red}/>
+        <Stat label="Pendiente cobro" value={fmt(invoices.filter(i=>i.status==="pendiente").reduce((a,i)=>a+(i.amount||0),0))} color="#E67E22"/>
+        <Stat label="Facturas emitidas" value={invoices.length}/>
+        <Stat label="Cobradas" value={invoices.filter(i=>i.status==="pagada").length}/>
       </div>
       <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead><tr style={{background:C.black,color:C.white}}>{["Folio","Cliente","Monto","Fecha","Estado"].map(h=><th key={h} style={{padding:"10px 16px",textAlign:"left",fontWeight:500}}>{h}</th>)}</tr></thead>
           <tbody>
-            {db.facturas.map(inv=>(
+            {invoices.map(inv=>(
               <tr key={inv.id} style={{borderBottom:`1px solid ${C.gray}`}}>
                 <td style={{padding:"10px 16px",fontWeight:500,color:C.red}}>{inv.folio}</td>
                 <td style={{padding:"10px 16px"}}>{inv.client}</td>
@@ -594,7 +560,7 @@ export default function App() {
     <div style={{padding:"1.5rem",maxWidth:900}}>
       <div style={{fontSize:18,fontWeight:600,marginBottom:20}}>Clientes</div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {[...new Map(db.ventas.map(s=>[s.inmobiliaria,s])).values()].map(s=>(
+        {[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()].map(s=>(
           <div key={s.id} style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:10,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontWeight:500}}>{s.inmobiliaria}</div>
@@ -608,13 +574,20 @@ export default function App() {
     </div>
   );
 
-  const screens = { dashboard:<Dashboard/>, ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>, producciones:<Producciones/>, social:<Social/>, assets:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Assets</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>, metricas:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Métricas</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>, facturacion:<Facturacion/>, clientes:<Clientes/>, reportes:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Reportes</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div> };
+  const screens = {
+    dashboard:<Dashboard/>, ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>,
+    producciones:<Producciones/>, social:<Social/>,
+    assets:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Assets</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>,
+    metricas:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Métricas</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>,
+    facturacion:<Facturacion/>, clientes:<Clientes/>,
+    reportes:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Reportes</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>
+  };
 
   return (
     <div style={{minHeight:"100vh",background:C.gray,fontFamily:"system-ui,sans-serif"}}>
       <NavBar/>
       <div style={{minHeight:"calc(100vh - 52px)"}}>
-        {loading ? <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"4rem",color:C.grayText}}>Cargando datos...</div> : screens[tab]||null}
+        {loading?<div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"4rem",color:C.grayText}}>Cargando datos...</div>:screens[tab]||null}
       </div>
       {modalSale&&<SaleModal sale={modalSale} onClose={()=>setModalSale(null)}/>}
       {showSaleForm&&<SaleFormModal onClose={()=>setShowSaleForm(false)}/>}
