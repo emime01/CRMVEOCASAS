@@ -289,15 +289,46 @@ export default function App() {
       <div style={{padding:"1.5rem",maxWidth:1100}}>
         {showObjetivoForm&&(
           <Modal onClose={()=>setShowObjetivoForm(false)} maxWidth={380}>
-            <ModalHeader title="Asignar objetivo trimestral" onClose={()=>setShowObjetivoForm(false)}/>
+            <ModalHeader title="Objetivo por Q" subtitle="Asignar objetivo trimestral" onClose={()=>setShowObjetivoForm(false)}/>
             <ModalBody>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <Field label="Vendedor"><select value={objetivoForm.ejecutivo} onChange={e=>setObjetivoForm(f=>({...f,ejecutivo:e.target.value}))} style={inp}>{SELLERS_OBJ.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-                <Field label="Objetivo ($)"><input type="number" value={objetivoForm.objetivo} onChange={e=>setObjetivoForm(f=>({...f,objetivo:parseFloat(e.target.value)||0}))} style={inp}/></Field>
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <Field label="Vendedor">
+                  <select value={objetivoForm.ejecutivo} onChange={e=>setObjetivoForm(f=>({...f,ejecutivo:e.target.value}))} style={inp}>
+                    {SELLERS_OBJ.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Objetivo ($)">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={objetivoForm.objetivo===0?"":objetivoForm.objetivo}
+                    onChange={e=>{const v=e.target.value.replace(/\D/g,"");setObjetivoForm(f=>({...f,objetivo:v===""?0:parseInt(v)}));}}
+                    style={inp}
+                    placeholder="Ej: 500000"
+                  />
+                </Field>
                 <Grid2>
-                  <Field label="Mes"><select value={objetivoForm.mes} onChange={e=>setObjetivoForm(f=>({...f,mes:parseInt(e.target.value)}))} style={inp}>{[1,2,3,4,5,6,7,8,9,10,11,12].map(m=><option key={m} value={m}>{m}</option>)}</select></Field>
-                  <Field label="Año"><input type="number" value={objetivoForm.anio} onChange={e=>setObjetivoForm(f=>({...f,anio:parseInt(e.target.value)}))} style={inp}/></Field>
+                  <Field label="Trimestre (Q)">
+                    <select value={objetivoForm.q} onChange={e=>setObjetivoForm(f=>({...f,q:parseInt(e.target.value)}))} style={inp}>
+                      <option value={1}>Q1 — Ene/Feb/Mar</option>
+                      <option value={2}>Q2 — Abr/May/Jun</option>
+                      <option value={3}>Q3 — Jul/Ago/Sep</option>
+                      <option value={4}>Q4 — Oct/Nov/Dic</option>
+                    </select>
+                  </Field>
+                  <Field label="Año">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={objetivoForm.anio}
+                      onChange={e=>{const v=e.target.value.replace(/\D/g,"");setObjetivoForm(f=>({...f,anio:v===""?2026:parseInt(v)}));}}
+                      style={inp}
+                    />
+                  </Field>
                 </Grid2>
+                <div style={{padding:"10px 14px",background:C.gray50,borderRadius:8,fontSize:12,color:C.gray500,border:`1px solid ${C.gray200}`}}>
+                  Objetivo para <strong>{SELLERS_OBJ.find(s=>s.id===objetivoForm.ejecutivo)?.name}</strong> en <strong>Q{objetivoForm.q} {objetivoForm.anio}</strong>: <strong style={{color:C.red}}>{new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(objetivoForm.objetivo)}</strong>
+                </div>
               </div>
             </ModalBody>
             <ModalFooter><Btn onClick={()=>setShowObjetivoForm(false)}>Cancelar</Btn><Btn variant="primary" onClick={saveObjetivo}>Guardar</Btn></ModalFooter>
