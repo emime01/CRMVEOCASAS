@@ -214,15 +214,15 @@ export default function App() {
 
   const DashboardVendedor = () => {
     const lastKpi=myKpi(user.id,0);
-    const now=new Date();
-    const q=Math.ceil((now.getMonth()+1)/3);
-    const qLabel=`Q${q} ${now.getFullYear()}`;
+    const hoy=new Date();
+    const q=Math.ceil((hoy.getMonth()+1)/3);
+    const qLabel=`Q${q} ${hoy.getFullYear()}`;
     const totalQ=totalVentasQ(user.id);
     const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
     const objetivo=myObjetivo(user.id);
     const comPct=comisiones?.vendedores?.[user.id]||0;
-    const now=new Date();
-    const mes=now.getMonth()+1; const anio=now.getFullYear();
+    const now=hoy;
+    const mes=hoy.getMonth()+1; const anio=hoy.getFullYear();
     const getCuotaMes=(v)=>{
       if(!v.fecha_inicio) return v.total;
       const nc=v.num_cuotas||1; const mc=v.total/nc;
