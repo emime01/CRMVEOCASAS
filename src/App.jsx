@@ -226,14 +226,9 @@ export default function App() {
   const DashboardVendedor = () => {
     const lastKpi=myKpi(user.id,0);
     const hoy=new Date();
-    const q=Math.ceil((hoy.getMonth()+1)/3);
-    const qLabel=`Q${q} ${hoy.getFullYear()}`;
-    const totalQ=totalVentasQ(user.id);
-    const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
-    const objetivo=myObjetivo(user.id);
-    const comPct=comisiones?.vendedores?.[user.id]||0;
-    const now=hoy;
     const mes=hoy.getMonth()+1; const anio=hoy.getFullYear();
+    const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
+    const comPct=comisiones?.vendedores?.[user.id]||0;
     const getCuotaMes=(v)=>{
       if(!v.fecha_inicio) return v.total;
       const nc=v.num_cuotas||1; const mc=v.total/nc;
@@ -241,12 +236,19 @@ export default function App() {
       return 0;
     };
     const comisionMes=Math.round(mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+getCuotaMes(s)*(comPct/100),0));
+
+    // Solo Q asignados por Mika
+    const qAsignados = getObjetivosVendedor(user.id);
+    // El Q actual siempre se muestra si está asignado, más el anterior
+    const qVisibles = qAsignados.filter(o => o.q <= currentQ);
+
     const weeklyData=[-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
+
     return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{marginBottom:20}}>
           <div style={{fontSize:22,fontWeight:800,color:C.gray900}}>Hola, {user.name} 👋</div>
-          <div style={{fontSize:13,color:C.gray400,marginTop:4}}>Semana: {getWeekDates(0).label}</div>
+          <div style={{fontSize:13,color:C.gray400,marginTop:4}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
           <Stat label="Ventas activas" value={mySales.filter(s=>s.estado!=="cancelada").length} color={C.red}/>
@@ -254,29 +256,47 @@ export default function App() {
           <Stat label="Comisión este mes" value={fmt(comisionMes)} color={C.green} sub={`${comPct}% mensualizado`}/>
           <Stat label="Concreción" value={`${lastKpi.concrecion||0}%`} sub="Esta semana"/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
-          <Card>
-            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:6}}>Objetivo {qLabel}</div>
-            <div style={{fontSize:11,color:C.gray400,marginBottom:12}}>Ventas cerradas en el trimestre</div>
-            <div style={{display:"flex",justifyContent:"center"}}><PieChart value={totalQ} max={objetivo} label={qLabel}/></div>
-            {objetivo===0&&<div style={{textAlign:"center",fontSize:11,color:C.gray400,marginTop:8}}>Sin objetivo asignado para {qLabel}</div>}
+
+        {/* Objetivos por Q */}
+        {qVisibles.length > 0 ? (
+          <div style={{marginBottom:20}}>
+            <div style={{fontWeight:600,fontSize:14,color:C.gray700,marginBottom:12}}>Objetivos por trimestre</div>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(qVisibles.length,4)},1fr)`,gap:12}}>
+              {qVisibles.map(obj=>{
+                const total=totalDeQ(user.id,obj.q);
+                const isActual=obj.q===currentQ;
+                return (
+                  <Card key={obj.q} style={{border:`1.5px solid ${isActual?C.red:C.gray200}`,position:"relative"}}>
+                    {isActual&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
+                    <div style={{textAlign:"center"}}>
+                      <div style={{fontSize:12,fontWeight:600,color:isActual?C.red:C.gray500,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>
+                        Q{obj.q} {isActual?"· Actual":"· Cerrado"}
+                      </div>
+                      <PieChart value={total} max={obj.objetivo} label={`Q${obj.q}`} color={isActual?C.red:C.gray400} size={100}/>
+                      <div style={{marginTop:8,fontSize:11,color:C.gray400}}>
+                        {ventasDeQ(user.id,obj.q).length} ventas
+                      </div>
+                      <div style={{marginTop:4,fontSize:11}}>
+                        <span style={{color:C.gray500}}>Objetivo: </span>
+                        <span style={{fontWeight:600,color:C.gray800}}>{fmt(obj.objetivo)}</span>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <Card style={{marginBottom:20,textAlign:"center",padding:"2rem"}}>
+            <div style={{fontSize:13,color:C.gray400}}>No tenés objetivos asignados aún. Consultá con Mika.</div>
           </Card>
+        )}
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Ventas — últimas 4 semanas</div>
             <BarChart data={weeklyData} height={90}/>
           </Card>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-          <div>
-            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:10}}>Últimas ventas</div>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {mySales.slice(0,3).map(s=>(
-                <SaleCard key={s.id} sale={s} onClick={setDetailSale} showActions
-                  onRequestEdit={id=>handleUpdateSale(id,{solicitud_modificacion:true})}/>
-              ))}
-              {!mySales.length&&<EmptyState icon="📊" title="Sin ventas" desc="Registrá tu primera venta"/>}
-            </div>
-          </div>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>KPIs esta semana</div>
             {[["Contactados",lastKpi.contactados||0],["C. efectivos",lastKpi.contactados_efectivos||0],["R. agendadas",lastKpi.reuniones_agendadas||0],["R. efectivas",lastKpi.reuniones_efectivas||0],["Ticket promedio",fmt(lastKpi.ticket_promedio||0)],["Posible concreción",fmt(lastKpi.posible_concrecion||0)]].map(([k,v])=>(
@@ -285,6 +305,16 @@ export default function App() {
               </div>
             ))}
           </Card>
+        </div>
+        <div>
+          <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:10}}>Últimas ventas</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {mySales.slice(0,3).map(s=>(
+              <SaleCard key={s.id} sale={s} onClick={setDetailSale} showActions
+                onRequestEdit={id=>handleUpdateSale(id,{solicitud_modificacion:true})}/>
+            ))}
+            {!mySales.length&&<EmptyState icon="📊" title="Sin ventas" desc="Registrá tu primera venta"/>}
+          </div>
         </div>
       </div>
     );
