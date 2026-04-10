@@ -4,19 +4,29 @@ import { supabase } from "./supabase";
 const C = { red:"#C0001A", black:"#111111", white:"#FFFFFF", gray:"#F5F5F5", grayMid:"#E0E0E0", grayDark:"#555555", grayText:"#888888" };
 
 const USERS = [
-  { id:"mika", name:"Mika", role:"gerente", avatar:"MI" },
-  { id:"sebastian", name:"Sebastian", role:"vendedor", avatar:"SE" },
-  { id:"juanba", name:"Juanba", role:"vendedor", avatar:"JB" },
-  { id:"paty", name:"Paty", role:"vendedor", avatar:"PA" },
-  { id:"stefano", name:"Stefano", role:"vendedor", avatar:"ST" },
-  { id:"mateo", name:"Mateo", role:"marketing", avatar:"MA" },
-  { id:"gonzalo", name:"Gonzalo", role:"admin", avatar:"GO" },
+  { id:"mika",      name:"Mika",           role:"gerente",   avatar:"MI" },
+  { id:"sebastian", name:"Sebastian",       role:"vendedor",  avatar:"SE" },
+  { id:"juanba",    name:"Juanba",          role:"vendedor",  avatar:"JB" },
+  { id:"paty",      name:"Paty",            role:"vendedor",  avatar:"PA" },
+  { id:"stefano",   name:"Stefano",         role:"vendedor",  avatar:"ST" },
+  { id:"mateo",     name:"Mateo",           role:"marketing", avatar:"MA" },
+  { id:"admin",     name:"Administración",  role:"admin",     avatar:"AD" },
 ];
 const SELLERS = USERS.filter(u => u.role === "vendedor");
 const CRMS = ["Tera","Nai","Casasweb","Tokko","Xintel","2clics","Otro CRM","SIN CRM"];
 const PRODUCTS = ["Propiedades","Destacadas","Superdestacadas","Super destacada Home Venta","Destacada Home Venta","Super destacada Home Alquiler","Destacada Home Alquiler","Índice","Producción","Banner","Desarrollos"];
 const PAYMENT_METHODS = ["Transferencia","Tarjeta de crédito","Cheque","Efectivo"];
 const PLATFORMS = ["Instagram","Facebook","LinkedIn","TikTok","Twitter/X"];
+
+const CREDENTIALS = [
+  { id:"mika",      username:"Mika",      password:"Veo#Mk9x2" },
+  { id:"sebastian", username:"Sebastian", password:"Veo#Sb4k7" },
+  { id:"juanba",    username:"Juanba",    password:"Veo#Jb3m5" },
+  { id:"paty",      username:"Paty",      password:"Veo#Pt8n1" },
+  { id:"stefano",   username:"Stefano",   password:"Veo#St6q4" },
+  { id:"mateo",     username:"Mateo",     password:"Veo#Mt2w8" },
+  { id:"admin",     username:"Admin",     password:"Veo#Ad5r9" },
+];
 
 const fmt = n => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n||0);
 const pct = (a,b) => b>0 ? Math.round((a/b)*100) : 0;
@@ -32,39 +42,104 @@ const Stat = ({label,value,sub,color}) => (
   </div>
 );
 
+// Simple pie chart SVG
+const PieChart = ({value, max, label, color=C.red}) => {
+  const r = 54, cx = 60, cy = 60;
+  const pctVal = max > 0 ? Math.min(value/max, 1) : 0;
+  const angle = pctVal * 2 * Math.PI;
+  const x = cx + r * Math.sin(angle);
+  const y = cy - r * Math.cos(angle);
+  const large = angle > Math.PI ? 1 : 0;
+  const path = pctVal >= 1
+    ? `M ${cx} ${cy-r} A ${r} ${r} 0 1 1 ${cx-0.01} ${cy-r} Z`
+    : `M ${cx} ${cy-r} A ${r} ${r} 0 ${large} 1 ${x} ${y} L ${cx} ${cy} Z`;
+  return (
+    <div style={{textAlign:"center"}}>
+      <svg width="120" height="120">
+        <circle cx={cx} cy={cy} r={r} fill={C.grayMid}/>
+        {pctVal > 0 && <path d={path} fill={color}/>}
+        <circle cx={cx} cy={cy} r={36} fill={C.white}/>
+        <text x={cx} y={cy-6} textAnchor="middle" fontSize="14" fontWeight="600" fill={C.black}>{Math.round(pctVal*100)}%</text>
+        <text x={cx} y={cy+12} textAnchor="middle" fontSize="10" fill={C.grayText}>del objetivo</text>
+      </svg>
+      <div style={{fontSize:12,color:C.grayText,marginTop:4}}>{label}</div>
+      <div style={{fontSize:13,fontWeight:600,color}}>{fmt(value)}</div>
+      <div style={{fontSize:11,color:C.grayText}}>de {fmt(max)}</div>
+    </div>
+  );
+};
+
+// Simple bar chart
+const BarChart = ({data, height=120}) => {
+  if (!data.length) return null;
+  const max = Math.max(...data.map(d=>d.value), 1);
+  return (
+    <div style={{display:"flex",alignItems:"flex-end",gap:6,height:height+30,padding:"0 4px"}}>
+      {data.map((d,i) => (
+        <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+          <div style={{fontSize:10,color:C.grayText,fontWeight:500}}>{fmt(d.value).replace("$","").replace(/\./g,"k").slice(0,6)}</div>
+          <div style={{width:"100%",background:d.highlight?C.red:C.grayMid,borderRadius:"4px 4px 0 0",height:Math.max((d.value/max)*height,2),transition:"height 0.3s"}}/>
+          <div style={{fontSize:10,color:C.grayText,textAlign:"center",lineHeight:1.2}}>{d.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Week helper
+const getWeekDates = (weekOffset=0) => {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day===0?6:day-1) + weekOffset*7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return {
+    inicio: monday.toISOString().split("T")[0],
+    fin: sunday.toISOString().split("T")[0],
+    label: `${monday.getDate()}/${monday.getMonth()+1} - ${sunday.getDate()}/${sunday.getMonth()+1}`
+  };
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("");
+  // LOGIN — deshabilitado para pruebas, selector directo
+  const [loginMode] = useState(false);
   const [sales, setSales] = useState([]);
   const [availability, setAvailability] = useState([]);
   const [kpis, setKpis] = useState([]);
   const [productions, setProductions] = useState([]);
   const [posts, setPosts] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [objetivos, setObjetivos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [modalSale, setModalSale] = useState(null);
   const [showSaleForm, setShowSaleForm] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
-  const [kpiWeek, setKpiWeek] = useState(0);
+  const [showObjetivoForm, setShowObjetivoForm] = useState(false);
+  const [kpiWeekOffset, setKpiWeekOffset] = useState(0);
   const [editAvail, setEditAvail] = useState(null);
   const [kpiForm, setKpiForm] = useState({});
   const [postForm, setPostForm] = useState({fecha:"",platform:"Instagram",content:"",status:"borrador"});
   const [saleForm, setSaleForm] = useState({});
+  const [objetivoForm, setObjetivoForm] = useState({ejecutivo:"sebastian",objetivo:0,mes:new Date().getMonth()+1,anio:new Date().getFullYear()});
 
-  const defaultTab = r => ({gerente:"ventas",vendedor:"dashboard",marketing:"producciones",admin:"facturacion"}[r]||"dashboard");
+  const defaultTab = r => ({gerente:"dashboard_gerente",vendedor:"dashboard",marketing:"producciones",admin:"facturacion"}[r]||"dashboard");
 
   const login = async (u) => {
     setUser(u);
     setTab(defaultTab(u.role));
     setLoading(true);
-    const [s,av,k,pr,po,inv] = await Promise.all([
+    const [s,av,k,pr,po,inv,obj] = await Promise.all([
       supabase.from("ventas").select("*").order("created_at",{ascending:false}),
       supabase.from("disponibilidad").select("*"),
-      supabase.from("kpis").select("*"),
+      supabase.from("kpis").select("*").order("fecha_inicio",{ascending:false}),
       supabase.from("producciones").select("*").order("created_at",{ascending:false}),
       supabase.from("posts_social").select("*").order("fecha"),
       supabase.from("facturas").select("*").order("created_at",{ascending:false}),
+      supabase.from("objetivos").select("*"),
     ]);
     if(s.data) setSales(s.data);
     if(av.data) setAvailability(av.data);
@@ -72,20 +147,21 @@ export default function App() {
     if(pr.data) setProductions(pr.data);
     if(po.data) setPosts(po.data);
     if(inv.data) setInvoices(inv.data);
+    if(obj.data) setObjetivos(obj.data);
     setLoading(false);
   };
 
-  const logout = () => { setUser(null); setSales([]); setAvailability([]); setKpis([]); setProductions([]); setPosts([]); setInvoices([]); };
-
+  const logout = () => { setUser(null); setSales([]); setAvailability([]); setKpis([]); setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); };
   const mySales = user ? sales.filter(s => s.ejecutivo===user.id) : [];
 
-  const initSaleForm = () => setSaleForm({ inmobiliaria:"", razon_social:"", rut:"", mail:"", telefono:"", direccion:"", crm:"SIN CRM", ejecutivo:user?.id||"sebastian", detalle:"", propiedades:0, destacadas_q:0, superdestacadas_q:0, produccion_q:0, indice:0, destacadas_home:0, fecha_inicio:"", fecha_fin:"", valor_mensual:0, subtotal:0, metodo_pago:"Transferencia", productos_seleccionados:[] });
+  const initSaleForm = () => setSaleForm({ inmobiliaria:"", razon_social:"", rut:"", mail:"", telefono:"", direccion:"", crm:"SIN CRM", ejecutivo:user?.id||"sebastian", detalle:"", propiedades:0, destacadas_q:0, superdestacadas_q:0, produccion_q:0, indice:0, destacadas_home:0, fecha_inicio:"", fecha_fin:"", valor_mensual:0, subtotal:0, metodo_pago:"Transferencia", productos_seleccionados:[], estado:"activa", solicitud_modificacion:false, modificacion_aprobada:false });
 
   const saveSale = async (form) => {
     setSaving(true);
     const total = Math.round((parseFloat(form.subtotal)||0)*1.19);
     const {data,error} = await supabase.from("ventas").insert([{...form,total}]).select().single();
-    if(data){ setSales(prev=>[data,...prev]);
+    if(data){
+      setSales(prev=>[data,...prev]);
       if(parseInt(form.produccion_q)>0){
         const {data:pd} = await supabase.from("producciones").insert([{cliente:form.inmobiliaria,ejecutivo:form.ejecutivo,produccion_q:parseInt(form.produccion_q),venta_id:data.id}]).select().single();
         if(pd) setProductions(prev=>[pd,...prev]);
@@ -95,24 +171,41 @@ export default function App() {
     setShowSaleForm(false);
   };
 
+  const updateSale = async (id, changes) => {
+    const {data} = await supabase.from("ventas").update(changes).eq("id",id).select().single();
+    if(data) setSales(prev=>prev.map(s=>s.id===id?data:s));
+  };
+
   const saveKPI = async () => {
     setSaving(true);
-    const payload = {ejecutivo:user.id,semana:kpiWeek,...kpiForm};
+    const week = getWeekDates(kpiWeekOffset);
+    const payload = { ejecutivo:user.id, semana:kpiWeekOffset, fecha_inicio:week.inicio, fecha_fin:week.fin, ...kpiForm };
     const {data} = await supabase.from("kpis").upsert([payload],{onConflict:"ejecutivo,semana"}).select().single();
     if(data) setKpis(prev=>[...prev.filter(k=>!(k.ejecutivo===data.ejecutivo&&k.semana===data.semana)),data]);
     setKpiForm({});
     setSaving(false);
   };
 
+  const saveObjetivo = async () => {
+    const {data} = await supabase.from("objetivos").upsert([objetivoForm],{onConflict:"ejecutivo,mes,anio"}).select().single();
+    if(data) setObjetivos(prev=>[...prev.filter(o=>!(o.ejecutivo===data.ejecutivo&&o.mes===data.mes&&o.anio===data.anio)),data]);
+    setShowObjetivoForm(false);
+  };
+
   const myKpi = (uid,week) => kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
+  const myObjetivo = (uid) => {
+    const now = new Date();
+    return objetivos.find(o=>o.ejecutivo===uid&&o.mes===now.getMonth()+1&&o.anio===now.getFullYear())?.objetivo||0;
+  };
 
   const TABS = {
     vendedor:[{id:"dashboard",label:"Dashboard"},{id:"ventas",label:"Mis Ventas"},{id:"kpis",label:"KPIs"},{id:"producciones",label:"Producciones"},{id:"disponibilidad",label:"Disponibilidad"}],
-    gerente:[{id:"ventas",label:"Ventas"},{id:"kpis",label:"KPIs Equipo"},{id:"disponibilidad",label:"Disponibilidad"},{id:"producciones",label:"Producciones"}],
+    gerente:[{id:"dashboard_gerente",label:"Dashboard"},{id:"ventas",label:"Ventas"},{id:"kpis",label:"KPIs Equipo"},{id:"disponibilidad",label:"Disponibilidad"},{id:"producciones",label:"Producciones"},{id:"modificaciones",label:"Modificaciones"}],
     marketing:[{id:"producciones",label:"Producciones"},{id:"social",label:"Redes Sociales"},{id:"assets",label:"Assets"},{id:"metricas",label:"Métricas"}],
     admin:[{id:"facturacion",label:"Facturación"},{id:"clientes",label:"Clientes"},{id:"reportes",label:"Reportes"}],
   };
 
+  // ── LOGIN SCREEN ──────────────────────────────────────────
   if(!user) return (
     <div style={{minHeight:"100vh",background:C.black,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
       <div style={{marginBottom:"2rem",textAlign:"center"}}>
@@ -120,7 +213,10 @@ export default function App() {
         <div style={{color:C.grayText,fontSize:13,marginTop:4}}>CRM Comercial</div>
       </div>
       <div style={{background:C.white,borderRadius:16,padding:"2rem",width:"100%",maxWidth:460}}>
-        <p style={{fontWeight:500,marginBottom:16}}>Seleccioná tu perfil</p>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+          <p style={{fontWeight:500,margin:0}}>Seleccioná tu perfil</p>
+          <span style={{fontSize:11,background:"#fff5e0",color:"#E67E22",padding:"2px 8px",borderRadius:10}}>Modo prueba — login deshabilitado</span>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           {USERS.map(u=>(
             <button key={u.id} onClick={()=>login(u)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",border:`1.5px solid ${C.grayMid}`,borderRadius:10,background:C.white,cursor:"pointer"}}
@@ -133,6 +229,12 @@ export default function App() {
               </div>
             </button>
           ))}
+        </div>
+        <div style={{marginTop:16,padding:"10px 14px",background:C.gray,borderRadius:8,fontSize:12,color:C.grayText}}>
+          <strong style={{color:C.black}}>Credenciales (para cuando se active el login):</strong>
+          <div style={{marginTop:6,display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+            {CREDENTIALS.map(c=><div key={c.id}><span style={{color:C.black}}>{c.username}:</span> {c.password}</div>)}
+          </div>
         </div>
       </div>
     </div>
@@ -157,22 +259,33 @@ export default function App() {
     </div>
   );
 
-  const SaleCard = ({sale,onClick}) => (
-    <div onClick={()=>onClick&&onClick(sale)} style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:10,padding:"14px 16px",cursor:"pointer"}}
-      onMouseEnter={e=>e.currentTarget.style.borderColor=C.red}
-      onMouseLeave={e=>e.currentTarget.style.borderColor=C.grayMid}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <div>
-          <div style={{fontWeight:500,fontSize:14}}>{sale.inmobiliaria}</div>
-          <div style={{color:C.grayText,fontSize:12,marginTop:2}}>{SELLERS.find(s=>s.id===sale.ejecutivo)?.name} · {sale.crm}</div>
+  const SaleCard = ({sale,onClick,showActions}) => {
+    const canEdit = sale.modificacion_aprobada;
+    const pendingMod = sale.solicitud_modificacion && !sale.modificacion_aprobada;
+    return (
+      <div style={{background:C.white,border:`1px solid ${pendingMod?"#E67E22":canEdit?"#27AE60":C.grayMid}`,borderRadius:10,padding:"14px 16px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}} onClick={()=>onClick&&onClick(sale)}>
+          <div>
+            <div style={{fontWeight:500,fontSize:14}}>{sale.inmobiliaria}</div>
+            <div style={{color:C.grayText,fontSize:12,marginTop:2}}>{SELLERS.find(s=>s.id===sale.ejecutivo)?.name} · {sale.crm}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontWeight:600,color:C.red,fontSize:14}}>{fmt(sale.total)}</div>
+            <div style={{fontSize:11,color:C.grayText}}>{sale.fecha_inicio} → {sale.fecha_fin}</div>
+          </div>
         </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontWeight:600,color:C.red,fontSize:14}}>{fmt(sale.total)}</div>
-          <div style={{fontSize:11,color:C.grayText}}>{sale.fecha_inicio} → {sale.fecha_fin}</div>
-        </div>
+        {showActions && (
+          <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
+            {pendingMod && <span style={{fontSize:11,background:"#fff5e0",color:"#E67E22",padding:"3px 8px",borderRadius:8}}>Modificación pendiente</span>}
+            {canEdit && <span style={{fontSize:11,background:"#e8f8f0",color:"#27AE60",padding:"3px 8px",borderRadius:8}}>Modificación aprobada</span>}
+            {!sale.solicitud_modificacion && !canEdit && (
+              <button onClick={()=>updateSale(sale.id,{solicitud_modificacion:true})} style={{fontSize:11,padding:"4px 10px",borderRadius:7,border:`1px solid ${C.grayMid}`,background:"none",cursor:"pointer",color:C.grayDark}}>Solicitar modificación</button>
+            )}
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const SaleModal = ({sale,onClose}) => (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}} onClick={onClose}>
@@ -200,16 +313,25 @@ export default function App() {
     </div>
   );
 
-  const SaleFormModal = ({onClose}) => {
-    const [form,setForm] = useState(saleForm);
+  const SaleFormModal = ({onClose, initialData=null}) => {
+    const [form,setForm] = useState(initialData||saleForm);
     const set = (k,v) => setForm(f=>({...f,[k]:v}));
-    const toggle = p => setForm(f=>({...f,productos_seleccionados:f.productos_seleccionados.includes(p)?f.productos_seleccionados.filter(x=>x!==p):[...f.productos_seleccionados,p]}));
+    const toggle = p => setForm(f=>({...f,productos_seleccionados:f.productos_seleccionados?.includes(p)?f.productos_seleccionados.filter(x=>x!==p):[...(f.productos_seleccionados||[]),p]}));
     const total = Math.round((parseFloat(form.subtotal)||0)*1.19);
+    const isEdit = !!initialData;
+    const handleSave = async () => {
+      if(isEdit){
+        await updateSale(form.id, {...form, total, modificacion_aprobada:false, solicitud_modificacion:false});
+        onClose();
+      } else {
+        await saveSale(form);
+      }
+    };
     return (
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"1rem",overflowY:"auto"}} onClick={onClose}>
         <div style={{background:C.white,borderRadius:14,width:"100%",maxWidth:680,padding:"1.5rem",margin:"auto"}} onClick={e=>e.stopPropagation()}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
-            <div style={{fontSize:17,fontWeight:600}}>Nueva Venta</div>
+            <div style={{fontSize:17,fontWeight:600}}>{isEdit?"Editar Venta":"Nueva Venta"}</div>
             <button onClick={onClose} style={{border:"none",background:"none",fontSize:22,cursor:"pointer",color:C.grayText}}>×</button>
           </div>
           <Sec title="Datos de la Inmobiliaria">
@@ -234,9 +356,9 @@ export default function App() {
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:12}}>
               {PRODUCTS.map(p=>(
                 <label key={p} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
-                  <input type="checkbox" checked={form.productos_seleccionados.includes(p)} onChange={()=>toggle(p)}/>
+                  <input type="checkbox" checked={(form.productos_seleccionados||[]).includes(p)} onChange={()=>toggle(p)}/>
                   <span>{p}</span>
-                  {form.productos_seleccionados.includes(p)&&["Destacadas","Superdestacadas","Producción"].includes(p)&&(
+                  {(form.productos_seleccionados||[]).includes(p)&&["Destacadas","Superdestacadas","Producción"].includes(p)&&(
                     <input type="number" min="0" placeholder="Cant." style={{...inp,width:60,padding:"4px 6px"}}
                       value={p==="Destacadas"?form.destacadas_q:p==="Superdestacadas"?form.superdestacadas_q:form.produccion_q}
                       onChange={e=>set(p==="Destacadas"?"destacadas_q":p==="Superdestacadas"?"superdestacadas_q":"produccion_q",e.target.value)}/>
@@ -257,46 +379,179 @@ export default function App() {
           </Sec>
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
             <button onClick={onClose} style={{padding:"8px 20px",borderRadius:8,border:`1px solid ${C.grayMid}`,background:"none",cursor:"pointer"}}>Cancelar</button>
-            <button onClick={()=>saveSale(form)} style={{padding:"8px 20px",borderRadius:8,border:"none",background:C.red,color:C.white,fontWeight:500,cursor:"pointer"}}>Guardar Venta</button>
+            <button onClick={handleSave} style={{padding:"8px 20px",borderRadius:8,border:"none",background:C.red,color:C.white,fontWeight:500,cursor:"pointer"}}>{isEdit?"Guardar cambios":"Guardar Venta"}</button>
           </div>
         </div>
       </div>
     );
   };
 
-  const Dashboard = () => {
-    const lastKpi = myKpi(user.id,kpiWeek);
-    const total = mySales.reduce((a,s)=>a+(s.total||0),0);
+  // ── SCREENS ───────────────────────────────────────────────
+
+  const DashboardVendedor = () => {
+    const [editSale, setEditSale] = useState(null);
+    const lastKpi = myKpi(user.id, 0);
+    const totalVentas = mySales.reduce((a,s)=>a+(s.total||0),0);
+    const objetivo = myObjetivo(user.id);
+    const weeklyData = [-3,-2,-1,0].map(w => {
+      const wd = getWeekDates(w);
+      const weekSales = mySales.filter(s => s.created_at >= wd.inicio && s.created_at <= wd.fin+"T23:59:59");
+      return { label: wd.label, value: weekSales.reduce((a,s)=>a+(s.total||0),0), highlight: w===0 };
+    });
     return (
-      <div style={{padding:"1.5rem",maxWidth:900}}>
-        <div style={{marginBottom:20}}><div style={{fontSize:20,fontWeight:600}}>Hola, {user.name}</div><div style={{color:C.grayText,fontSize:13}}>Tu resumen de rendimiento</div></div>
+      <div style={{padding:"1.5rem",maxWidth:960}}>
+        {editSale && <SaleFormModal initialData={editSale} onClose={()=>setEditSale(null)}/>}
+        <div style={{marginBottom:20}}><div style={{fontSize:20,fontWeight:600}}>Hola, {user.name}</div><div style={{color:C.grayText,fontSize:13}}>Semana actual: {getWeekDates(0).label}</div></div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
           <Stat label="Total ventas" value={mySales.length} color={C.red}/>
-          <Stat label="Facturación" value={fmt(total)}/>
-          <Stat label="Ticket promedio" value={mySales.length?fmt(Math.round(total/mySales.length)):"-"}/>
-          <Stat label="Concreción" value={`${lastKpi.concrecion||0}%`} sub="Última semana"/>
+          <Stat label="Facturación total" value={fmt(totalVentas)}/>
+          <Stat label="Ticket promedio" value={mySales.length?fmt(Math.round(totalVentas/mySales.length)):"-"}/>
+          <Stat label="Concreción" value={`${lastKpi.concrecion||0}%`} sub="Esta semana"/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
+          <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,padding:20}}>
+            <div style={{fontWeight:500,marginBottom:16,fontSize:14}}>Objetivo mensual</div>
+            <div style={{display:"flex",justifyContent:"center"}}>
+              <PieChart value={totalVentas} max={objetivo} label={user.name} color={C.red}/>
+            </div>
+            {objetivo===0&&<div style={{textAlign:"center",fontSize:12,color:C.grayText,marginTop:8}}>Objetivo no asignado aún</div>}
+          </div>
+          <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,padding:20}}>
+            <div style={{fontWeight:500,marginBottom:16,fontSize:14}}>Ventas últimas 4 semanas</div>
+            <BarChart data={weeklyData} height={100}/>
+          </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
           <div>
             <div style={{fontWeight:500,marginBottom:10,fontSize:14}}>Últimas ventas</div>
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {mySales.slice(0,3).map(s=><SaleCard key={s.id} sale={s} onClick={setModalSale}/>)}
+              {mySales.slice(0,4).map(s=>(
+                <div key={s.id}>
+                  <SaleCard sale={s} onClick={setModalSale} showActions/>
+                  {s.modificacion_aprobada && (
+                    <button onClick={()=>setEditSale(s)} style={{marginTop:4,fontSize:11,padding:"4px 10px",borderRadius:7,border:"none",background:C.red,color:C.white,cursor:"pointer"}}>Editar venta</button>
+                  )}
+                </div>
+              ))}
               {!mySales.length&&<div style={{color:C.grayText,fontSize:13}}>Sin ventas registradas</div>}
             </div>
           </div>
           <div>
-            <div style={{fontWeight:500,marginBottom:10,fontSize:14}}>KPIs última semana</div>
+            <div style={{fontWeight:500,marginBottom:10,fontSize:14}}>KPIs esta semana</div>
             <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:10,padding:16}}>
-              {[["Contactados",lastKpi.contactados||0],["C. efectivos",lastKpi.contactados_efectivos||0],["R. agendadas",lastKpi.reuniones_agendadas||0],["R. efectivas",lastKpi.reuniones_efectivas||0],["Ticket promedio",fmt(lastKpi.ticket_promedio||0)]].map(([k,v])=>(
+              {[["Contactados",lastKpi.contactados||0],["C. efectivos",lastKpi.contactados_efectivos||0],["R. agendadas",lastKpi.reuniones_agendadas||0],["R. efectivas",lastKpi.reuniones_efectivas||0],["Ticket promedio",fmt(lastKpi.ticket_promedio||0)],["Posible concreción",fmt(lastKpi.posible_concrecion||0)]].map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.gray}`,fontSize:13}}>
                   <span style={{color:C.grayText}}>{k}</span><span style={{fontWeight:500}}>{v}</span>
                 </div>
               ))}
-              <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:13}}>
-                <span style={{color:C.grayText}}>Posible concreción</span><span style={{fontWeight:500,color:C.red}}>{fmt(lastKpi.posible_concrecion||0)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const DashboardGerente = () => {
+    const now = new Date();
+    const mes = now.getMonth()+1;
+    const anio = now.getFullYear();
+    const totalEquipo = sales.reduce((a,s)=>a+(s.total||0),0);
+    const ventasPorVendedor = SELLERS.map(s => ({
+      name: s.name, id: s.id,
+      total: sales.filter(v=>v.ejecutivo===s.id).reduce((a,v)=>a+(v.total||0),0),
+      cantidad: sales.filter(v=>v.ejecutivo===s.id).length,
+      objetivo: objetivos.find(o=>o.ejecutivo===s.id&&o.mes===mes&&o.anio===anio)?.objetivo||0,
+    }));
+    const weeklyTeam = [-4,-3,-2,-1,0].map(w => {
+      const wd = getWeekDates(w);
+      const ws = sales.filter(s => s.created_at >= wd.inicio);
+      return { label: wd.label, value: ws.reduce((a,s)=>a+(s.total||0),0), highlight: w===0 };
+    });
+    const kpisSemana = SELLERS.map(s => ({
+      ...s, kpi: myKpi(s.id, 0)
+    }));
+    return (
+      <div style={{padding:"1.5rem",maxWidth:1000}}>
+        {showObjetivoForm && (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+            <div style={{background:C.white,borderRadius:14,padding:"1.5rem",width:"100%",maxWidth:400}}>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:16}}>Asignar objetivo de venta</div>
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <Field label="Vendedor">
+                  <select value={objetivoForm.ejecutivo} onChange={e=>setObjetivoForm(f=>({...f,ejecutivo:e.target.value}))} style={inp}>
+                    {SELLERS.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Objetivo ($)"><input type="number" value={objetivoForm.objetivo} onChange={e=>setObjetivoForm(f=>({...f,objetivo:parseFloat(e.target.value)||0}))} style={inp}/></Field>
+                <Grid2>
+                  <Field label="Mes"><select value={objetivoForm.mes} onChange={e=>setObjetivoForm(f=>({...f,mes:parseInt(e.target.value)}))} style={inp}>{[1,2,3,4,5,6,7,8,9,10,11,12].map(m=><option key={m} value={m}>{m}</option>)}</select></Field>
+                  <Field label="Año"><input type="number" value={objetivoForm.anio} onChange={e=>setObjetivoForm(f=>({...f,anio:parseInt(e.target.value)}))} style={inp}/></Field>
+                </Grid2>
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
+                <button onClick={()=>setShowObjetivoForm(false)} style={{padding:"7px 16px",border:`1px solid ${C.grayMid}`,borderRadius:7,background:"none",cursor:"pointer"}}>Cancelar</button>
+                <button onClick={saveObjetivo} style={{padding:"7px 16px",background:C.red,color:C.white,border:"none",borderRadius:7,cursor:"pointer",fontWeight:500}}>Guardar</button>
               </div>
             </div>
           </div>
+        )}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <div><div style={{fontSize:20,fontWeight:600}}>Dashboard — Equipo</div><div style={{color:C.grayText,fontSize:13}}>Semana: {getWeekDates(0).label}</div></div>
+          <button onClick={()=>setShowObjetivoForm(true)} style={{padding:"8px 16px",background:C.red,color:C.white,border:"none",borderRadius:8,cursor:"pointer",fontWeight:500,fontSize:13}}>+ Asignar objetivo</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+          <Stat label="Ventas totales" value={sales.length} color={C.red}/>
+          <Stat label="Facturación equipo" value={fmt(totalEquipo)}/>
+          <Stat label="Ticket promedio" value={sales.length?fmt(Math.round(totalEquipo/sales.length)):"-"}/>
+          <Stat label="Modificaciones pendientes" value={sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada).length} color="#E67E22"/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:24}}>
+          <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,padding:20}}>
+            <div style={{fontWeight:500,marginBottom:16,fontSize:14}}>Facturación del equipo — últimas semanas</div>
+            <BarChart data={weeklyTeam} height={120}/>
+          </div>
+          <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,padding:20}}>
+            <div style={{fontWeight:500,marginBottom:12,fontSize:14}}>KPIs equipo esta semana</div>
+            {kpisSemana.map(s=>(
+              <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.gray}`,fontSize:13}}>
+                <span style={{fontWeight:500}}>{s.name}</span>
+                <span style={{color:C.grayText}}>{s.kpi.contactados||0} cont. · {s.kpi.concrecion||0}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{fontWeight:500,marginBottom:12,fontSize:15}}>Objetivos del equipo — {mes}/{anio}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+          {ventasPorVendedor.map(v=>(
+            <div key={v.id} style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,padding:16,textAlign:"center"}}>
+              <PieChart value={v.total} max={v.objetivo} label={v.name} color={C.red}/>
+              <div style={{fontSize:11,color:C.grayText,marginTop:4}}>{v.cantidad} ventas</div>
+            </div>
+          ))}
+        </div>
+        <div style={{fontWeight:500,marginBottom:12,fontSize:15}}>KPIs detallados — esta semana</div>
+        <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead><tr style={{background:C.black,color:C.white}}>{["Vendedor","Contactados","C. efectivos","%","R. agendadas","R. efectivas","Concreción","Ticket prom.","Pos. concreción"].map(h=><th key={h} style={{padding:"9px 12px",textAlign:"left",fontWeight:500,fontSize:12}}>{h}</th>)}</tr></thead>
+            <tbody>
+              {kpisSemana.map(s=>{
+                const k=s.kpi;
+                return (
+                  <tr key={s.id} style={{borderBottom:`1px solid ${C.gray}`}}>
+                    <td style={{padding:"9px 12px",fontWeight:500}}>{s.name}</td>
+                    <td style={{padding:"9px 12px"}}>{k.contactados||0}</td>
+                    <td style={{padding:"9px 12px"}}>{k.contactados_efectivos||0}</td>
+                    <td style={{padding:"9px 12px",color:C.red,fontWeight:500}}>{pct(k.contactados_efectivos||0,k.contactados||0)}%</td>
+                    <td style={{padding:"9px 12px"}}>{k.reuniones_agendadas||0}</td>
+                    <td style={{padding:"9px 12px"}}>{k.reuniones_efectivas||0}</td>
+                    <td style={{padding:"9px 12px"}}>{k.concrecion||0}%</td>
+                    <td style={{padding:"9px 12px"}}>{fmt(k.ticket_promedio||0)}</td>
+                    <td style={{padding:"9px 12px",color:"#27AE60",fontWeight:500}}>{fmt(k.posible_concrecion||0)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     );
@@ -320,29 +575,76 @@ export default function App() {
           </div>
         )}
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {list.map(s=><SaleCard key={s.id} sale={s} onClick={setModalSale}/>)}
+          {list.map(s=><SaleCard key={s.id} sale={s} onClick={setModalSale} showActions={user.role==="vendedor"}/>)}
           {!list.length&&<div style={{color:C.grayText,padding:"2rem",textAlign:"center",fontSize:14}}>Sin ventas registradas aún</div>}
         </div>
       </div>
     );
   };
 
+  const Modificaciones = () => {
+    const pending = sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
+    const approved = sales.filter(s=>s.modificacion_aprobada);
+    return (
+      <div style={{padding:"1.5rem",maxWidth:800}}>
+        <div style={{fontSize:18,fontWeight:600,marginBottom:20}}>Solicitudes de modificación</div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontWeight:500,marginBottom:10,fontSize:14,color:C.red}}>Pendientes ({pending.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {pending.map(s=>(
+              <div key={s.id} style={{background:C.white,border:`1px solid #E67E22`,borderRadius:10,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div>
+                  <div style={{fontWeight:500}}>{s.inmobiliaria}</div>
+                  <div style={{fontSize:12,color:C.grayText}}>{SELLERS.find(x=>x.id===s.ejecutivo)?.name} · {fmt(s.total)}</div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>updateSale(s.id,{modificacion_aprobada:true})} style={{padding:"6px 14px",background:C.red,color:C.white,border:"none",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:500}}>Aprobar</button>
+                  <button onClick={()=>updateSale(s.id,{solicitud_modificacion:false})} style={{padding:"6px 14px",background:"none",border:`1px solid ${C.grayMid}`,borderRadius:7,cursor:"pointer",fontSize:12}}>Rechazar</button>
+                </div>
+              </div>
+            ))}
+            {!pending.length&&<div style={{color:C.grayText,fontSize:13}}>No hay solicitudes pendientes</div>}
+          </div>
+        </div>
+        <div>
+          <div style={{fontWeight:500,marginBottom:10,fontSize:14,color:"#27AE60"}}>Aprobadas ({approved.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {approved.map(s=>(
+              <div key={s.id} style={{background:C.white,border:`1px solid #27AE60`,borderRadius:10,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontWeight:500}}>{s.inmobiliaria}</div>
+                  <div style={{fontSize:12,color:C.grayText}}>{SELLERS.find(x=>x.id===s.ejecutivo)?.name} · {fmt(s.total)}</div>
+                </div>
+                <span style={{fontSize:11,background:"#e8f8f0",color:"#27AE60",padding:"3px 10px",borderRadius:10}}>Editando</span>
+              </div>
+            ))}
+            {!approved.length&&<div style={{color:C.grayText,fontSize:13}}>No hay modificaciones aprobadas</div>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const KPIs = () => {
+    const week = getWeekDates(kpiWeekOffset);
     if(user.role==="gerente") return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <div style={{fontSize:18,fontWeight:600}}>KPIs del Equipo</div>
-          <select value={kpiWeek} onChange={e=>setKpiWeek(Number(e.target.value))} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${C.grayMid}`,fontSize:13}}>
-            {[0,1,2,3].map(w=><option key={w} value={w}>Semana {w+1}</option>)}
-          </select>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>setKpiWeekOffset(w=>w-1)} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${C.grayMid}`,background:"none",cursor:"pointer"}}>←</button>
+            <span style={{fontSize:13,color:C.grayText,minWidth:120,textAlign:"center"}}>{week.label}</span>
+            <button onClick={()=>setKpiWeekOffset(w=>Math.min(w+1,0))} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${C.grayMid}`,background:"none",cursor:"pointer"}}>→</button>
+          </div>
         </div>
         {SELLERS.map(s=>{
-          const k=myKpi(s.id,kpiWeek);
+          const k=myKpi(s.id,kpiWeekOffset);
           return (
             <div key={s.id} style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,padding:"14px 20px",marginBottom:12}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                 <div style={{width:32,height:32,borderRadius:"50%",background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:600}}>{s.avatar}</div>
                 <div style={{fontWeight:500}}>{s.name}</div>
+                {k.fecha_inicio&&<span style={{fontSize:11,color:C.grayText,marginLeft:"auto"}}>Sem. {k.fecha_inicio} → {k.fecha_fin}</span>}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
                 {[["Contactados",k.contactados||0],["C. efectivos",k.contactados_efectivos||0],["R. agendadas",k.reuniones_agendadas||0],["R. efectivas",k.reuniones_efectivas||0],["Concreción",`${k.concrecion||0}%`],["Ticket promedio",fmt(k.ticket_promedio||0)],["Pos. concreción",fmt(k.posible_concrecion||0)],["Control calidad",k.control_calidad||"-"]].map(([lbl,v])=>(
@@ -357,15 +659,17 @@ export default function App() {
         })}
       </div>
     );
-    const cur = myKpi(user.id,kpiWeek);
+    const cur = myKpi(user.id, kpiWeekOffset);
     const fields = [["contactados","Contactados"],["contactados_efectivos","Contactados efectivos"],["reuniones_agendadas","Reuniones agendadas"],["reuniones_efectivas","Reuniones efectivas"],["concrecion","Concreción (%)"],["ticket_promedio","Ticket promedio"],["posible_concrecion","Posible concreción"],["control_calidad","Control calidad"]];
     return (
       <div style={{padding:"1.5rem",maxWidth:700}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <div style={{fontSize:18,fontWeight:600}}>Mis KPIs</div>
-          <select value={kpiWeek} onChange={e=>{setKpiWeek(Number(e.target.value));setKpiForm({});}} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${C.grayMid}`,fontSize:13}}>
-            {[0,1,2,3].map(w=><option key={w} value={w}>Semana {w+1}</option>)}
-          </select>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>setKpiWeekOffset(w=>w-1)} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${C.grayMid}`,background:"none",cursor:"pointer"}}>←</button>
+            <span style={{fontSize:13,color:C.grayText,minWidth:120,textAlign:"center"}}>{week.label}</span>
+            <button onClick={()=>setKpiWeekOffset(w=>Math.min(w+1,0))} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${C.grayMid}`,background:"none",cursor:"pointer"}}>→</button>
+          </div>
         </div>
         <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,padding:20}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 20px",marginBottom:16}}>
@@ -379,7 +683,7 @@ export default function App() {
             <span style={{color:C.grayText}}>% Contactos efectivos: </span>
             <strong>{pct(parseInt(kpiForm.contactados_efectivos||cur.contactados_efectivos)||0,parseInt(kpiForm.contactados||cur.contactados)||0)}%</strong>
           </div>
-          <button onClick={saveKPI} style={{padding:"9px 20px",background:C.red,color:C.white,border:"none",borderRadius:8,cursor:"pointer",fontWeight:500}}>Guardar KPIs</button>
+          <button onClick={saveKPI} style={{padding:"9px 20px",background:C.red,color:C.white,border:"none",borderRadius:8,cursor:"pointer",fontWeight:500}}>Guardar KPIs semana {week.label}</button>
         </div>
       </div>
     );
@@ -495,10 +799,7 @@ export default function App() {
               </div>
               <div style={{fontSize:13}}>{p.content}</div>
             </div>
-            <button onClick={async()=>{
-              await supabase.from("posts_social").delete().eq("id",p.id);
-              setPosts(prev=>prev.filter(x=>x.id!==p.id));
-            }} style={{border:"none",background:"none",color:C.grayText,cursor:"pointer",fontSize:18}}>×</button>
+            <button onClick={async()=>{ await supabase.from("posts_social").delete().eq("id",p.id); setPosts(prev=>prev.filter(x=>x.id!==p.id)); }} style={{border:"none",background:"none",color:C.grayText,cursor:"pointer",fontSize:18}}>×</button>
           </div>
         ))}
         {!posts.length&&<div style={{color:C.grayText,fontSize:13,textAlign:"center",padding:"2rem"}}>Sin posts programados</div>}
@@ -516,7 +817,7 @@ export default function App() {
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
               <button onClick={()=>setShowPostForm(false)} style={{padding:"7px 16px",border:`1px solid ${C.grayMid}`,borderRadius:7,background:"none",cursor:"pointer"}}>Cancelar</button>
               <button onClick={async()=>{
-                const {data} = await supabase.from("posts_social").insert([{fecha:postForm.fecha,platform:postForm.platform,content:postForm.content,status:postForm.status}]).select().single();
+                const {data}=await supabase.from("posts_social").insert([{fecha:postForm.fecha,platform:postForm.platform,content:postForm.content,status:postForm.status}]).select().single();
                 if(data) setPosts(prev=>[...prev,data]);
                 setShowPostForm(false);
                 setPostForm({fecha:"",platform:"Instagram",content:"",status:"borrador"});
@@ -539,7 +840,7 @@ export default function App() {
       </div>
       <div style={{background:C.white,border:`1px solid ${C.grayMid}`,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-          <thead><tr style={{background:C.black,color:C.white}}>{["Folio","Cliente","Monto","Fecha","Estado"].map(h=><th key={h} style={{padding:"10px 16px",textAlign:"left",fontWeight:500}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{background:C.black,color:C.white}}>{["Folio","Cliente","Monto","Fecha","Estado","Acción"].map(h=><th key={h} style={{padding:"10px 16px",textAlign:"left",fontWeight:500}}>{h}</th>)}</tr></thead>
           <tbody>
             {invoices.map(inv=>(
               <tr key={inv.id} style={{borderBottom:`1px solid ${C.gray}`}}>
@@ -547,7 +848,19 @@ export default function App() {
                 <td style={{padding:"10px 16px"}}>{inv.client}</td>
                 <td style={{padding:"10px 16px",fontWeight:500}}>{fmt(inv.amount)}</td>
                 <td style={{padding:"10px 16px",color:C.grayText}}>{inv.date}</td>
-                <td style={{padding:"10px 16px"}}><span style={{background:inv.status==="pagada"?"#e8f8f0":"#fff5e0",color:inv.status==="pagada"?"#27AE60":"#E67E22",padding:"3px 10px",borderRadius:10,fontSize:11,fontWeight:500}}>{inv.status}</span></td>
+                <td style={{padding:"10px 16px"}}>
+                  <span style={{background:inv.status==="pagada"?"#e8f8f0":inv.status==="pendiente"?"#fff5e0":"#fef0f0",color:inv.status==="pagada"?"#27AE60":inv.status==="pendiente"?"#E67E22":C.red,padding:"3px 10px",borderRadius:10,fontSize:11,fontWeight:500}}>{inv.status}</span>
+                </td>
+                <td style={{padding:"10px 16px"}}>
+                  <select value={inv.status} onChange={async e=>{
+                    const {data}=await supabase.from("facturas").update({status:e.target.value}).eq("id",inv.id).select().single();
+                    if(data) setInvoices(prev=>prev.map(x=>x.id===inv.id?data:x));
+                  }} style={{...inp,width:"auto",padding:"4px 8px",fontSize:12}}>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="pagada">Pagada</option>
+                    <option value="vencida">Vencida</option>
+                  </select>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -575,12 +888,13 @@ export default function App() {
   );
 
   const screens = {
-    dashboard:<Dashboard/>, ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>,
-    producciones:<Producciones/>, social:<Social/>,
-    assets:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Assets</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>,
-    metricas:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Métricas</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>,
+    dashboard:<DashboardVendedor/>, dashboard_gerente:<DashboardGerente/>,
+    ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>,
+    producciones:<Producciones/>, social:<Social/>, modificaciones:<Modificaciones/>,
+    assets:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Assets</div><div style={{color:C.grayText}}>En desarrollo</div></div>,
+    metricas:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Métricas</div><div style={{color:C.grayText}}>En desarrollo</div></div>,
     facturacion:<Facturacion/>, clientes:<Clientes/>,
-    reportes:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Reportes</div><div style={{color:C.grayText}}>Módulo en desarrollo</div></div>
+    reportes:<div style={{padding:"1.5rem"}}><div style={{fontSize:18,fontWeight:600,marginBottom:12}}>Reportes</div><div style={{color:C.grayText}}>En desarrollo</div></div>,
   };
 
   return (
