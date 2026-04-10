@@ -70,7 +70,7 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
                 {SELLERS_FOR_FORM.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </Field>
-            <Field label="Propiedades"><input type="number" value={form.propiedades} onChange={e=>set("propiedades",e.target.value)} style={inp}/></Field>
+                          <Field label="Propiedades"><input type="text" inputMode="numeric" value={form.propiedades} onChange={e=>{const v=e.target.value.replace(/\D/g,"");set("propiedades",v===""?0:parseInt(v));}} style={inp}/></Field>
           </Grid2>
           <div style={{marginTop:10}}>
             <Field label="Detalle">
@@ -143,8 +143,8 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
 
         <Sec title="Valores">
           <Grid2>
-            <Field label="Valor mensual (plan)"><input type="number" value={form.valor_mensual} onChange={e=>set("valor_mensual",e.target.value)} style={inp}/></Field>
-            <Field label="Subtotal sin IVA"><input type="number" value={form.subtotal} onChange={e=>set("subtotal",e.target.value)} style={inp}/></Field>
+                          <Field label="Valor mensual (plan)"><input type="text" inputMode="numeric" value={form.valor_mensual||""} onChange={e=>{const v=e.target.value.replace(/[^\d]/g,"");set("valor_mensual",v===""?0:parseInt(v));}} style={inp} placeholder="0"/></Field>
+            <Field label="Subtotal sin IVA"><input type="text" inputMode="numeric" value={form.subtotal||""} onChange={e=>{const v=e.target.value.replace(/[^\d]/g,"");set("subtotal",v===""?0:parseInt(v));}} style={inp} placeholder="0"/></Field>
             <Field label="Total con IVA (22%)"><input readOnly value={total} style={{...inp,background:C.gray50,fontWeight:600}}/></Field>
             {form.tipo_pago==="cuotas"&&form.num_cuotas>1&&(
               <Field label={`Por cuota (${form.num_cuotas} pagos)`}><input readOnly value={Math.round(total/form.num_cuotas)} style={{...inp,background:C.gray50}}/></Field>
