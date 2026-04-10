@@ -49,7 +49,9 @@ export default function App() {
   const [kpiForm, setKpiForm] = useState({});
   const [postForm, setPostForm] = useState({fecha:"",platform:"Instagram",content:"",status:"borrador"});
   const [objetivoForm, setObjetivoForm] = useState({ejecutivo:"sebastian",objetivo:0,q:Math.ceil((new Date().getMonth()+1)/3),anio:new Date().getFullYear()});
-  const [filterVendedor, setFilterVendedor] = useState("todos");
+  const [runs, setRuns] = useState([]);
+  const [showRunForm, setShowRunForm] = useState(false);
+  const [runForm, setRunForm] = useState({nombre:"",fecha_inicio:"",fecha_fin:"",activo:true,participantes:[]});
 
   const defaultTab = r => ({gerente:"dashboard_gerente",vendedor:"dashboard",marketing:"producciones",admin:"facturacion"}[r]||"dashboard");
 
@@ -58,7 +60,7 @@ export default function App() {
     const [s,av,k,pr,po,inv,obj,com] = await Promise.all([
       getAll("ventas","created_at"), getAll("disponibilidad"), getAll("kpis"),
       getAll("producciones","created_at"), getAll("posts_social","fecha"),
-      getAll("facturas","created_at"), getAll("objetivos"), getAll("comisiones"),
+      getAll("facturas","created_at"), getAll("objetivos"), getAll("comisiones"), getAll("runs"),
     ]);
     setSales(s); setKpis(k); setProductions(pr); setPosts(po); setInvoices(inv); setObjetivos(obj);
     if(com.length>0){ const c=com[0]; setComisiones({vendedores:c.vendedores||{},gerente:c.gerente||0,crm:c.crm||0}); }
@@ -67,7 +69,7 @@ export default function App() {
     setLoading(false);
   };
 
-  const logout = () => { setUser(null); setSales([]); setAvailability([]); setKpis([]); setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); };
+  const logout = () => { setUser(null); setSales([]); setAvailability([]); setKpis([]); setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); setRuns([]); };
 
   // ── HELPERS ──────────────────────────────────────────────
   const currentQ = Math.ceil((new Date().getMonth()+1)/3);
@@ -217,6 +219,88 @@ export default function App() {
     </>
   );
 
+  // ── MODAL RUN ─────────────────────────────────────────────
+  const RunModal = ({onClose}) => {
+    const blank = {nombre:"",fecha_inicio:"",fecha_fin:"",activo:true,participantes:[]};
+    const [form, setForm] = useState(editRun||blank);
+    const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+    const toggleParticipante = (uid) => {
+      const ya = form.participantes.find(p=>p.ejecutivo===uid);
+      if(ya){
+        setForm(f=>({...f,participantes:f.participantes.filter(p=>p.ejecutivo!==uid)}));
+      } else {
+        setForm(f=>({...f,participantes:[...f.participantes,{ejecutivo:uid,objetivo:0}]}));
+      }
+    };
+
+    const setObjetivoParticipante = (uid, val) => {
+      setForm(f=>({...f,participantes:f.participantes.map(p=>p.ejecutivo===uid?{...p,objetivo:val}:p)}));
+    };
+
+    return (
+      <Modal onClose={onClose} maxWidth={520}>
+        <ModalHeader title={editRun?"Editar Run / Bono":"Nuevo Run / Bono"} subtitle="Meta especial con período específico" onClose={onClose}/>
+        <ModalBody>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Field label="Nombre del run">
+              <input value={form.nombre} onChange={e=>set("nombre",e.target.value)} style={inp} placeholder="Ej: Bono Mayo, Sprint Q2..."/>
+            </Field>
+            <Grid2>
+              <Field label="Fecha inicio">
+                <input type="date" value={form.fecha_inicio} onChange={e=>set("fecha_inicio",e.target.value)} style={inp}/>
+              </Field>
+              <Field label="Fecha fin">
+                <input type="date" value={form.fecha_fin} onChange={e=>set("fecha_fin",e.target.value)} style={inp}/>
+              </Field>
+            </Grid2>
+            <Field label="Vendedores participantes">
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+                {SELLERS_OBJ.map(s=>{
+                  const part = form.participantes.find(p=>p.ejecutivo===s.id);
+                  const selected = !!part;
+                  return (
+                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,border:`1.5px solid ${selected?C.red:C.gray200}`,background:selected?C.redLight:C.white,transition:"all 0.15s"}}>
+                      <input type="checkbox" checked={selected} onChange={()=>toggleParticipante(s.id)} style={{accentColor:C.red,width:15,height:15,cursor:"pointer"}}/>
+                      <div style={{width:28,height:28,borderRadius:7,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:10,fontWeight:700,flexShrink:0}}>{s.avatar}</div>
+                      <span style={{fontWeight:500,fontSize:13,flex:1,color:C.gray900}}>{s.name}</span>
+                      {selected&&(
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:11,color:C.gray500}}>Objetivo:</span>
+                          <input
+                            type="text" inputMode="numeric"
+                            value={part.objetivo===0?"":part.objetivo}
+                            onChange={e=>{const v=e.target.value.replace(/\D/g,"");setObjetivoParticipante(s.id,v===""?0:parseInt(v));}}
+                            style={{...inp,width:110,padding:"4px 8px",fontSize:12}}
+                            placeholder="0"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Field>
+            {form.participantes.length>0&&form.fecha_inicio&&form.fecha_fin&&(
+              <div style={{padding:"10px 14px",background:C.gray50,borderRadius:8,fontSize:12,color:C.gray500,border:`1px solid ${C.gray200}`}}>
+                <strong>{form.participantes.length} vendedor{form.participantes.length!==1?"es":""}</strong> · {form.fecha_inicio} → {form.fecha_fin}
+                {form.participantes.map(p=>(
+                  <div key={p.ejecutivo} style={{marginTop:4}}>{getUser(p.ejecutivo)?.name}: <strong style={{color:C.red}}>{fmt(p.objetivo)}</strong></div>
+                ))}
+              </div>
+            )}
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Btn onClick={onClose}>Cancelar</Btn>
+          <Btn variant="primary" onClick={()=>saveRun(form)} disabled={!form.nombre||!form.fecha_inicio||!form.fecha_fin||form.participantes.length===0}>
+            {editRun?"Guardar cambios":"Crear Run"}
+          </Btn>
+        </ModalFooter>
+      </Modal>
+    );
+  };
+
   // ── MODAL OBJETIVO ────────────────────────────────────────
   const ObjetivoModal = () => (
     <Modal onClose={()=>setShowObjetivoForm(false)} maxWidth={380}>
@@ -316,6 +400,34 @@ export default function App() {
           </Card>
         )}
 
+        {/* Runs activos */}
+        {myRuns(user.id).length>0&&(
+          <div style={{marginBottom:20}}>
+            <div style={{fontWeight:600,fontSize:14,color:C.gray700,marginBottom:12}}>Bonos activos</div>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(myRuns(user.id).length,3)},1fr)`,gap:12}}>
+              {myRuns(user.id).map(run=>{
+                const part = run.participantes.find(p=>p.ejecutivo===user.id);
+                const total = totalEnPeriodo(user.id, run.fecha_inicio, run.fecha_fin);
+                const activo = isRunActivo(run);
+                const vencido = isRunVencido(run);
+                return (
+                  <Card key={run.id} style={{border:`1.5px solid ${activo?C.red:vencido?C.gray200:C.gray200}`,position:"relative",textAlign:"center"}}>
+                    {activo&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
+                    <div style={{fontSize:11,fontWeight:600,color:activo?C.red:C.gray400,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>
+                      {activo?"🔥 Activo":vencido?"Finalizado":"Próximo"}
+                    </div>
+                    <div style={{fontWeight:700,fontSize:14,color:C.gray900,marginBottom:4}}>{run.nombre}</div>
+                    <div style={{fontSize:11,color:C.gray400,marginBottom:10}}>{run.fecha_inicio} → {run.fecha_fin}</div>
+                    <PieChart value={total} max={part?.objetivo||0} label={run.nombre} color={activo?C.red:C.gray400} size={90}/>
+                    <div style={{marginTop:8,fontSize:11,color:C.gray400}}>{ventasEnPeriodo(user.id,run.fecha_inicio,run.fecha_fin).length} ventas en el período</div>
+                    <div style={{marginTop:4,fontSize:11}}><span style={{color:C.gray500}}>Meta: </span><span style={{fontWeight:600,color:C.gray800}}>{fmt(part?.objetivo||0)}</span></div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Ventas — últimas 4 semanas</div>
@@ -378,6 +490,7 @@ export default function App() {
           </Card>
         </div>
 
+        {/* También borrar por vendedor individual dentro de cada Q */}
         {qsAMostrar.map(q=>{
           const isActual = q===currentQ;
           const totalQ = SELLERS_OBJ.reduce((a,s)=>a+totalDeQ(s.id,q),0);
@@ -387,17 +500,23 @@ export default function App() {
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
                 <div style={{fontWeight:700,fontSize:15,color:isActual?C.red:C.gray700}}>Q{q} {currentAnio} {isActual?"· Actual":"· Cerrado"}</div>
                 {totalObj>0&&<div style={{fontSize:12,color:C.gray400}}>Equipo: <strong style={{color:isActual?C.red:C.gray600}}>{fmt(totalQ)}</strong> de <strong>{fmt(totalObj)}</strong> ({pct(totalQ,totalObj)}%)</div>}
+                <button onClick={()=>deleteObjetivoQTodos(q)} style={{marginLeft:"auto",fontSize:11,color:C.gray400,background:"none",border:`1px solid ${C.gray200}`,borderRadius:6,padding:"3px 8px",cursor:"pointer"}} title="Eliminar objetivos de este Q">🗑 Borrar Q{q}</button>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
                 {SELLERS_OBJ.map(s=>{
                   const obj = objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio);
                   const tq = totalDeQ(s.id,q);
                   return (
-                    <Card key={s.id} style={{textAlign:"center",border:`1.5px solid ${isActual?C.gray200:C.gray100}`,opacity:obj?1:0.5}}>
+                    <Card key={s.id} style={{textAlign:"center",border:`1.5px solid ${isActual?C.gray200:C.gray100}`,opacity:obj?1:0.5,position:"relative"}}>
                       <PieChart value={tq} max={obj?.objetivo||0} label={s.name} color={isActual?C.red:C.gray400} size={90}/>
                       <div style={{fontSize:11,color:C.gray400,marginTop:6}}>{ventasDeQ(s.id,q).length} ventas</div>
-                      {obj ? <div style={{fontSize:11,color:C.gray500,marginTop:2}}>Obj: {fmt(obj.objetivo)}</div>
-                           : <div style={{fontSize:10,color:C.gray300,marginTop:2}}>Sin objetivo</div>}
+                      {obj
+                        ? <div style={{fontSize:11,color:C.gray500,marginTop:2,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                            Obj: {fmt(obj.objetivo)}
+                            <button onClick={()=>deleteObjetivoQ(s.id,q)} style={{fontSize:10,color:C.gray300,background:"none",border:"none",cursor:"pointer",padding:0}} title="Quitar objetivo">🗑</button>
+                          </div>
+                        : <div style={{fontSize:10,color:C.gray300,marginTop:2}}>Sin objetivo</div>
+                      }
                     </Card>
                   );
                 })}
@@ -405,6 +524,56 @@ export default function App() {
             </div>
           );
         })}
+
+        {/* ── RUNS / BONOS ── */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,marginTop:8}}>
+          <div style={{fontWeight:700,fontSize:15,color:C.gray800}}>Runs / Bonos</div>
+          <Btn size="sm" variant="primary" onClick={()=>{setEditRun(null);setShowRunForm(true);}}>+ Nuevo Run</Btn>
+        </div>
+        {runs.length===0&&<div style={{color:C.gray400,fontSize:13,marginBottom:20,padding:"1rem",background:C.white,borderRadius:10,border:`1px solid ${C.gray200}`,textAlign:"center"}}>No hay runs creados aún</div>}
+        {runs.length>0&&(
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
+            {runs.map(run=>{
+              const activo=isRunActivo(run);
+              const vencido=isRunVencido(run);
+              return (
+                <Card key={run.id} style={{border:`1.5px solid ${activo?C.red:vencido?C.gray100:C.gray200}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:12}}>
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <span style={{fontWeight:700,fontSize:14,color:C.gray900}}>{run.nombre}</span>
+                        <Badge color={activo?"red":vencido?"gray":"blue"}>{activo?"🔥 Activo":vencido?"Finalizado":"Próximo"}</Badge>
+                        {!run.activo&&<Badge color="gray">Desactivado</Badge>}
+                      </div>
+                      <div style={{fontSize:12,color:C.gray400,marginTop:4}}>{run.fecha_inicio} → {run.fecha_fin} · {run.participantes?.length||0} vendedores</div>
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <Btn size="sm" onClick={()=>{setEditRun(run);setShowRunForm(true);}}>Editar</Btn>
+                      <Btn size="sm" variant={run.activo?"danger":"success"} onClick={()=>toggleRunActivo(run.id,!run.activo)}>
+                        {run.activo?"Desactivar":"Activar"}
+                      </Btn>
+                      <Btn size="sm" variant="danger" onClick={()=>deleteRun(run.id)}>Eliminar</Btn>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(run.participantes?.length||1,4)},1fr)`,gap:10}}>
+                    {(run.participantes||[]).map(p=>{
+                      const s=getUser(p.ejecutivo);
+                      const total=totalEnPeriodo(p.ejecutivo,run.fecha_inicio,run.fecha_fin);
+                      return (
+                        <div key={p.ejecutivo} style={{textAlign:"center",padding:"10px 8px",background:C.gray50,borderRadius:8,border:`1px solid ${C.gray100}`}}>
+                          <div style={{fontWeight:500,fontSize:12,color:C.gray700,marginBottom:6}}>{s?.name}</div>
+                          <PieChart value={total} max={p.objetivo||0} label="" color={activo?C.red:C.gray400} size={80}/>
+                          <div style={{fontSize:11,color:C.gray500,marginTop:4}}>{fmt(total)} / {fmt(p.objetivo)}</div>
+                          <div style={{fontSize:10,color:C.gray400,marginTop:2}}>{ventasEnPeriodo(p.ejecutivo,run.fecha_inicio,run.fecha_fin).length} ventas</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>KPIs detallados — esta semana</div>
         <Table
@@ -763,6 +932,7 @@ export default function App() {
           }}
         />
       )}
+      {showRunForm&&<RunModal onClose={()=>{setShowRunForm(false);setEditRun(null);}}/>}
     </div>
   );
 }
