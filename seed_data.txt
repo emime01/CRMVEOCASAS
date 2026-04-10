@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Seed Veocasas</title>
+  <style>
+    body { font-family: system-ui; max-width: 700px; margin: 2rem auto; padding: 1rem; }
+    button { padding: 12px 28px; background: #C0001A; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    button:disabled { background: #999; cursor: not-allowed; }
+    #log { margin-top: 1rem; background: #111; color: #0f0; padding: 1rem; border-radius: 8px; height: 400px; overflow-y: auto; font-size: 13px; font-family: monospace; }
+    .ok { color: #0f0; } .err { color: #f55; } .info { color: #ff0; }
+  </style>
+</head>
+<body>
+  <h2>🔥 Importar ventas a Firebase</h2>
+  <p>Hace click una sola vez. Importa las 83 ventas del Excel a Firestore.</p>
+  <button id="btn" onclick="runSeed()">Importar ventas</button>
+  <div id="log"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCIkzYOgUsU_td-Qw69mbXyQV1zs7wQPOk",
+      authDomain: "crmveocasas-4fc8c.firebaseapp.com",
+      projectId: "crmveocasas-4fc8c",
+      storageBucket: "crmveocasas-4fc8c.firebasestorage.app",
+      messagingSenderId: "218951782203",
+      appId: "1:218951782203:web:d2e97f06d2575dfcf1711e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const ejecutivoMap = {
+      "Seba":"sebastian","seba":"sebastian",
+      "Juanba":"juanba","juanba":"juanba",
+      "Patricia":"paty","patricia":"paty",
+      "Stefano":"stefano","stefano":"stefano",
+      "Lucas":"lucas","lucas":"lucas",
+      "Yo":"mika","mika":"mika",
+    };
+
+    const ventas = [
+      {inmobiliaria:"Beatriz Noya",crm:"Casasweb",fecha_venta:"2026-02-12",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:0,superdestacadas_q:0,produccion_q:0,indice:false,total:36499,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"203",notas:""},
+      {inmobiliaria:"Pessi Propiedades",crm:"Tera",fecha_venta:"2026-02-13",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Standard",propiedades:100,destacadas_q:7,superdestacadas_q:3,produccion_q:0,indice:false,total:60418,ejecutivo:"Juanba",metodo_pago:"Link",nro_factura:"213",notas:""},
+      {inmobiliaria:"Creel",crm:"Casasweb",fecha_venta:"2026-02-27",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:false,total:15186,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"208",notas:""},
+      {inmobiliaria:"Alsic Propiedades",crm:"SIN CRM",fecha_venta:"2026-02-27",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:true,total:27180,ejecutivo:"Lucas",metodo_pago:"Link",nro_factura:"206",notas:""},
+      {inmobiliaria:"Rinaldi",crm:"Tokko",fecha_venta:"2026-03-02",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:true,total:83476,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"209",notas:""},
+      {inmobiliaria:"Casablanca Negocios Inmobiliaria",crm:"NAI",fecha_venta:"2026-03-02",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:false,total:86388,ejecutivo:"Stefano",metodo_pago:"Link",nro_factura:"237",notas:""},
+      {inmobiliaria:"Álvaro Delfino negocios inmobiliarios",crm:"Tera",fecha_venta:"2026-03-03",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:13590,ejecutivo:"Juanba",metodo_pago:"Link",nro_factura:"210",notas:""},
+      {inmobiliaria:"Afford Negocios inmobiliarios",crm:"Tera",fecha_venta:"2026-03-03",fecha_inicio:"2026-04-01",fecha_fin:"2026-06-30",plan:"Standard",propiedades:100,destacadas_q:1,superdestacadas_q:0,produccion_q:0,indice:false,total:18092,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"211",notas:""},
+      {inmobiliaria:"ATI Asesoría Total",crm:"SIN CRM",fecha_venta:"2026-03-04",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Patricia",metodo_pago:"Link",nro_factura:"212",notas:""},
+      {inmobiliaria:"Garcia Propiedades",crm:"Casasweb",fecha_venta:"2026-03-05",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:true,total:27942,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"220",notas:""},
+      {inmobiliaria:"Sudriers Inmobiliaria",crm:"SIN CRM",fecha_venta:"2026-03-05",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:true,total:25006,ejecutivo:"Lucas",metodo_pago:"Transferencia",nro_factura:"216",notas:""},
+      {inmobiliaria:"Beta Negocios Inmobiliarios",crm:"SIN CRM",fecha_venta:"2026-03-05",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:true,total:25006,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"215",notas:""},
+      {inmobiliaria:"Engel & Volkers",crm:"SIN CRM",fecha_venta:"2026-03-05",fecha_inicio:"2026-04-01",fecha_fin:"2026-06-30",plan:"Elite",propiedades:500,destacadas_q:30,superdestacadas_q:18,produccion_q:0,indice:true,total:29157,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"217",notas:""},
+      {inmobiliaria:"Arellano",crm:"Tera",fecha_venta:"2026-03-05",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:true,total:79477,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"221",notas:""},
+      {inmobiliaria:"Bonciel",crm:"SIN CRM",fecha_venta:"2026-03-06",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:29757,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"239",notas:"pendiente dato de facturacion"},
+      {inmobiliaria:"Cuarzo Bienes Raíces",crm:"Tera",fecha_venta:"2026-03-06",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:30,destacadas_q:6,superdestacadas_q:0,produccion_q:0,indice:true,total:30912,ejecutivo:"Lucas",metodo_pago:"Transferencia",nro_factura:"223",notas:""},
+      {inmobiliaria:"Ifer & Olivera Negocios Inmobiliarios",crm:"SIN CRM",fecha_venta:"2026-03-06",fecha_inicio:"2026-04-01",fecha_fin:"2026-06-30",plan:"Standard",propiedades:100,destacadas_q:6,superdestacadas_q:0,produccion_q:0,indice:false,total:21182,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"225",notas:""},
+      {inmobiliaria:"Gasalla Inmobiliaria",crm:"SIN CRM",fecha_venta:"2026-03-06",fecha_inicio:"2026-04-01",fecha_fin:"2026-06-30",plan:"Standard",propiedades:100,destacadas_q:1,superdestacadas_q:2,produccion_q:0,indice:false,total:14754,ejecutivo:"Juanba",metodo_pago:"Link",nro_factura:"224",notas:""},
+      {inmobiliaria:"Arcadia",crm:"SIN CRM",fecha_venta:"2026-03-09",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:4,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Patricia",metodo_pago:"Link",nro_factura:"226",notas:""},
+      {inmobiliaria:"Pucurull",crm:"Tera",fecha_venta:"2026-03-10",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Elite",propiedades:450,destacadas_q:24,superdestacadas_q:12,produccion_q:0,indice:true,total:107541,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"233",notas:""},
+      {inmobiliaria:"Yaquinta Propiedades",crm:"Casasweb",fecha_venta:"2026-03-10",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:4,superdestacadas_q:0,produccion_q:0,indice:false,total:25006,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"232",notas:"Contado"},
+      {inmobiliaria:"MyS Propiedades",crm:"SIN CRM",fecha_venta:"2026-03-10",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:12503,ejecutivo:"Lucas",metodo_pago:"Transferencia",nro_factura:"229",notas:""},
+      {inmobiliaria:"Home2Go",crm:"SIN CRM",fecha_venta:"2026-03-10",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:13590,ejecutivo:"Lucas",metodo_pago:"Link",nro_factura:"228",notas:""},
+      {inmobiliaria:"Leandro Nicolini Negocios inmobiliarios",crm:"SIN CRM",fecha_venta:"2026-03-10",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Patricia",metodo_pago:"Link",nro_factura:"230",notas:""},
+      {inmobiliaria:"Gale Propiedades",crm:"Tera",fecha_venta:"2026-03-10",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:true,total:79477,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"231",notas:""},
+      {inmobiliaria:"Casagrande Negocios inmobiliarios",crm:"Tokko",fecha_venta:"2026-03-10",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:28,superdestacadas_q:14,produccion_q:0,indice:true,total:129588,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"235",notas:"Mensualizado x contrato"},
+      {inmobiliaria:"Inmobiliaria Próspero",crm:"SIN CRM",fecha_venta:"2026-03-12",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:25006,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"236",notas:""},
+      {inmobiliaria:"Arteaga Hill Colón",crm:"NAI",fecha_venta:"2026-03-12",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:true,total:27180,ejecutivo:"Lucas",metodo_pago:"Link",nro_factura:"244",notas:""},
+      {inmobiliaria:"Adyven SC",crm:"Casasweb",fecha_venta:"2026-03-12",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Standard",propiedades:100,destacadas_q:1,superdestacadas_q:0,produccion_q:0,indice:false,total:28494,ejecutivo:"Lucas",metodo_pago:"Transferencia",nro_factura:"269",notas:""},
+      {inmobiliaria:"Gimeno's",crm:"Tera",fecha_venta:"2026-03-12",fecha_inicio:"2026-04-01",fecha_fin:"2026-06-30",plan:"Premium",propiedades:300,destacadas_q:12,superdestacadas_q:6,produccion_q:0,indice:false,total:23517,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"240",notas:"Paga el 23/03"},
+      {inmobiliaria:"Beba Paez",crm:"Xintel",fecha_venta:"2026-03-12",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:48,superdestacadas_q:24,produccion_q:0,indice:false,total:172788,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"243",notas:"tiene contrato, paga plan anual mensualizada"},
+      {inmobiliaria:"Aló Propiedades",crm:"Casasweb",fecha_venta:"2026-03-13",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Stefano",metodo_pago:"Link",nro_factura:"246",notas:""},
+      {inmobiliaria:"Urbano Group",crm:"Tera",fecha_venta:"2026-03-13",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:1,produccion_q:0,indice:false,total:27942,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"247",notas:""},
+      {inmobiliaria:"Cresta CRL",crm:"SIN CRM",fecha_venta:"2026-03-16",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:4,superdestacadas_q:0,produccion_q:0,indice:false,total:25006,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"249",notas:""},
+      {inmobiliaria:"Pallares Bruzzone Propiedades",crm:"NAI",fecha_venta:"2026-03-16",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:true,total:89476,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"250",notas:"con contrato, 2 cuotas semestrales con 8% dto"},
+      {inmobiliaria:"Veiren",crm:"NAI",fecha_venta:"2026-03-17",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:10,superdestacadas_q:5,produccion_q:0,indice:true,total:67947,ejecutivo:"Juanba",metodo_pago:"Link",nro_factura:"252",notas:""},
+      {inmobiliaria:"Debat Perroni",crm:"Casasweb",fecha_venta:"2026-03-17",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:25006,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"251",notas:""},
+      {inmobiliaria:"BH Propiedades",crm:"SIN CRM",fecha_venta:"2026-03-17",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:false,total:15186,ejecutivo:"Stefano",metodo_pago:"Link",nro_factura:"253",notas:""},
+      {inmobiliaria:"Leon Peyrou Propiedades",crm:"Casasweb",fecha_venta:"2026-03-18",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:25006,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"255",notas:""},
+      {inmobiliaria:"Hermida Propiedades",crm:"NAI",fecha_venta:"2026-03-18",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Elite",propiedades:500,destacadas_q:30,superdestacadas_q:18,produccion_q:0,indice:true,total:113389,ejecutivo:"Juanba",metodo_pago:"Link",nro_factura:"254",notas:""},
+      {inmobiliaria:"Inmobiliaria VINFOR",crm:"SIN CRM",fecha_venta:"2026-03-18",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:false,total:27942,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"257",notas:""},
+      {inmobiliaria:"Raza Propiedades SAS",crm:"Tera",fecha_venta:"2026-03-18",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Standard",propiedades:100,destacadas_q:2,superdestacadas_q:0,produccion_q:0,indice:false,total:54000,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"315",notas:"Paga en USD - 3 pagos"},
+      {inmobiliaria:"Crisci Blanco",crm:"NAI",fecha_venta:"2026-03-18",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:48,superdestacadas_q:24,produccion_q:0,indice:true,total:173505,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"271",notas:"Acuerdo especial - 20% del plan"},
+      {inmobiliaria:"Propunta",crm:"Tera",fecha_venta:"2026-03-20",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Elite",propiedades:500,destacadas_q:30,superdestacadas_q:18,produccion_q:0,indice:true,total:129588,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"262",notas:"pago 1er cuota"},
+      {inmobiliaria:"Meikle Bienes Raices",crm:"NAI",fecha_venta:"2026-03-20",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Elite",propiedades:500,destacadas_q:30,superdestacadas_q:18,produccion_q:0,indice:true,total:107298,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"263",notas:""},
+      {inmobiliaria:"Hogares y terrenos",crm:"Tera",fecha_venta:"2026-03-20",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Elite",propiedades:500,destacadas_q:30,superdestacadas_q:18,produccion_q:0,indice:false,total:129588,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"329",notas:""},
+      {inmobiliaria:"Agraciada Propiedades",crm:"2clics",fecha_venta:"2026-03-23",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Patricia",metodo_pago:"Link",nro_factura:"264",notas:""},
+      {inmobiliaria:"URU inversiones",crm:"SIN CRM",fecha_venta:"2026-03-23",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:false,total:27942,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"265",notas:""},
+      {inmobiliaria:"Virginia Polleri Negocios Inmobiliarios",crm:"Casasweb",fecha_venta:"2026-03-24",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Lucas",metodo_pago:"Link",nro_factura:"266",notas:""},
+      {inmobiliaria:"Turquesa Propiedades",crm:"Casasweb",fecha_venta:"2026-03-24",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:25006,ejecutivo:"Lucas",metodo_pago:"Transferencia",nro_factura:"267",notas:""},
+      {inmobiliaria:"Ruiz Diaz & Asociados",crm:"Casasweb",fecha_venta:"2026-03-24",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"50",propiedades:50,destacadas_q:8,superdestacadas_q:0,produccion_q:0,indice:true,total:22110,ejecutivo:"Lucas",metodo_pago:"Transferencia",nro_factura:"268",notas:"mensualizado x contrato"},
+      {inmobiliaria:"Zona Brokers",crm:"Tokko",fecha_venta:"2026-03-25",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:2,produccion_q:0,indice:false,total:27942,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"270",notas:""},
+      {inmobiliaria:"Inmobiliaria Caldeyro Victorica",crm:"Xintel",fecha_venta:"2026-03-25",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:false,total:86388,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"279",notas:"link de pago"},
+      {inmobiliaria:"Adpro",crm:"Casasweb",fecha_venta:"2026-03-25",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:25006,ejecutivo:"Lucas",metodo_pago:"Transferencia",nro_factura:"272",notas:""},
+      {inmobiliaria:"Live Uruguay Realty",crm:"NAI",fecha_venta:"2026-03-25",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"Standard",propiedades:100,destacadas_q:1,superdestacadas_q:0,produccion_q:0,indice:false,total:27354,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"273",notas:""},
+      {inmobiliaria:"Inmobiliaria Paula Cruz",crm:"Casasweb",fecha_venta:"2026-03-25",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:58,superdestacadas_q:34,produccion_q:0,indice:true,total:266148,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"324",notas:"Falta contrato"},
+      {inmobiliaria:"Afilia Propiedades",crm:"Tokko",fecha_venta:"2026-03-25",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:48,superdestacadas_q:24,produccion_q:0,indice:false,total:172788,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"275",notas:""},
+      {inmobiliaria:"Inmobiliaria Pointer",crm:"NAI",fecha_venta:"2026-03-26",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Elite",propiedades:500,destacadas_q:30,superdestacadas_q:18,produccion_q:0,indice:false,total:113389,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"289",notas:"mensualizado x contrato"},
+      {inmobiliaria:"Alejandra Basigaluz Propiedades",crm:"Casasweb",fecha_venta:"2026-03-26",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:1,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Patricia",metodo_pago:"Link",nro_factura:"290",notas:""},
+      {inmobiliaria:"Inmobiliaria Viscaya",crm:"Tokko",fecha_venta:"2026-03-26",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:48,superdestacadas_q:24,produccion_q:0,indice:true,total:143067,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"291",notas:"2 pagos - tienen contrato"},
+      {inmobiliaria:"Retablo Propiedades",crm:"SIN CRM",fecha_venta:"2026-03-26",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Standard",propiedades:100,destacadas_q:2,superdestacadas_q:0,produccion_q:0,indice:false,total:53988,ejecutivo:"Stefano",metodo_pago:"Link",nro_factura:"287",notas:""},
+      {inmobiliaria:"Proyecto Inmobiliario",crm:"SIN CRM",fecha_venta:"2026-03-26",fecha_inicio:"2026-04-01",fecha_fin:"2026-06-30",plan:"Standard",propiedades:100,destacadas_q:1,superdestacadas_q:0,produccion_q:0,indice:false,total:14997,ejecutivo:"Stefano",metodo_pago:"Link",nro_factura:"288",notas:""},
+      {inmobiliaria:"Raíz Estudio Inmobiliario",crm:"Tera",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Elite",propiedades:500,destacadas_q:30,superdestacadas_q:18,produccion_q:0,indice:true,total:119221,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"317",notas:"2 pagos x contrato"},
+      {inmobiliaria:"Costas del Este",crm:"SIN CRM",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:false,total:86388,ejecutivo:"Juanba",metodo_pago:"Transferencia",nro_factura:"322",notas:""},
+      {inmobiliaria:"Del Rey",crm:"Tokko",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Standard",propiedades:100,destacadas_q:2,superdestacadas_q:0,produccion_q:0,indice:false,total:53988,ejecutivo:"Juanba",metodo_pago:"Link",nro_factura:"328",notas:""},
+      {inmobiliaria:"Eliana Shutz",crm:"Casasweb",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:false,total:27942,ejecutivo:"Patricia",metodo_pago:"Transferencia",nro_factura:"327",notas:""},
+      {inmobiliaria:"Grupo Mutter Uy",crm:"SIN CRM",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:false,total:30372,ejecutivo:"Patricia",metodo_pago:"Link",nro_factura:"300",notas:""},
+      {inmobiliaria:"Norma Bueno Propiedades",crm:"SIN CRM",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:1,produccion_q:0,indice:false,total:25006,ejecutivo:"mika",metodo_pago:"Link",nro_factura:"321",notas:""},
+      {inmobiliaria:"Rubiko",crm:"Tera",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Patricia",metodo_pago:"Link",nro_factura:"319",notas:""},
+      {inmobiliaria:"Andres Nieto",crm:"Tera",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:48,superdestacadas_q:24,produccion_q:0,indice:true,total:172788,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"331",notas:"x contrato - USD"},
+      {inmobiliaria:"Parodi",crm:"NAI",fecha_venta:"2026-03-30",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Standard",propiedades:100,destacadas_q:2,superdestacadas_q:0,produccion_q:0,indice:false,total:53988,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"320",notas:""},
+      {inmobiliaria:"Inmobiliaria Mape",crm:"NAI",fecha_venta:"2026-03-31",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:8,superdestacadas_q:5,produccion_q:0,indice:false,total:76752,ejecutivo:"Stefano",metodo_pago:"Link",nro_factura:"332",notas:""},
+      {inmobiliaria:"Novarum Broker Inmobiliario",crm:"Xintel",fecha_venta:"2026-03-31",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:2,superdestacadas_q:1,produccion_q:0,indice:false,total:30372,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"334",notas:""},
+      {inmobiliaria:"Jade Propiedades",crm:"SIN CRM",fecha_venta:"2026-03-31",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Lucas",metodo_pago:"Link",nro_factura:"325",notas:""},
+      {inmobiliaria:"Leonardo Giardello Inmobiliaria",crm:"Tokko",fecha_venta:"2026-03-31",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Unique",propiedades:0,destacadas_q:48,superdestacadas_q:24,produccion_q:0,indice:true,total:155509,ejecutivo:"Seba",metodo_pago:"Transferencia",nro_factura:"330",notas:""},
+      {inmobiliaria:"Dream Prop",crm:"Xintel",fecha_venta:"2026-03-31",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"Standard",propiedades:100,destacadas_q:1,superdestacadas_q:0,produccion_q:0,indice:true,total:27354,ejecutivo:"Stefano",metodo_pago:"Transferencia",nro_factura:"333",notas:""},
+      {inmobiliaria:"Triple 7 Propiedades",crm:"SIN CRM",fecha_venta:"2026-04-06",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"50",propiedades:50,destacadas_q:3,superdestacadas_q:0,produccion_q:0,indice:false,total:27180,ejecutivo:"Stefano",metodo_pago:"Link",nro_factura:"277",notas:""},
+      {inmobiliaria:"Bea Lareo Real Estate",crm:"SIN CRM",fecha_venta:"2026-04-08",fecha_inicio:"2026-04-01",fecha_fin:"2026-09-30",plan:"Premium",propiedades:300,destacadas_q:8,superdestacadas_q:4,produccion_q:0,indice:false,total:43194,ejecutivo:"Juanba",metodo_pago:"Link",nro_factura:"352",notas:""},
+      {inmobiliaria:"JSuarez negocios inmobiliarios",crm:"Casasweb",fecha_venta:"2026-03-13",fecha_inicio:"2026-04-01",fecha_fin:"2027-03-31",plan:"A medida",propiedades:200,destacadas_q:0,superdestacadas_q:0,produccion_q:0,indice:true,total:61590,ejecutivo:"mika",metodo_pago:"Transferencia",nro_factura:"354",notas:""},
+    ];
+
+    window.runSeed = async function() {
+      const btn = document.getElementById("btn");
+      const log = document.getElementById("log");
+      btn.disabled = true;
+      btn.textContent = "Importando...";
+      log.innerHTML = '<div class="info">Iniciando importación de ' + ventas.length + ' ventas...</div>';
+
+      let ok = 0, err = 0;
+      for (const v of ventas) {
+        const ejecutivoId = ejecutivoMap[v.ejecutivo] || v.ejecutivo.toLowerCase();
+        try {
+          await addDoc(collection(db, "ventas"), {
+            ...v,
+            ejecutivo: ejecutivoId,
+            created_at: v.fecha_venta,
+            subtotal: Math.round(v.total / 1.22),
+            productos_seleccionados: [],
+            estado: "activa",
+            solicitud_modificacion: false,
+            modificacion_aprobada: false,
+          });
+          ok++;
+          log.innerHTML += `<div class="ok">✓ [${ok}] ${v.inmobiliaria}</div>`;
+          log.scrollTop = log.scrollHeight;
+        } catch(e) {
+          err++;
+          log.innerHTML += `<div class="err">✗ ${v.inmobiliaria}: ${e.message}</div>`;
+        }
+      }
+      log.innerHTML += `<div class="info" style="margin-top:12px;font-size:15px">✅ Importación completa: ${ok} ok / ${err} errores</div>`;
+      btn.textContent = `✅ Listo — ${ok} ventas importadas`;
+    };
+  </script>
+</body>
+</html>
