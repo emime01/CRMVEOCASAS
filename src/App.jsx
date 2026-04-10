@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { getAll, addItem, updateItem, deleteItem, upsertItem } from "./firebase";
-import { C, fmt, USERS, SELLERS, TABS, CREDENTIALS, daysUntil, getWeekDates, calcCuotas } from "./constants";
-import { Stat, Card, Btn, Badge, Field, Grid2, Sec, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
+import { C, fmt, USERS, TABS, CREDENTIALS, daysUntil, getWeekDates } from "./constants";
+import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
 import SaleForm from "./components/SaleForm";
 import Comisiones from "./screens/Comisiones";
 import Facturacion from "./screens/Facturacion";
 
-const SELLERS_OBJ = USERS.filter(u=>["vendedor","inactivo"].includes(u.role));
-const getUser = id => USERS.find(u=>u.id===id);
+const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
+const getUser = id => USERS.find(u => u.id === id);
 const PLATFORMS = ["Instagram","Facebook","LinkedIn","TikTok","Twitter/X"];
 
 const INIT_DISP = [
@@ -48,7 +48,7 @@ export default function App() {
   const [editAvail, setEditAvail] = useState(null);
   const [kpiForm, setKpiForm] = useState({});
   const [postForm, setPostForm] = useState({fecha:"",platform:"Instagram",content:"",status:"borrador"});
-  const [objetivoForm, setObjetivoForm] = useState({ejecutivo:"sebastian",objetivo:0,q:1,anio:new Date().getFullYear()});
+  const [objetivoForm, setObjetivoForm] = useState({ejecutivo:"sebastian",objetivo:0,q:Math.ceil((new Date().getMonth()+1)/3),anio:new Date().getFullYear()});
   const [filterVendedor, setFilterVendedor] = useState("todos");
 
   const defaultTab = r => ({gerente:"dashboard_gerente",vendedor:"dashboard",marketing:"producciones",admin:"facturacion"}[r]||"dashboard");
@@ -67,8 +67,23 @@ export default function App() {
     setLoading(false);
   };
 
-  const logout = () => { setUser(null); setSales([]); };
+  const logout = () => { setUser(null); setSales([]); setAvailability([]); setKpis([]); setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); };
 
+  // ── HELPERS ──────────────────────────────────────────────
+  const currentQ = Math.ceil((new Date().getMonth()+1)/3);
+  const currentAnio = new Date().getFullYear();
+
+  const ventasDeQ = (uid, q, anio=currentAnio) => {
+    const qStart = new Date(anio,(q-1)*3,1).toISOString().split("T")[0];
+    const qEnd   = new Date(anio, q*3,  0).toISOString().split("T")[0];
+    return sales.filter(s => s.ejecutivo===uid && s.estado!=="cancelada" && s.fecha_venta>=qStart && s.fecha_venta<=qEnd);
+  };
+  const totalDeQ = (uid, q, anio=currentAnio) => ventasDeQ(uid,q,anio).reduce((a,s)=>a+(s.total||0),0);
+  const totalVentasQ = (uid) => totalDeQ(uid, currentQ);
+  const getObjetivosVendedor = (uid) => objetivos.filter(o=>o.ejecutivo===uid&&o.anio===currentAnio).sort((a,b)=>a.q-b.q);
+  const myObjetivo = (uid) => objetivos.find(o=>o.ejecutivo===uid&&o.q===currentQ&&o.anio===currentAnio)?.objetivo||0;
+  const myKpi = (uid,week) => kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
+  const pct = (a,b) => b>0?Math.round((a/b)*100):0;
   const mySales = user ? sales.filter(s=>s.ejecutivo===user.id) : [];
   const activeSales = sales.filter(s=>s.estado!=="cancelada");
   const alertas = activeSales.filter(s=>{const d=daysUntil(s.fecha_fin);return d!==null&&d>=0&&d<=30;});
@@ -76,7 +91,7 @@ export default function App() {
   // ── CRUD ──────────────────────────────────────────────────
   const saveSale = async (form) => {
     setSaving(true);
-    const data = await addItem("ventas",form);
+    const data = await addItem("ventas", form);
     if(data){
       setSales(prev=>[data,...prev]);
       if(parseInt(form.produccion_q)>0){
@@ -99,20 +114,20 @@ export default function App() {
   };
 
   const handleApproveMod = (id) => handleUpdateSale(id,{modificacion_aprobada:true});
-  const handleRejectMod = (id) => handleUpdateSale(id,{solicitud_modificacion:false,modificacion_aprobada:false});
+  const handleRejectMod  = (id) => handleUpdateSale(id,{solicitud_modificacion:false,modificacion_aprobada:false});
 
   const saveKPI = async () => {
     setSaving(true);
-    const week=getWeekDates(kpiWeekOffset);
-    const kpiId=`${user.id}_${week.inicio}`;
-    const payload={ejecutivo:user.id,semana:kpiWeekOffset,fecha_inicio:week.inicio,fecha_fin:week.fin,...kpiForm};
+    const week = getWeekDates(kpiWeekOffset);
+    const kpiId = `${user.id}_${week.inicio}`;
+    const payload = {ejecutivo:user.id,semana:kpiWeekOffset,fecha_inicio:week.inicio,fecha_fin:week.fin,...kpiForm};
     await upsertItem("kpis",kpiId,payload);
     setKpis(prev=>[...prev.filter(k=>k.id!==kpiId),{...payload,id:kpiId}]);
     setKpiForm({}); setSaving(false);
   };
 
   const saveObjetivo = async () => {
-    const objId=`${objetivoForm.ejecutivo}_${objetivoForm.mes}_${objetivoForm.anio}`;
+    const objId = `${objetivoForm.ejecutivo}_Q${objetivoForm.q}_${objetivoForm.anio}`;
     await upsertItem("objetivos",objId,objetivoForm);
     setObjetivos(prev=>[...prev.filter(o=>o.id!==objId),{...objetivoForm,id:objId}]);
     setShowObjetivoForm(false);
@@ -120,34 +135,15 @@ export default function App() {
 
   const updateComision = async (key, value) => {
     let newCom;
-    if(key.startsWith("vendedor_")){
-      const uid=key.replace("vendedor_","");
-      newCom={...comisiones,vendedores:{...comisiones.vendedores,[uid]:value}};
-    } else {
-      newCom={...comisiones,[key]:value};
-    }
+    if(key.startsWith("vendedor_")){ const uid=key.replace("vendedor_",""); newCom={...comisiones,vendedores:{...comisiones.vendedores,[uid]:value}}; }
+    else { newCom={...comisiones,[key]:value}; }
     setComisiones(newCom);
     await upsertItem("comisiones","config",newCom);
   };
 
-  const myKpi=(uid,week)=>kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
-
-  const ventasDelQ=(uid)=>{
-    const now=new Date();
-    const q=Math.ceil((now.getMonth()+1)/3);
-    const qStart=new Date(now.getFullYear(),(q-1)*3,1).toISOString().split("T")[0];
-    const qEnd=new Date(now.getFullYear(),q*3,0).toISOString().split("T")[0];
-    return sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_venta>=qStart&&s.fecha_venta<=qEnd);
-  };
-
-  const totalVentasQ=(uid)=>ventasDelQ(uid).reduce((a,s)=>a+(s.total||0),0);
-
-  const myObjetivo=(uid)=>{const now=new Date();return objetivos.find(o=>o.ejecutivo===uid&&o.mes===now.getMonth()+1&&o.anio===now.getFullYear())?.objetivo||0;};
-  const pct=(a,b)=>b>0?Math.round((a/b)*100):0;
-
   // ── LOGIN ─────────────────────────────────────────────────
   if(!user) return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg, #0A0A0A 0%, #1a0005 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0A0A0A 0%,#1a0005 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
       <div style={{marginBottom:"2rem",textAlign:"center"}}>
         <div style={{fontSize:36,fontWeight:800,color:C.white,letterSpacing:3,marginBottom:4}}>VEO<span style={{color:C.red}}>CASAS</span></div>
         <div style={{color:C.gray500,fontSize:13}}>CRM Comercial · Modo prueba</div>
@@ -169,7 +165,7 @@ export default function App() {
           ))}
         </div>
         <div style={{padding:"12px 14px",background:C.gray50,borderRadius:10,fontSize:11,color:C.gray500,border:`1px solid ${C.gray200}`}}>
-          <div style={{fontWeight:600,color:C.gray700,marginBottom:6}}>Credenciales para login real:</div>
+          <div style={{fontWeight:600,color:C.gray700,marginBottom:6}}>Credenciales:</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>
             {CREDENTIALS.map(c=><div key={c.id}><span style={{color:C.gray700,fontWeight:500}}>{c.username}:</span> {c.password}</div>)}
           </div>
@@ -178,7 +174,9 @@ export default function App() {
     </div>
   );
 
-  const currentTabs = (TABS[user.role]||[]).map(t=>t.id==="alertas"||t.id==="alertas_admin"?{...t,label:`Alertas${alertas.length>0?` (${alertas.length})`:""}`}:t);
+  const currentTabs = (TABS[user.role]||[]).map(t=>
+    (t.id==="alertas"||t.id==="alertas_admin") ? {...t,label:`Alertas${alertas.length>0?` (${alertas.length})`:""}`} : t
+  );
 
   // ── NAVBAR ────────────────────────────────────────────────
   const NavBar = () => (
@@ -188,31 +186,29 @@ export default function App() {
           <span style={{fontSize:16,fontWeight:800,color:C.white,letterSpacing:2,flexShrink:0}}>VEO<span style={{color:C.red}}>CASAS</span></span>
           <div style={{display:"flex",gap:2}} id="desktop-nav">
             {currentTabs.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"6px 12px",borderRadius:7,border:"none",background:tab===t.id?"rgba(192,0,26,0.15)":"transparent",color:tab===t.id?C.red:C.gray400,fontSize:12,fontWeight:tab===t.id?600:400,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}}>
+              <button key={t.id} onClick={()=>setTab(t.id)}
+                style={{padding:"6px 12px",borderRadius:7,border:"none",background:tab===t.id?"rgba(192,0,26,0.15)":"transparent",color:tab===t.id?C.red:C.gray400,fontSize:12,fontWeight:tab===t.id?600:400,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}}>
                 {t.label}
               </button>
             ))}
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {saving&&<span style={{fontSize:11,color:C.gray500,animation:"pulse 1s infinite"}}>Guardando...</span>}
+          {saving&&<span style={{fontSize:11,color:C.gray500}}>Guardando...</span>}
           {alertas.length>0&&<div style={{width:7,height:7,borderRadius:"50%",background:C.red}}/>}
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:32,height:32,borderRadius:9,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700}}>{user.avatar}</div>
-            <span style={{color:C.gray300,fontSize:13,fontWeight:500}}>{user.name}</span>
-          </div>
+          <div style={{width:32,height:32,borderRadius:9,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700}}>{user.avatar}</div>
+          <span style={{color:C.gray300,fontSize:13,fontWeight:500}}>{user.name}</span>
           <button onClick={logout} style={{padding:"5px 10px",borderRadius:7,border:`1px solid ${C.gray700}`,background:"transparent",color:C.gray500,fontSize:11,cursor:"pointer"}}>Salir</button>
-          <button onClick={()=>setMenuOpen(m=>!m)} id="mobile-menu-btn" style={{display:"none",padding:"5px 8px",border:`1px solid ${C.gray700}`,borderRadius:7,background:"transparent",color:C.white,fontSize:16,cursor:"pointer",lineHeight:1}}>☰</button>
+          <button onClick={()=>setMenuOpen(m=>!m)} id="mobile-menu-btn"
+            style={{display:"none",padding:"5px 8px",border:`1px solid ${C.gray700}`,borderRadius:7,background:"transparent",color:C.white,fontSize:16,cursor:"pointer",lineHeight:1}}>☰</button>
         </div>
       </div>
-      <style>{`
-        @media(max-width:768px){#desktop-nav{display:none!important;}#mobile-menu-btn{display:flex!important;}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-      `}</style>
+      <style>{`@media(max-width:768px){#desktop-nav{display:none!important;}#mobile-menu-btn{display:flex!important;}}`}</style>
       {menuOpen&&(
         <div style={{background:C.gray900,borderBottom:`1px solid ${C.gray800}`,padding:"8px 1rem",display:"flex",flexDirection:"column",gap:2}}>
           {currentTabs.map(t=>(
-            <button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}} style={{padding:"10px 14px",borderRadius:8,border:"none",background:tab===t.id?"rgba(192,0,26,0.15)":"transparent",color:tab===t.id?C.red:C.gray400,fontSize:13,fontWeight:tab===t.id?600:400,cursor:"pointer",textAlign:"left"}}>
+            <button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}}
+              style={{padding:"10px 14px",borderRadius:8,border:"none",background:tab===t.id?"rgba(192,0,26,0.15)":"transparent",color:tab===t.id?C.red:C.gray400,fontSize:13,fontWeight:tab===t.id?600:400,cursor:"pointer",textAlign:"left"}}>
               {t.label}
             </button>
           ))}
@@ -221,28 +217,64 @@ export default function App() {
     </>
   );
 
+  // ── MODAL OBJETIVO ────────────────────────────────────────
+  const ObjetivoModal = () => (
+    <Modal onClose={()=>setShowObjetivoForm(false)} maxWidth={380}>
+      <ModalHeader title="Objetivo por Q" subtitle="Asignar objetivo trimestral" onClose={()=>setShowObjetivoForm(false)}/>
+      <ModalBody>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <Field label="Vendedor">
+            <select value={objetivoForm.ejecutivo} onChange={e=>setObjetivoForm(f=>({...f,ejecutivo:e.target.value}))} style={inp}>
+              {SELLERS_OBJ.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Objetivo ($)">
+            <input type="text" inputMode="numeric"
+              value={objetivoForm.objetivo===0?"":objetivoForm.objetivo}
+              onChange={e=>{const v=e.target.value.replace(/\D/g,"");setObjetivoForm(f=>({...f,objetivo:v===""?0:parseInt(v)}));}}
+              style={inp} placeholder="Ej: 500000"/>
+          </Field>
+          <Grid2>
+            <Field label="Trimestre (Q)">
+              <select value={objetivoForm.q} onChange={e=>setObjetivoForm(f=>({...f,q:parseInt(e.target.value)}))} style={inp}>
+                <option value={1}>Q1 — Ene/Feb/Mar</option>
+                <option value={2}>Q2 — Abr/May/Jun</option>
+                <option value={3}>Q3 — Jul/Ago/Sep</option>
+                <option value={4}>Q4 — Oct/Nov/Dic</option>
+              </select>
+            </Field>
+            <Field label="Año">
+              <input type="text" inputMode="numeric" value={objetivoForm.anio}
+                onChange={e=>{const v=e.target.value.replace(/\D/g,"");setObjetivoForm(f=>({...f,anio:v===""?currentAnio:parseInt(v)}));}}
+                style={inp}/>
+            </Field>
+          </Grid2>
+          <div style={{padding:"10px 14px",background:C.gray50,borderRadius:8,fontSize:12,color:C.gray500,border:`1px solid ${C.gray200}`}}>
+            <strong>{SELLERS_OBJ.find(s=>s.id===objetivoForm.ejecutivo)?.name}</strong> · Q{objetivoForm.q} {objetivoForm.anio}: <strong style={{color:C.red}}>{fmt(objetivoForm.objetivo)}</strong>
+          </div>
+        </div>
+      </ModalBody>
+      <ModalFooter><Btn onClick={()=>setShowObjetivoForm(false)}>Cancelar</Btn><Btn variant="primary" onClick={saveObjetivo}>Guardar</Btn></ModalFooter>
+    </Modal>
+  );
+
   // ── SCREENS ───────────────────────────────────────────────
 
   const DashboardVendedor = () => {
-    const lastKpi=myKpi(user.id,0);
-    const hoy=new Date();
-    const mes=hoy.getMonth()+1; const anio=hoy.getFullYear();
-    const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
-    const comPct=comisiones?.vendedores?.[user.id]||0;
-    const getCuotaMes=(v)=>{
+    const lastKpi = myKpi(user.id, 0);
+    const hoy = new Date();
+    const mes = hoy.getMonth()+1; const anio = hoy.getFullYear();
+    const totalVentas = mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
+    const comPct = comisiones?.vendedores?.[user.id]||0;
+    const getCuotaMes = (v) => {
       if(!v.fecha_inicio) return v.total;
-      const nc=v.num_cuotas||1; const mc=v.total/nc;
+      const nc=v.num_cuotas||1, mc=v.total/nc;
       for(let i=0;i<nc;i++){const f=new Date(v.fecha_inicio);f.setMonth(f.getMonth()+i);if(f.getMonth()+1===mes&&f.getFullYear()===anio)return mc;}
       return 0;
     };
-    const comisionMes=Math.round(mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+getCuotaMes(s)*(comPct/100),0));
-
-    // Solo Q asignados por Mika
-    const qAsignados = getObjetivosVendedor(user.id);
-    // El Q actual siempre se muestra si está asignado, más el anterior
-    const qVisibles = qAsignados.filter(o => o.q <= currentQ);
-
-    const weeklyData=[-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
+    const comisionMes = Math.round(mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+getCuotaMes(s)*(comPct/100),0));
+    const qAsignados = getObjetivosVendedor(user.id).filter(o=>o.q<=currentQ);
+    const weeklyData = [-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
 
     return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
@@ -257,30 +289,22 @@ export default function App() {
           <Stat label="Concreción" value={`${lastKpi.concrecion||0}%`} sub="Esta semana"/>
         </div>
 
-        {/* Objetivos por Q */}
-        {qVisibles.length > 0 ? (
+        {qAsignados.length>0 ? (
           <div style={{marginBottom:20}}>
             <div style={{fontWeight:600,fontSize:14,color:C.gray700,marginBottom:12}}>Objetivos por trimestre</div>
-            <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(qVisibles.length,4)},1fr)`,gap:12}}>
-              {qVisibles.map(obj=>{
-                const total=totalDeQ(user.id,obj.q);
-                const isActual=obj.q===currentQ;
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(qAsignados.length,4)},1fr)`,gap:12}}>
+              {qAsignados.map(obj=>{
+                const tq = totalDeQ(user.id, obj.q);
+                const isActual = obj.q===currentQ;
                 return (
-                  <Card key={obj.q} style={{border:`1.5px solid ${isActual?C.red:C.gray200}`,position:"relative"}}>
+                  <Card key={obj.q} style={{border:`1.5px solid ${isActual?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
                     {isActual&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
-                    <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:12,fontWeight:600,color:isActual?C.red:C.gray500,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>
-                        Q{obj.q} {isActual?"· Actual":"· Cerrado"}
-                      </div>
-                      <PieChart value={total} max={obj.objetivo} label={`Q${obj.q}`} color={isActual?C.red:C.gray400} size={100}/>
-                      <div style={{marginTop:8,fontSize:11,color:C.gray400}}>
-                        {ventasDeQ(user.id,obj.q).length} ventas
-                      </div>
-                      <div style={{marginTop:4,fontSize:11}}>
-                        <span style={{color:C.gray500}}>Objetivo: </span>
-                        <span style={{fontWeight:600,color:C.gray800}}>{fmt(obj.objetivo)}</span>
-                      </div>
+                    <div style={{fontSize:11,fontWeight:600,color:isActual?C.red:C.gray500,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>
+                      Q{obj.q} {isActual?"· Actual":"· Cerrado"}
                     </div>
+                    <PieChart value={tq} max={obj.objetivo} label={`Q${obj.q}`} color={isActual?C.red:C.gray400} size={100}/>
+                    <div style={{marginTop:8,fontSize:11,color:C.gray400}}>{ventasDeQ(user.id,obj.q).length} ventas</div>
+                    <div style={{marginTop:4,fontSize:11}}><span style={{color:C.gray500}}>Obj: </span><span style={{fontWeight:600,color:C.gray800}}>{fmt(obj.objetivo)}</span></div>
                   </Card>
                 );
               })}
@@ -306,85 +330,33 @@ export default function App() {
             ))}
           </Card>
         </div>
-        <div>
-          <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:10}}>Últimas ventas</div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {mySales.slice(0,3).map(s=>(
-              <SaleCard key={s.id} sale={s} onClick={setDetailSale} showActions
-                onRequestEdit={id=>handleUpdateSale(id,{solicitud_modificacion:true})}/>
-            ))}
-            {!mySales.length&&<EmptyState icon="📊" title="Sin ventas" desc="Registrá tu primera venta"/>}
-          </div>
+        <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:10}}>Últimas ventas</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {mySales.slice(0,3).map(s=>(
+            <SaleCard key={s.id} sale={s} onClick={setDetailSale} showActions
+              onRequestEdit={id=>handleUpdateSale(id,{solicitud_modificacion:true})}/>
+          ))}
+          {!mySales.length&&<EmptyState icon="📊" title="Sin ventas" desc="Registrá tu primera venta"/>}
         </div>
       </div>
     );
   };
 
   const DashboardGerente = () => {
-    const now=new Date();const mes=now.getMonth()+1;const anio=now.getFullYear();
-    const q=Math.ceil(mes/3);
-    const qLabel=`Q${q} ${anio}`;
-    const total=activeSales.reduce((a,s)=>a+(s.total||0),0);
-    const vxv=SELLERS_OBJ.map(s=>({...s,
-      totalQ:totalVentasQ(s.id),
-      total:activeSales.filter(v=>v.ejecutivo===s.id).reduce((a,v)=>a+(v.total||0),0),
-      cantidad:activeSales.filter(v=>v.ejecutivo===s.id).length,
-      objetivo:objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===anio)?.objetivo||0
-    }));
-    const weeklyTeam=[-4,-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:activeSales.filter(s=>s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
-    const totalObj=vxv.reduce((a,v)=>a+v.objetivo,0);
-    const pending=sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
+    const total = activeSales.reduce((a,s)=>a+(s.total||0),0);
+    const weeklyTeam = [-4,-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:activeSales.filter(s=>s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
+    const pending = sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
+    const qsConObjetivo = [...new Set(objetivos.filter(o=>o.anio===currentAnio).map(o=>o.q))].sort((a,b)=>a-b);
+    const qsAMostrar = qsConObjetivo.length>0 ? qsConObjetivo : [currentQ];
+
     return (
       <div style={{padding:"1.5rem",maxWidth:1100}}>
-        {showObjetivoForm&&(
-          <Modal onClose={()=>setShowObjetivoForm(false)} maxWidth={380}>
-            <ModalHeader title="Objetivo por Q" subtitle="Asignar objetivo trimestral" onClose={()=>setShowObjetivoForm(false)}/>
-            <ModalBody>
-              <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                <Field label="Vendedor">
-                  <select value={objetivoForm.ejecutivo} onChange={e=>setObjetivoForm(f=>({...f,ejecutivo:e.target.value}))} style={inp}>
-                    {SELLERS_OBJ.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </Field>
-                <Field label="Objetivo ($)">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={objetivoForm.objetivo===0?"":objetivoForm.objetivo}
-                    onChange={e=>{const v=e.target.value.replace(/\D/g,"");setObjetivoForm(f=>({...f,objetivo:v===""?0:parseInt(v)}));}}
-                    style={inp}
-                    placeholder="Ej: 500000"
-                  />
-                </Field>
-                <Grid2>
-                  <Field label="Trimestre (Q)">
-                    <select value={objetivoForm.q} onChange={e=>setObjetivoForm(f=>({...f,q:parseInt(e.target.value)}))} style={inp}>
-                      <option value={1}>Q1 — Ene/Feb/Mar</option>
-                      <option value={2}>Q2 — Abr/May/Jun</option>
-                      <option value={3}>Q3 — Jul/Ago/Sep</option>
-                      <option value={4}>Q4 — Oct/Nov/Dic</option>
-                    </select>
-                  </Field>
-                  <Field label="Año">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={objetivoForm.anio}
-                      onChange={e=>{const v=e.target.value.replace(/\D/g,"");setObjetivoForm(f=>({...f,anio:v===""?2026:parseInt(v)}));}}
-                      style={inp}
-                    />
-                  </Field>
-                </Grid2>
-                <div style={{padding:"10px 14px",background:C.gray50,borderRadius:8,fontSize:12,color:C.gray500,border:`1px solid ${C.gray200}`}}>
-                  Objetivo para <strong>{SELLERS_OBJ.find(s=>s.id===objetivoForm.ejecutivo)?.name}</strong> en <strong>Q{objetivoForm.q} {objetivoForm.anio}</strong>: <strong style={{color:C.red}}>{new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(objetivoForm.objetivo)}</strong>
-                </div>
-              </div>
-            </ModalBody>
-            <ModalFooter><Btn onClick={()=>setShowObjetivoForm(false)}>Cancelar</Btn><Btn variant="primary" onClick={saveObjetivo}>Guardar</Btn></ModalFooter>
-          </Modal>
-        )}
+        {showObjetivoForm&&<ObjetivoModal/>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
-          <div><div style={{fontSize:22,fontWeight:800,color:C.gray900}}>Dashboard Equipo</div><div style={{fontSize:13,color:C.gray400}}>Semana: {getWeekDates(0).label}</div></div>
+          <div>
+            <div style={{fontSize:22,fontWeight:800,color:C.gray900}}>Dashboard Equipo</div>
+            <div style={{fontSize:13,color:C.gray400}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div>
+          </div>
           <Btn variant="primary" onClick={()=>setShowObjetivoForm(true)}>+ Asignar objetivo</Btn>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
@@ -393,35 +365,58 @@ export default function App() {
           <Stat label="Modificaciones pendientes" value={pending.length} color={pending.length>0?C.amber:C.green} alert={pending.length>0}/>
           <Stat label="Alertas vencimiento" value={alertas.length} color={alertas.length>0?C.red:C.green} alert={alertas.length>0}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:24}}>
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Facturación por semana</div><BarChart data={weeklyTeam} height={110}/></Card>
           <Card>
-            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>Progreso equipo {qLabel}</div>
-            <div style={{marginBottom:12}}><div style={{fontSize:11,color:C.gray400,marginBottom:4}}>Total equipo</div><ProgressBar value={vxv.reduce((a,v)=>a+v.totalQ,0)} max={totalObj}/></div>
-            {vxv.map(v=>(
-              <div key={v.id} style={{marginBottom:8}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
-                  <span style={{fontWeight:500,color:C.gray700}}>{v.name}</span>
-                  <span style={{color:C.gray400}}>{v.objetivo>0?`${pct(v.totalQ,v.objetivo)}%`:"—"}</span>
-                </div>
-                <ProgressBar value={v.totalQ} max={v.objetivo} showLabel={false}/>
+            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>KPIs esta semana</div>
+            {SELLERS_OBJ.map(s=>{const k=myKpi(s.id,0);return(
+              <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.gray100}`,fontSize:13}}>
+                <span style={{fontWeight:500}}>{s.name}</span>
+                <span style={{color:C.gray400}}>{k.contactados||0} · {k.concrecion||0}%</span>
               </div>
-            ))}
+            );})}
           </Card>
         </div>
-        <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>Objetivos {qLabel}</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
-          {vxv.map(v=>(
-            <Card key={v.id} style={{textAlign:"center"}}>
-              <PieChart value={v.totalQ} max={v.objetivo} label={v.name} size={100}/>
-              <div style={{fontSize:11,color:C.gray400,marginTop:6}}>{v.cantidad} ventas · {fmt(v.totalQ)} en {qLabel}</div>
-            </Card>
-          ))}
-        </div>
-        <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>KPIs esta semana</div>
+
+        {qsAMostrar.map(q=>{
+          const isActual = q===currentQ;
+          const totalQ = SELLERS_OBJ.reduce((a,s)=>a+totalDeQ(s.id,q),0);
+          const totalObj = SELLERS_OBJ.reduce((a,s)=>a+(objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio)?.objetivo||0),0);
+          return (
+            <div key={q} style={{marginBottom:24}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                <div style={{fontWeight:700,fontSize:15,color:isActual?C.red:C.gray700}}>Q{q} {currentAnio} {isActual?"· Actual":"· Cerrado"}</div>
+                {totalObj>0&&<div style={{fontSize:12,color:C.gray400}}>Equipo: <strong style={{color:isActual?C.red:C.gray600}}>{fmt(totalQ)}</strong> de <strong>{fmt(totalObj)}</strong> ({pct(totalQ,totalObj)}%)</div>}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+                {SELLERS_OBJ.map(s=>{
+                  const obj = objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio);
+                  const tq = totalDeQ(s.id,q);
+                  return (
+                    <Card key={s.id} style={{textAlign:"center",border:`1.5px solid ${isActual?C.gray200:C.gray100}`,opacity:obj?1:0.5}}>
+                      <PieChart value={tq} max={obj?.objetivo||0} label={s.name} color={isActual?C.red:C.gray400} size={90}/>
+                      <div style={{fontSize:11,color:C.gray400,marginTop:6}}>{ventasDeQ(s.id,q).length} ventas</div>
+                      {obj ? <div style={{fontSize:11,color:C.gray500,marginTop:2}}>Obj: {fmt(obj.objetivo)}</div>
+                           : <div style={{fontSize:10,color:C.gray300,marginTop:2}}>Sin objetivo</div>}
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>KPIs detallados — esta semana</div>
         <Table
-          cols={[{key:"v",label:"Vendedor"},{key:"c",label:"Contactados"},{key:"ce",label:"C. efectivos"},{key:"pct",label:"%"},{key:"ra",label:"R. agendadas"},{key:"re",label:"R. efectivas"},{key:"con",label:"Concreción"},{key:"tk",label:"Ticket"},{key:"pc",label:"Pos. concreción"}]}
-          rows={SELLERS_OBJ.map(s=>{const k=myKpi(s.id,0);return{v:<div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:6,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:9,fontWeight:700}}>{s.avatar}</div><span style={{fontWeight:500,fontSize:13}}>{s.name}</span></div>,c:k.contactados||0,ce:k.contactados_efectivos||0,pct:<Badge color={(k.contactados_efectivos||0)>0?"green":"gray"}>{pct(k.contactados_efectivos||0,k.contactados||0)}%</Badge>,ra:k.reuniones_agendadas||0,re:k.reuniones_efectivas||0,con:`${k.concrecion||0}%`,tk:fmt(k.ticket_promedio||0),pc:<span style={{color:C.green,fontWeight:600}}>{fmt(k.posible_concrecion||0)}</span>};})}
+          cols={[{key:"v",label:"Vendedor"},{key:"c",label:"Contactados"},{key:"ce",label:"C. efectivos"},{key:"pp",label:"%"},{key:"ra",label:"R. agendadas"},{key:"re",label:"R. efectivas"},{key:"con",label:"Concreción"},{key:"tk",label:"Ticket"},{key:"pc",label:"Pos. concreción"}]}
+          rows={SELLERS_OBJ.map(s=>{const k=myKpi(s.id,0);return{
+            v:<div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:6,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:9,fontWeight:700}}>{s.avatar}</div><span style={{fontWeight:500,fontSize:13}}>{s.name}</span></div>,
+            c:k.contactados||0, ce:k.contactados_efectivos||0,
+            pp:<Badge color={(k.contactados_efectivos||0)>0?"green":"gray"}>{pct(k.contactados_efectivos||0,k.contactados||0)}%</Badge>,
+            ra:k.reuniones_agendadas||0, re:k.reuniones_efectivas||0, con:`${k.concrecion||0}%`,
+            tk:fmt(k.ticket_promedio||0),
+            pc:<span style={{color:C.green,fontWeight:600}}>{fmt(k.posible_concrecion||0)}</span>
+          };})}
         />
       </div>
     );
@@ -431,7 +426,7 @@ export default function App() {
     const list = (user.role==="gerente"
       ? (filterVendedor==="todos" ? sales : sales.filter(s=>s.ejecutivo===filterVendedor))
       : mySales);
-    const active=list.filter(s=>s.estado!=="cancelada");
+    const active = list.filter(s=>s.estado!=="cancelada");
     return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
@@ -467,8 +462,8 @@ export default function App() {
   };
 
   const KPIs = () => {
-    const week=getWeekDates(kpiWeekOffset);
-    const Nav=()=>(
+    const week = getWeekDates(kpiWeekOffset);
+    const Nav = () => (
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
         <Btn size="sm" onClick={()=>setKpiWeekOffset(w=>w-1)}>←</Btn>
         <span style={{fontSize:12,color:C.gray500,minWidth:130,textAlign:"center",fontWeight:500}}>{week.label}</span>
@@ -497,8 +492,8 @@ export default function App() {
         );})}
       </div>
     );
-    const cur=myKpi(user.id,kpiWeekOffset);
-    const fields=[["contactados","Contactados"],["contactados_efectivos","Contactados efectivos"],["reuniones_agendadas","Reuniones agendadas"],["reuniones_efectivas","Reuniones efectivas"],["concrecion","Concreción (%)"],["ticket_promedio","Ticket promedio"],["posible_concrecion","Posible concreción"],["control_calidad","Control calidad"]];
+    const cur = myKpi(user.id, kpiWeekOffset);
+    const fields = [["contactados","Contactados"],["contactados_efectivos","Contactados efectivos"],["reuniones_agendadas","Reuniones agendadas"],["reuniones_efectivas","Reuniones efectivas"],["concrecion","Concreción (%)"],["ticket_promedio","Ticket promedio"],["posible_concrecion","Posible concreción"],["control_calidad","Control calidad"]];
     return (
       <div style={{padding:"1.5rem",maxWidth:700}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:700}}>Mis KPIs</div><Nav/></div>
@@ -514,9 +509,7 @@ export default function App() {
             <span style={{color:C.gray400}}>% Contactos efectivos: </span>
             <strong style={{color:C.gray900}}>{pct(parseInt(kpiForm.contactados_efectivos||cur.contactados_efectivos)||0,parseInt(kpiForm.contactados||cur.contactados)||0)}%</strong>
           </div>
-          <Btn variant="primary" onClick={saveKPI} style={{width:"100%",justifyContent:"center"}}>
-            Guardar KPIs — {week.label}
-          </Btn>
+          <Btn variant="primary" onClick={saveKPI} style={{width:"100%",justifyContent:"center"}}>Guardar KPIs — {week.label}</Btn>
         </Card>
       </div>
     );
@@ -546,7 +539,9 @@ export default function App() {
                   <Btn size="sm" variant="primary" onClick={async()=>{const t=parseInt(document.getElementById(`t-${a.id}`).value)||a.total;const u=parseInt(document.getElementById(`u-${a.id}`).value)||a.used;await upsertItem("disponibilidad",a.id,{...a,total:t,used:u});setAvailability(prev=>prev.map(x=>x.id===a.id?{...x,total:t,used:u}:x));setEditAvail(null);}}>OK</Btn>
                   <Btn size="sm" onClick={()=>setEditAvail(null)}>×</Btn>
                 </div>
-              ):user.role==="gerente"&&<button onClick={()=>setEditAvail(a.id)} style={{marginTop:6,fontSize:11,color:C.red,background:"none",border:"none",cursor:"pointer",padding:0,fontWeight:500}}>Editar</button>}
+              ):user.role==="gerente"&&(
+                <button onClick={()=>setEditAvail(a.id)} style={{marginTop:6,fontSize:11,color:C.red,background:"none",border:"none",cursor:"pointer",padding:0,fontWeight:500}}>Editar</button>
+              )}
             </Card>
           );
         })}
@@ -555,23 +550,18 @@ export default function App() {
   );
 
   const Modificaciones = () => {
-    const pending=sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
-    const approved=sales.filter(s=>s.modificacion_aprobada);
+    const pending = sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
+    const approved = sales.filter(s=>s.modificacion_aprobada);
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
         <div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Solicitudes de modificación</div>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:13,fontWeight:600,color:C.amber,marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-            <Badge color="amber">Pendientes</Badge> {pending.length}
-          </div>
+          <div style={{fontSize:13,fontWeight:600,color:C.amber,marginBottom:10}}><Badge color="amber">Pendientes</Badge> {pending.length}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {pending.map(s=>(
               <Card key={s.id} style={{border:`1.5px solid ${C.amber}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div>
-                    <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)}</div>
-                  </div>
+                  <div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)}</div></div>
                   <div style={{display:"flex",gap:8}}>
                     <Btn size="sm" variant="success" onClick={()=>handleApproveMod(s.id)}>Aprobar</Btn>
                     <Btn size="sm" variant="danger" onClick={()=>handleRejectMod(s.id)}>Rechazar</Btn>
@@ -583,9 +573,7 @@ export default function App() {
           </div>
         </div>
         <div>
-          <div style={{fontSize:13,fontWeight:600,color:C.green,marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-            <Badge color="green">Aprobadas</Badge> {approved.length}
-          </div>
+          <div style={{fontSize:13,fontWeight:600,color:C.green,marginBottom:10}}><Badge color="green">Aprobadas</Badge> {approved.length}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {approved.map(s=>(
               <Card key={s.id} style={{border:`1.5px solid ${C.green}`}}>
@@ -602,7 +590,7 @@ export default function App() {
   };
 
   const Alertas = () => {
-    const vencidas=activeSales.filter(s=>{const d=daysUntil(s.fecha_fin);return d!==null&&d<0;});
+    const vencidas = activeSales.filter(s=>{const d=daysUntil(s.fecha_fin);return d!==null&&d<0;});
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
         <div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Alertas de Contratos</div>
@@ -641,7 +629,7 @@ export default function App() {
   };
 
   const Producciones = () => {
-    const list=user.role==="vendedor"?productions.filter(p=>p.ejecutivo===user.id):productions;
+    const list = user.role==="vendedor" ? productions.filter(p=>p.ejecutivo===user.id) : productions;
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
         <div style={{fontSize:20,fontWeight:700,marginBottom:20}}>{user.role==="marketing"?"Producciones a confirmar":user.role==="gerente"?"Producciones":"Mis Producciones"}</div>
@@ -653,8 +641,12 @@ export default function App() {
                 <div><div style={{fontWeight:600,fontSize:13}}>{p.cliente}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s?.name} · ×{p.produccion_q}</div></div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                   <Badge color={p.confirmado?"green":"amber"}>{p.confirmado?"Confirmado":"Pendiente"}</Badge>
-                  {(user.role==="marketing"||user.role==="vendedor")&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
-                  {user.role==="marketing"&&!p.confirmado&&<Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>}
+                  {(user.role==="marketing"||user.role==="vendedor")&&(
+                    <input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>
+                  )}
+                  {user.role==="marketing"&&!p.confirmado&&(
+                    <Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>
+                  )}
                 </div>
               </div>
             </Card>
@@ -728,6 +720,7 @@ export default function App() {
     modificaciones:<Modificaciones/>,
     alertas:<Alertas/>,
     alertas_admin:<Alertas/>,
+    contratos:<Alertas/>,
     comisiones:<div style={{padding:"1.5rem"}}><div style={{fontSize:20,fontWeight:700,color:C.gray900,marginBottom:8}}>Comisiones</div><div style={{color:C.gray400,fontSize:13,padding:"2rem",background:C.white,borderRadius:12,border:`1px solid ${C.gray200}`,textAlign:"center"}}>🔧 Sección en configuración — próximamente disponible</div></div>,
     facturacion:<Facturacion
       sales={sales}
@@ -741,7 +734,6 @@ export default function App() {
     assets:<EmptyState icon="📁" title="Assets" desc="Módulo en desarrollo"/>,
     metricas:<EmptyState icon="📈" title="Métricas" desc="Módulo en desarrollo"/>,
     reportes:<EmptyState icon="📊" title="Reportes" desc="Módulo en desarrollo"/>,
-    contratos:<Alertas/>,
   };
 
   return (
@@ -750,27 +742,20 @@ export default function App() {
       <div style={{minHeight:"calc(100vh - 54px)"}}>
         {loading ? <Spinner/> : (screens[tab]||<EmptyState icon="🔍" title="Sección no encontrada"/>)}
       </div>
-
-      {/* Detail Modal */}
       {detailSale&&(
         <SaleDetailModal
-          sale={detailSale}
-          onClose={()=>setDetailSale(null)}
+          sale={detailSale} onClose={()=>setDetailSale(null)}
           canEdit={detailSale.modificacion_aprobada&&user.role==="vendedor"}
-          isGerente={user.role==="gerente"}
-          isAdmin={user.role==="admin"}
+          isGerente={user.role==="gerente"} isAdmin={user.role==="admin"}
           onEdit={s=>{setEditSale(s);setDetailSale(null);}}
           onDelete={handleCancelSale}
           onApprove={id=>{handleApproveMod(id);setDetailSale(s=>({...s,modificacion_aprobada:true}));}}
           onReject={id=>{handleRejectMod(id);setDetailSale(null);}}
         />
       )}
-
-      {/* Sale Form */}
       {(showSaleForm||editSale)&&(
         <SaleForm
-          initialData={editSale}
-          currentUser={user}
+          initialData={editSale} currentUser={user}
           onClose={()=>{setShowSaleForm(false);setEditSale(null);}}
           onSave={async form=>{
             if(editSale){ await handleUpdateSale(editSale.id,{...form,modificacion_aprobada:false,solicitud_modificacion:false}); setEditSale(null); }
