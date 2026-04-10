@@ -1,5 +1,66 @@
-import { useState, useEffect } from "react";
-import { supabase } from "./supabase";
+import { useState, useEffect, useRef } from "react";
+
+const JSONBIN_KEY = "$2a$10$BEkST1829rW1MngDe/hVteb2Q9U7HEiuPmmsKms3WHdn7yXBk.vSS";
+const JSONBIN_URL = "https://api.jsonbin.io/v3/b";
+
+// Each "table" is a separate bin. We store bin IDs in localStorage.
+const getBinId = (table) => localStorage.getItem(`bin_${table}`);
+const setBinId = (table, id) => localStorage.setItem(`bin_${table}`, id);
+
+const headers = {
+  "Content-Type": "application/json",
+  "X-Master-Key": JSONBIN_KEY,
+  "X-Bin-Versioning": "false",
+};
+
+const TABLES = ["ventas","kpis","producciones","disponibilidad","posts_social","facturas"];
+
+const INIT_DATA = {
+  ventas: [],
+  kpis: [],
+  producciones: [],
+  disponibilidad: [
+    {producto:"Propiedades",total:10,used:3},{producto:"Destacadas",total:10,used:5},
+    {producto:"Superdestacadas",total:10,used:2},{producto:"Super destacada Home Venta",total:10,used:4},
+    {producto:"Destacada Home Venta",total:10,used:6},{producto:"Super destacada Home Alquiler",total:10,used:1},
+    {producto:"Destacada Home Alquiler",total:10,used:3},{producto:"Índice",total:10,used:7},
+    {producto:"Producción",total:10,used:2},{producto:"Banner",total:10,used:4},{producto:"Desarrollos",total:10,used:1},
+  ],
+  posts_social: [
+    {id:1,fecha:"2025-04-10",platform:"Instagram",content:"Nueva propiedad destacada en Recoleta",status:"programado"},
+    {id:2,fecha:"2025-04-15",platform:"Facebook",content:"Oferta especial paquetes mayo",status:"borrador"},
+  ],
+  facturas: [
+    {id:1,folio:"F-001",client:"Inmobiliaria Sur",amount:7140000,date:"2025-01-05",status:"pagada"},
+    {id:2,folio:"F-002",client:"Norte Propiedades",amount:1428000,date:"2025-02-05",status:"pendiente"},
+  ],
+};
+
+async function readBin(table) {
+  const id = getBinId(table);
+  if (!id) return null;
+  const r = await fetch(`${JSONBIN_URL}/${id}/latest`, { headers });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return j.record;
+}
+
+async function writeBin(table, data) {
+  const id = getBinId(table);
+  if (!id) {
+    // create new bin
+    const r = await fetch(JSONBIN_URL, {
+      method: "POST",
+      headers: { ...headers, "X-Bin-Name": `veocasas_${table}` },
+      body: JSON.stringify(data),
+    });
+    const j = await r.json();
+    setBinId(table, j.metadata.id);
+    return data;
+  }
+  await fetch(`${JSONBIN_URL}/${id}`, { method: "PUT", headers, body: JSON.stringify(data) });
+  return data;
+}
 
 const C = { red:"#C0001A", darkRed:"#8B0013", black:"#111111", white:"#FFFFFF", gray:"#F5F5F5", grayMid:"#E0E0E0", grayDark:"#555555", grayText:"#888888" };
 
