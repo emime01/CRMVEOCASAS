@@ -214,6 +214,10 @@ export default function App() {
 
   const DashboardVendedor = () => {
     const lastKpi=myKpi(user.id,0);
+    const now=new Date();
+    const q=Math.ceil((now.getMonth()+1)/3);
+    const qLabel=`Q${q} ${now.getFullYear()}`;
+    const totalQ=totalVentasQ(user.id);
     const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
     const objetivo=myObjetivo(user.id);
     const comPct=comisiones?.vendedores?.[user.id]||0;
@@ -241,9 +245,10 @@ export default function App() {
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
           <Card>
-            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Objetivo mensual</div>
-            <div style={{display:"flex",justifyContent:"center"}}><PieChart value={totalVentas} max={objetivo} label={user.name}/></div>
-            {objetivo===0&&<div style={{textAlign:"center",fontSize:11,color:C.gray400,marginTop:8}}>Sin objetivo asignado</div>}
+            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:6}}>Objetivo {qLabel}</div>
+            <div style={{fontSize:11,color:C.gray400,marginBottom:12}}>Ventas cerradas en el trimestre</div>
+            <div style={{display:"flex",justifyContent:"center"}}><PieChart value={totalQ} max={objetivo} label={qLabel}/></div>
+            {objetivo===0&&<div style={{textAlign:"center",fontSize:11,color:C.gray400,marginTop:8}}>Sin objetivo asignado para {qLabel}</div>}
           </Card>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Ventas — últimas 4 semanas</div>
@@ -276,11 +281,14 @@ export default function App() {
 
   const DashboardGerente = () => {
     const now=new Date();const mes=now.getMonth()+1;const anio=now.getFullYear();
+    const q=Math.ceil(mes/3);
+    const qLabel=`Q${q} ${anio}`;
     const total=activeSales.reduce((a,s)=>a+(s.total||0),0);
     const vxv=SELLERS_OBJ.map(s=>({...s,
+      totalQ:totalVentasQ(s.id),
       total:activeSales.filter(v=>v.ejecutivo===s.id).reduce((a,v)=>a+(v.total||0),0),
       cantidad:activeSales.filter(v=>v.ejecutivo===s.id).length,
-      objetivo:objetivos.find(o=>o.ejecutivo===s.id&&o.mes===mes&&o.anio===anio)?.objetivo||0
+      objetivo:objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===anio)?.objetivo||0
     }));
     const weeklyTeam=[-4,-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:activeSales.filter(s=>s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
     const totalObj=vxv.reduce((a,v)=>a+v.objetivo,0);
@@ -347,25 +355,25 @@ export default function App() {
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:20}}>
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Facturación por semana</div><BarChart data={weeklyTeam} height={110}/></Card>
           <Card>
-            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>Progreso equipo {mes}/{anio}</div>
-            <div style={{marginBottom:12}}><div style={{fontSize:11,color:C.gray400,marginBottom:4}}>Total equipo</div><ProgressBar value={total} max={totalObj}/></div>
+            <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>Progreso equipo {qLabel}</div>
+            <div style={{marginBottom:12}}><div style={{fontSize:11,color:C.gray400,marginBottom:4}}>Total equipo</div><ProgressBar value={vxv.reduce((a,v)=>a+v.totalQ,0)} max={totalObj}/></div>
             {vxv.map(v=>(
               <div key={v.id} style={{marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
                   <span style={{fontWeight:500,color:C.gray700}}>{v.name}</span>
-                  <span style={{color:C.gray400}}>{v.objetivo>0?`${pct(v.total,v.objetivo)}%`:"—"}</span>
+                  <span style={{color:C.gray400}}>{v.objetivo>0?`${pct(v.totalQ,v.objetivo)}%`:"—"}</span>
                 </div>
-                <ProgressBar value={v.total} max={v.objetivo} showLabel={false}/>
+                <ProgressBar value={v.totalQ} max={v.objetivo} showLabel={false}/>
               </div>
             ))}
           </Card>
         </div>
-        <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>Objetivos individuales</div>
+        <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>Objetivos {qLabel}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
           {vxv.map(v=>(
             <Card key={v.id} style={{textAlign:"center"}}>
-              <PieChart value={v.total} max={v.objetivo} label={v.name} size={100}/>
-              <div style={{fontSize:11,color:C.gray400,marginTop:6}}>{v.cantidad} ventas · {fmt(v.total)}</div>
+              <PieChart value={v.totalQ} max={v.objetivo} label={v.name} size={100}/>
+              <div style={{fontSize:11,color:C.gray400,marginTop:6}}>{v.cantidad} ventas · {fmt(v.totalQ)} en {qLabel}</div>
             </Card>
           ))}
         </div>
