@@ -131,6 +131,17 @@ export default function App() {
   };
 
   const myKpi=(uid,week)=>kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
+
+  const ventasDelQ=(uid)=>{
+    const now=new Date();
+    const q=Math.ceil((now.getMonth()+1)/3);
+    const qStart=new Date(now.getFullYear(),(q-1)*3,1).toISOString().split("T")[0];
+    const qEnd=new Date(now.getFullYear(),q*3,0).toISOString().split("T")[0];
+    return sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_venta>=qStart&&s.fecha_venta<=qEnd);
+  };
+
+  const totalVentasQ=(uid)=>ventasDelQ(uid).reduce((a,s)=>a+(s.total||0),0);
+
   const myObjetivo=(uid)=>{const now=new Date();return objetivos.find(o=>o.ejecutivo===uid&&o.mes===now.getMonth()+1&&o.anio===now.getFullYear())?.objetivo||0;};
   const pct=(a,b)=>b>0?Math.round((a/b)*100):0;
 
@@ -214,15 +225,15 @@ export default function App() {
 
   const DashboardVendedor = () => {
     const lastKpi=myKpi(user.id,0);
-    const now=new Date();
-    const q=Math.ceil((now.getMonth()+1)/3);
-    const qLabel=`Q${q} ${now.getFullYear()}`;
+    const hoy=new Date();
+    const q=Math.ceil((hoy.getMonth()+1)/3);
+    const qLabel=`Q${q} ${hoy.getFullYear()}`;
     const totalQ=totalVentasQ(user.id);
     const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
     const objetivo=myObjetivo(user.id);
     const comPct=comisiones?.vendedores?.[user.id]||0;
-    const now=new Date();
-    const mes=now.getMonth()+1; const anio=now.getFullYear();
+    const now=hoy;
+    const mes=hoy.getMonth()+1; const anio=hoy.getFullYear();
     const getCuotaMes=(v)=>{
       if(!v.fecha_inicio) return v.total;
       const nc=v.num_cuotas||1; const mc=v.total/nc;
@@ -688,7 +699,14 @@ export default function App() {
     alertas:<Alertas/>,
     alertas_admin:<Alertas/>,
     comisiones:<div style={{padding:"1.5rem"}}><div style={{fontSize:20,fontWeight:700,color:C.gray900,marginBottom:8}}>Comisiones</div><div style={{color:C.gray400,fontSize:13,padding:"2rem",background:C.white,borderRadius:12,border:`1px solid ${C.gray200}`,textAlign:"center"}}>🔧 Sección en configuración — próximamente disponible</div></div>,
-    facturacion:<Facturacion sales={sales} invoices={invoices} onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}} onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}} onUpdateSaleFacturado={async(id,v)=>handleUpdateSale(id,{facturado:v})}/>,
+    facturacion:<Facturacion
+      sales={sales}
+      invoices={invoices}
+      isGerente={user.role==="gerente"}
+      onUpdateSale={handleUpdateSale}
+      onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}}
+      onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}}
+    />,
     clientes:<div style={{padding:"1.5rem",maxWidth:900}}><div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Clientes</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()].map(s=><Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s.razon_social} · {s.rut}</div><div style={{fontSize:11,color:C.gray400}}>{s.mail} · {s.telefono}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700,color:C.red,fontSize:14}}>{fmt(s.total)}</div><div style={{fontSize:11,color:C.gray400}}>{s.metodo_pago}</div></div></div></Card>)}</div></div>,
     assets:<EmptyState icon="📁" title="Assets" desc="Módulo en desarrollo"/>,
     metricas:<EmptyState icon="📈" title="Métricas" desc="Módulo en desarrollo"/>,
