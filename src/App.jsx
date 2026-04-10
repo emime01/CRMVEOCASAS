@@ -131,6 +131,17 @@ export default function App() {
   };
 
   const myKpi=(uid,week)=>kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
+
+  const ventasDelQ=(uid)=>{
+    const now=new Date();
+    const q=Math.ceil((now.getMonth()+1)/3);
+    const qStart=new Date(now.getFullYear(),(q-1)*3,1).toISOString().split("T")[0];
+    const qEnd=new Date(now.getFullYear(),q*3,0).toISOString().split("T")[0];
+    return sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_venta>=qStart&&s.fecha_venta<=qEnd);
+  };
+
+  const totalVentasQ=(uid)=>ventasDelQ(uid).reduce((a,s)=>a+(s.total||0),0);
+
   const myObjetivo=(uid)=>{const now=new Date();return objetivos.find(o=>o.ejecutivo===uid&&o.mes===now.getMonth()+1&&o.anio===now.getFullYear())?.objetivo||0;};
   const pct=(a,b)=>b>0?Math.round((a/b)*100):0;
 
