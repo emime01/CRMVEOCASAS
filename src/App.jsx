@@ -48,7 +48,7 @@ export default function App() {
   const [editAvail, setEditAvail] = useState(null);
   const [kpiForm, setKpiForm] = useState({});
   const [postForm, setPostForm] = useState({fecha:"",platform:"Instagram",content:"",status:"borrador"});
-  const [objetivoForm, setObjetivoForm] = useState({ejecutivo:"sebastian",objetivo:0,mes:new Date().getMonth()+1,anio:new Date().getFullYear()});
+  const [objetivoForm, setObjetivoForm] = useState({ejecutivo:"sebastian",objetivo:0,q:1,anio:new Date().getFullYear()});
   const [filterVendedor, setFilterVendedor] = useState("todos");
 
   const defaultTab = r => ({gerente:"dashboard_gerente",vendedor:"dashboard",marketing:"producciones",admin:"facturacion"}[r]||"dashboard");
@@ -648,7 +648,7 @@ export default function App() {
     modificaciones:<Modificaciones/>,
     alertas:<Alertas/>,
     alertas_admin:<Alertas/>,
-    comisiones:<Comisiones sales={sales} comisiones={comisiones} onUpdateComision={updateComision} currentUser={user}/>,
+    comisiones:<div style={{padding:"1.5rem"}}><div style={{fontSize:20,fontWeight:700,color:C.gray900,marginBottom:8}}>Comisiones</div><div style={{color:C.gray400,fontSize:13,padding:"2rem",background:C.white,borderRadius:12,border:`1px solid ${C.gray200}`,textAlign:"center"}}>🔧 Sección en configuración — próximamente disponible</div></div>,
     facturacion:<Facturacion sales={sales} invoices={invoices} onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}} onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}} onUpdateSaleFacturado={async(id,v)=>handleUpdateSale(id,{facturado:v})}/>,
     clientes:<div style={{padding:"1.5rem",maxWidth:900}}><div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Clientes</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()].map(s=><Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s.razon_social} · {s.rut}</div><div style={{fontSize:11,color:C.gray400}}>{s.mail} · {s.telefono}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700,color:C.red,fontSize:14}}>{fmt(s.total)}</div><div style={{fontSize:11,color:C.gray400}}>{s.metodo_pago}</div></div></div></Card>)}</div></div>,
     assets:<EmptyState icon="📁" title="Assets" desc="Módulo en desarrollo"/>,
