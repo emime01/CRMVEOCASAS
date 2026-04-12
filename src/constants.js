@@ -36,12 +36,12 @@ export const PLANS = ["50","Standard","Premium","Elite","Unique","A medida"];
 export const PLATFORMS = ["Instagram","Facebook","LinkedIn","TikTok","Twitter/X"];
 
 export const C = {
-  red:"#C0001A", redDark:"#8B0013", redLight:"#FFF0F0",
-  black:"#0A0A0A", white:"#FFFFFF",
-  gray50:"#FAFAFA", gray100:"#F4F4F5", gray200:"#E4E4E7",
-  gray300:"#D1D1D6", gray400:"#A1A1AA", gray500:"#71717A",
-  gray600:"#52525B", gray700:"#3F3F46", gray800:"#27272A", gray900:"#18181B",
-  green:"#16A34A", greenLight:"#F0FDF4",
+  red:"#F20000", redDark:"#cc0000", redLight:"#fff0f0",
+  black:"#212121", white:"#FFFFFF",
+  gray50:"#f5f5f5", gray100:"#f5f5f5", gray200:"#e0e0e0",
+  gray300:"#e0e0e0", gray400:"#6b6b6b", gray500:"#6b6b6b",
+  gray600:"#3a3a3a", gray700:"#3a3a3a", gray800:"#212121", gray900:"#212121",
+  green:"#1a7a3e", greenLight:"#F0FDF4",
   amber:"#D97706", amberLight:"#FFFBEB",
   blue:"#2563EB", blueLight:"#EFF6FF",
 };

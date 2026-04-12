@@ -19,7 +19,7 @@ export function SaleCard({ sale, onClick, showActions, onRequestEdit, onDelete }
   else if (venciendo) borderColor = C.red;
 
   return (
-    <Card style={{border:`1.5px solid ${borderColor}`,opacity:cancelada?0.6:1,cursor:"pointer"}} onClick={()=>onClick&&onClick(sale)}>
+    <Card style={{border:`1px solid ${borderColor}`,opacity:cancelada?0.6:1,cursor:"pointer"}} onClick={()=>onClick&&onClick(sale)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>

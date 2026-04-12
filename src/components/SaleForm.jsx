@@ -115,7 +115,7 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
             <Field label="Forma de pago contado">
               <div style={{display:"flex",gap:8}}>
                 {["transferencia","cheque","depósito"].map(m=>(
-                  <button key={m} onClick={()=>set("subtipo_contado",m)} style={{flex:1,padding:"8px",borderRadius:7,border:`1.5px solid ${form.subtipo_contado===m?C.red:C.gray200}`,background:form.subtipo_contado===m?C.redLight:C.white,color:form.subtipo_contado===m?C.red:C.gray600,fontSize:12,cursor:"pointer",textTransform:"capitalize",transition:"all 0.15s"}}>
+                  <button key={m} onClick={()=>set("subtipo_contado",m)} style={{flex:1,padding:"8px",borderRadius:7,border:`1px solid ${form.subtipo_contado===m?C.red:C.gray200}`,background:form.subtipo_contado===m?C.redLight:C.white,color:form.subtipo_contado===m?C.red:C.gray600,fontSize:12,cursor:"pointer",textTransform:"capitalize",transition:"all 0.15s"}}>
                     {m}
                   </button>
                 ))}
@@ -126,7 +126,7 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
               <Field label="Tipo de cuotas">
                 <div style={{display:"flex",gap:8}}>
                   {["contrato","link handy"].map(m=>(
-                    <button key={m} onClick={()=>set("subtipo_cuotas",m)} style={{flex:1,padding:"8px",borderRadius:7,border:`1.5px solid ${form.subtipo_cuotas===m?C.red:C.gray200}`,background:form.subtipo_cuotas===m?C.redLight:C.white,color:form.subtipo_cuotas===m?C.red:C.gray600,fontSize:12,cursor:"pointer",textTransform:"capitalize",transition:"all 0.15s"}}>
+                    <button key={m} onClick={()=>set("subtipo_cuotas",m)} style={{flex:1,padding:"8px",borderRadius:7,border:`1px solid ${form.subtipo_cuotas===m?C.red:C.gray200}`,background:form.subtipo_cuotas===m?C.redLight:C.white,color:form.subtipo_cuotas===m?C.red:C.gray600,fontSize:12,cursor:"pointer",textTransform:"capitalize",transition:"all 0.15s"}}>
                       {m==="contrato"?"Contrato":"Link Handy"}
                     </button>
                   ))}
