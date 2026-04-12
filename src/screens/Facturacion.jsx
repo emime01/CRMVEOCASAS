@@ -131,7 +131,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: C.gray900 }}>Facturación y Cobros</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.black }}>Facturación y Cobros</div>
           <div style={{ fontSize: 12, color: C.gray400, marginTop: 2 }}>Control de cuotas y pagos</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -159,7 +159,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
       </div>
 
       {/* Tabs */}
-      <div style={{ borderBottom: `1.5px solid ${C.gray200}`, marginBottom: 20, display: "flex", gap: 2, overflowX: "auto" }}>
+      <div style={{ borderBottom: `1px solid ${C.gray200}`, marginBottom: 20, display: "flex", gap: 2, overflowX: "auto" }}>
         {mainTabs.map(t => (
           <button key={t.id} onClick={() => setTabMain(t.id)}
             style={{ padding: "10px 16px", border: "none", background: "none", fontSize: 13, fontWeight: tabMain === t.id ? 600 : 400, color: tabMain === t.id ? C.red : C.gray500, borderBottom: `2px solid ${tabMain === t.id ? C.red : "transparent"}`, cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -191,7 +191,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
                 </div>
 
                 {/* Grilla de cuotas — estilo sheet */}
-                <div style={{ overflowX: "auto", borderRadius: 10, border: `1.5px solid ${C.gray200}` }}>
+                <div style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${C.gray200}` }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: C.gray900 }}>
@@ -290,12 +290,12 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
           <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
             {[{ k: "todas", l: "Todas" }, { k: "pendiente", l: "Pendiente facturar" }, { k: "facturado", l: "Facturadas" }].map(f => (
               <button key={f.k} onClick={() => setFilterEstado(f.k)}
-                style={{ padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${filterEstado === f.k ? C.red : C.gray200}`, background: filterEstado === f.k ? C.redLight : C.white, color: filterEstado === f.k ? C.red : C.gray600, fontSize: 12, cursor: "pointer" }}>
+                style={{ padding: "5px 14px", borderRadius: 20, border: `1px solid ${filterEstado === f.k ? C.red : C.gray200}`, background: filterEstado === f.k ? C.redLight : C.white, color: filterEstado === f.k ? C.red : C.gray600, fontSize: 12, cursor: "pointer" }}>
                 {f.l}
               </button>
             ))}
           </div>
-          <div style={{ overflowX: "auto", borderRadius: 10, border: `1.5px solid ${C.gray200}` }}>
+          <div style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${C.gray200}` }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: C.gray900 }}>
@@ -345,7 +345,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
             Cuotas de {mes}/{anio} — {cuotasMesActual.length} cuotas · {fmt(cuotasMesActual.reduce((a, c) => a + c.monto, 0))} total
           </div>
           {cuotasMesActual.length === 0 && <EmptyState icon="📅" title="Sin cuotas este mes" />}
-          <div style={{ overflowX: "auto", borderRadius: 10, border: `1.5px solid ${C.gray200}` }}>
+          <div style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${C.gray200}` }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: C.gray900 }}>
@@ -413,7 +413,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
             <Stat label="Cobradas" value={invoices.filter(i => i.status === "pagada").length} color={C.green} />
             <Stat label="Total cobrado" value={fmt(invoices.filter(i => i.status === "pagada").reduce((a, i) => a + (i.amount || 0), 0))} color={C.green} />
           </div>
-          <div style={{ overflowX: "auto", borderRadius: 10, border: `1.5px solid ${C.gray200}` }}>
+          <div style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${C.gray200}` }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: C.gray900 }}>

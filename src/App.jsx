@@ -182,19 +182,19 @@ export default function App() {
 
   // ── LOGIN SCREEN ──────────────────────────────────────────
   if(!user) return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0A0A0A 0%,#1a0005 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+    <div style={{minHeight:"100vh",background:C.white,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
       <div style={{marginBottom:"2rem",textAlign:"center"}}>
-        <div style={{fontSize:36,fontWeight:800,color:C.white,letterSpacing:3,marginBottom:4}}>VEO<span style={{color:C.red}}>CASAS</span></div>
-        <div style={{color:C.gray500,fontSize:13}}>CRM Comercial · Modo prueba</div>
+        <div style={{fontSize:36,fontWeight:800,color:C.red,letterSpacing:"-0.5px",marginBottom:4}}>veocasas</div>
+        <div style={{color:C.gray500,fontSize:14,fontWeight:400}}>CRM Comercial · Modo prueba</div>
       </div>
-      <div style={{background:C.white,borderRadius:20,padding:"2rem",width:"100%",maxWidth:480,boxShadow:"0 25px 60px rgba(0,0,0,0.4)"}}>
-        <div style={{fontSize:14,fontWeight:600,color:C.gray700,marginBottom:16}}>Seleccioná tu perfil</div>
+      <div style={{background:C.white,borderRadius:16,padding:"2rem",width:"100%",maxWidth:480,border:`1px solid ${C.gray200}`}}>
+        <div style={{fontSize:16,fontWeight:700,color:C.black,marginBottom:16}}>Seleccioná tu perfil</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
           {USERS.filter(u=>u.role!=="inactivo").map(u=>(
             <button key={u.id} onClick={()=>login(u)}
-              style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",border:`1.5px solid ${C.gray200}`,borderRadius:12,background:C.white,cursor:"pointer",transition:"all 0.15s"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.red;e.currentTarget.style.background=C.gray50;e.currentTarget.style.transform="translateY(-1px)";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.gray200;e.currentTarget.style.background=C.white;e.currentTarget.style.transform="none";}}>
+              style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",border:`1px solid ${C.gray200}`,borderRadius:12,background:C.white,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.red;e.currentTarget.style.background=C.redLight;}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.gray200;e.currentTarget.style.background=C.white;}}>
               <div style={{width:38,height:38,borderRadius:10,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontWeight:700,fontSize:12,flexShrink:0}}>{u.avatar}</div>
               <div style={{textAlign:"left"}}>
                 <div style={{fontWeight:600,fontSize:13,color:C.gray900}}>{u.name}</div>
@@ -220,34 +220,41 @@ export default function App() {
   // ── NAVBAR ────────────────────────────────────────────────
   const NavBar = () => (
     <>
-      <div style={{background:C.gray900,padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:54,position:"sticky",top:0,zIndex:100,borderBottom:`1px solid ${C.gray800}`}}>
+      <div style={{background:"#212121",padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:54,position:"sticky",top:0,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",gap:20}}>
-          <span style={{fontSize:16,fontWeight:800,color:C.white,letterSpacing:2,flexShrink:0}}>VEO<span style={{color:C.red}}>CASAS</span></span>
+          <span style={{fontSize:16,fontWeight:800,color:C.red,letterSpacing:"-0.5px",flexShrink:0}}>veocasas</span>
           <div style={{display:"flex",gap:2}} id="desktop-nav">
             {currentTabs.map(t=>(
               <button key={t.id} onClick={()=>setTab(t.id)}
-                style={{padding:"6px 12px",borderRadius:7,border:"none",background:tab===t.id?"rgba(192,0,26,0.15)":"transparent",color:tab===t.id?C.red:C.gray400,fontSize:12,fontWeight:tab===t.id?600:400,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap"}}>
+                style={{padding:"4px 12px",borderRadius:6,border:"none",background:tab===t.id?"rgba(242,0,0,0.18)":"transparent",color:tab===t.id?C.red:"rgba(255,255,255,0.65)",fontSize:14,fontWeight:500,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",fontFamily:"'Montserrat', sans-serif"}}
+                onMouseEnter={e=>{if(tab!==t.id)e.currentTarget.style.color="rgba(255,255,255,0.9)";}}
+                onMouseLeave={e=>{if(tab!==t.id)e.currentTarget.style.color="rgba(255,255,255,0.65)";}}>
                 {t.label}
               </button>
             ))}
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {saving&&<span style={{fontSize:11,color:C.gray500}}>Guardando...</span>}
+          {saving&&<span style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>Guardando...</span>}
           {alertas.length>0&&<div style={{width:7,height:7,borderRadius:"50%",background:C.red}}/>}
           <div style={{width:32,height:32,borderRadius:9,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700}}>{user.avatar}</div>
-          <span style={{color:C.gray300,fontSize:13,fontWeight:500}}>{user.name}</span>
-          <button onClick={logout} style={{padding:"5px 10px",borderRadius:7,border:`1px solid ${C.gray700}`,background:"transparent",color:C.gray500,fontSize:11,cursor:"pointer"}}>Salir</button>
+          <span style={{color:"rgba(255,255,255,0.8)",fontSize:13,fontWeight:500}}>{user.name}</span>
+          <button onClick={logout}
+            style={{padding:"5px 10px",borderRadius:7,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.6)",fontSize:11,fontWeight:500,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,1)";e.currentTarget.style.color="rgba(255,255,255,1)";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.2)";e.currentTarget.style.color="rgba(255,255,255,0.6)";}}>
+            Salir
+          </button>
           <button onClick={()=>setMenuOpen(m=>!m)} id="mobile-menu-btn"
-            style={{display:"none",padding:"5px 8px",border:`1px solid ${C.gray700}`,borderRadius:7,background:"transparent",color:C.white,fontSize:16,cursor:"pointer",lineHeight:1}}>☰</button>
+            style={{display:"none",padding:"5px 8px",border:"1px solid rgba(255,255,255,0.2)",borderRadius:7,background:"transparent",color:C.white,fontSize:16,cursor:"pointer",lineHeight:1}}>☰</button>
         </div>
       </div>
       <style>{`@media(max-width:768px){#desktop-nav{display:none!important;}#mobile-menu-btn{display:flex!important;}}`}</style>
       {menuOpen&&(
-        <div style={{background:C.gray900,borderBottom:`1px solid ${C.gray800}`,padding:"8px 1rem",display:"flex",flexDirection:"column",gap:2}}>
+        <div style={{background:"#212121",borderBottom:"1px solid rgba(255,255,255,0.1)",padding:"8px 1rem",display:"flex",flexDirection:"column",gap:2}}>
           {currentTabs.map(t=>(
             <button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}}
-              style={{padding:"10px 14px",borderRadius:8,border:"none",background:tab===t.id?"rgba(192,0,26,0.15)":"transparent",color:tab===t.id?C.red:C.gray400,fontSize:13,fontWeight:tab===t.id?600:400,cursor:"pointer",textAlign:"left"}}>
+              style={{padding:"10px 14px",borderRadius:8,border:"none",background:tab===t.id?"rgba(242,0,0,0.18)":"transparent",color:tab===t.id?C.red:"rgba(255,255,255,0.65)",fontSize:13,fontWeight:500,cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat', sans-serif"}}>
               {t.label}
             </button>
           ))}
@@ -324,7 +331,7 @@ export default function App() {
                   const part=form.participantes.find(p=>p.ejecutivo===s.id);
                   const sel=!!part;
                   return (
-                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,border:`1.5px solid ${sel?C.red:C.gray200}`,background:sel?C.redLight:C.white,transition:"all 0.15s"}}>
+                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,border:`1px solid ${sel?C.red:C.gray200}`,background:sel?C.redLight:C.white,transition:"all 0.15s"}}>
                       <input type="checkbox" checked={sel} onChange={()=>togglePart(s.id)} style={{accentColor:C.red,width:15,height:15,cursor:"pointer"}}/>
                       <div style={{width:28,height:28,borderRadius:7,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:10,fontWeight:700,flexShrink:0}}>{s.avatar}</div>
                       <span style={{fontWeight:500,fontSize:13,flex:1,color:C.gray900}}>{s.name}</span>
@@ -380,8 +387,8 @@ export default function App() {
     return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:22,fontWeight:800,color:C.gray900}}>Hola, {user.name} 👋</div>
-          <div style={{fontSize:13,color:C.gray400,marginTop:4}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div>
+          <div style={{fontSize:28,fontWeight:800,color:C.black}}>Hola, {user.name} 👋</div>
+          <div style={{fontSize:14,color:C.gray500,marginTop:4}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
           <Stat label="Ventas activas" value={mySales.filter(s=>s.estado!=="cancelada").length} color={C.red}/>
@@ -399,7 +406,7 @@ export default function App() {
                 const tq=totalDeQ(user.id,obj.q);
                 const isActual=obj.q===currentQ;
                 return (
-                  <Card key={obj.q} style={{border:`1.5px solid ${isActual?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
+                  <Card key={obj.q} style={{border:`1px solid ${isActual?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
                     {isActual&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
                     <div style={{fontSize:11,fontWeight:600,color:isActual?C.red:C.gray500,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Q{obj.q} {isActual?"· Actual":"· Cerrado"}</div>
                     <PieChart value={tq} max={obj.objetivo} label={`Q${obj.q}`} color={isActual?C.red:C.gray400} size={100}/>
@@ -427,7 +434,7 @@ export default function App() {
                 const activo=isRunActivo(run);
                 const vencido=isRunVencido(run);
                 return (
-                  <Card key={run.id} style={{border:`1.5px solid ${activo?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
+                  <Card key={run.id} style={{border:`1px solid ${activo?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
                     {activo&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
                     <div style={{fontSize:11,fontWeight:600,color:activo?C.red:C.gray400,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{activo?"🔥 Activo":vencido?"Finalizado":"Próximo"}</div>
                     <div style={{fontWeight:700,fontSize:13,color:C.gray900,marginBottom:2}}>{run.nombre}</div>
@@ -475,7 +482,7 @@ export default function App() {
       <div style={{padding:"1.5rem",maxWidth:1100}}>
         {showObjetivoForm&&<ObjetivoModal/>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
-          <div><div style={{fontSize:22,fontWeight:800,color:C.gray900}}>Dashboard Equipo</div><div style={{fontSize:13,color:C.gray400}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div></div>
+          <div><div style={{fontSize:28,fontWeight:800,color:C.black}}>Dashboard Equipo</div><div style={{fontSize:14,color:C.gray500}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div></div>
           <div style={{display:"flex",gap:8}}>
             <Btn onClick={()=>{setEditRun(null);setShowRunForm(true);}}>+ Nuevo Run</Btn>
             <Btn variant="primary" onClick={()=>setShowObjetivoForm(true)}>+ Asignar objetivo</Btn>
@@ -517,7 +524,7 @@ export default function App() {
                   const obj=objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio);
                   const tq=totalDeQ(s.id,q);
                   return (
-                    <Card key={s.id} style={{textAlign:"center",border:`1.5px solid ${isActual?C.gray200:C.gray100}`,opacity:obj?1:0.5}}>
+                    <Card key={s.id} style={{textAlign:"center",border:`1px solid ${isActual?C.gray200:C.gray100}`,opacity:obj?1:0.5}}>
                       <PieChart value={tq} max={obj?.objetivo||0} label={s.name} color={isActual?C.red:C.gray400} size={90}/>
                       <div style={{fontSize:11,color:C.gray400,marginTop:6}}>{ventasDeQ(s.id,q).length} ventas</div>
                       {obj?(
@@ -544,7 +551,7 @@ export default function App() {
             const activo=isRunActivo(run);
             const vencido=isRunVencido(run);
             return (
-              <Card key={run.id} style={{border:`1.5px solid ${activo?C.red:vencido?C.gray100:C.gray200}`}}>
+              <Card key={run.id} style={{border:`1px solid ${activo?C.red:vencido?C.gray100:C.gray200}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:12}}>
                   <div>
                     <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -600,7 +607,7 @@ export default function App() {
     return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-          <div style={{fontSize:20,fontWeight:700,color:C.gray900}}>Ventas {user.role==="gerente"?"— Equipo":"— Mis Ventas"}</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.black}}>Ventas {user.role==="gerente"?"— Equipo":"— Mis Ventas"}</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {user.role==="gerente"&&(
               <select value={filterVendedor} onChange={e=>setFilterVendedor(e.target.value)} style={{...inp,width:"auto",padding:"7px 12px",fontSize:12}}>
@@ -638,7 +645,7 @@ export default function App() {
     );
     if(user.role==="gerente") return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:700}}>KPIs del Equipo</div><Nav/></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:800,color:C.black}}>KPIs del Equipo</div><Nav/></div>
         {SELLERS_OBJ.map(s=>{const k=myKpi(s.id,kpiWeekOffset);return(
           <Card key={s.id} style={{marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
@@ -662,7 +669,7 @@ export default function App() {
     const fields=[["contactados","Contactados"],["contactados_efectivos","Contactados efectivos"],["reuniones_agendadas","Reuniones agendadas"],["reuniones_efectivas","Reuniones efectivas"],["concrecion","Concreción (%)"],["ticket_promedio","Ticket promedio"],["posible_concrecion","Posible concreción"],["control_calidad","Control calidad"]];
     return (
       <div style={{padding:"1.5rem",maxWidth:700}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:700}}>Mis KPIs</div><Nav/></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:800,color:C.black}}>Mis KPIs</div><Nav/></div>
         <Card>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 20px",marginBottom:14}}>
             {fields.map(([f,lbl])=>(
@@ -683,7 +690,7 @@ export default function App() {
 
   const Disponibilidad = () => (
     <div style={{padding:"1.5rem",maxWidth:800}}>
-      <div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Disponibilidad de Productos</div>
+      <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Disponibilidad de Productos</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         {availability.map(a=>{
           const p=Math.round((a.used/a.total)*100);
@@ -718,12 +725,12 @@ export default function App() {
     const approved=sales.filter(s=>s.modificacion_aprobada);
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
-        <div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Solicitudes de modificación</div>
+        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Solicitudes de modificación</div>
         <div style={{marginBottom:20}}>
           <div style={{fontSize:13,fontWeight:600,color:C.amber,marginBottom:10,display:"flex",alignItems:"center",gap:6}}><Badge color="amber">Pendientes</Badge>{pending.length}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {pending.map(s=>(
-              <Card key={s.id} style={{border:`1.5px solid ${C.amber}`}}>
+              <Card key={s.id} style={{border:`1px solid ${C.amber}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                   <div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)}</div></div>
                   <div style={{display:"flex",gap:8}}><Btn size="sm" variant="success" onClick={()=>handleApproveMod(s.id)}>Aprobar</Btn><Btn size="sm" variant="danger" onClick={()=>handleRejectMod(s.id)}>Rechazar</Btn></div>
@@ -737,7 +744,7 @@ export default function App() {
           <div style={{fontSize:13,fontWeight:600,color:C.green,marginBottom:10,display:"flex",alignItems:"center",gap:6}}><Badge color="green">Aprobadas</Badge>{approved.length}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {approved.map(s=>(
-              <Card key={s.id} style={{border:`1.5px solid ${C.green}`}}>
+              <Card key={s.id} style={{border:`1px solid ${C.green}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)}</div></div>
                   <Badge color="green">Editando</Badge>
@@ -754,7 +761,7 @@ export default function App() {
     const vencidas=activeSales.filter(s=>{const d=daysUntil(s.fecha_fin);return d!==null&&d<0;});
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
-        <div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Alertas de Contratos</div>
+        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Alertas de Contratos</div>
         {vencidas.length>0&&(
           <div style={{marginBottom:20}}>
             <div style={{fontSize:13,fontWeight:600,color:C.gray500,marginBottom:10}}>Vencidos ({vencidas.length})</div>
@@ -767,7 +774,7 @@ export default function App() {
         {!alertas.length&&<EmptyState icon="✅" title="Todo en orden" desc="No hay contratos próximos a vencer"/>}
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {alertas.sort((a,b)=>daysUntil(a.fecha_fin)-daysUntil(b.fecha_fin)).map(s=>{const dias=daysUntil(s.fecha_fin);return(
-            <Card key={s.id} style={{border:`1.5px solid ${dias<=7?C.red:C.amber}`}}>
+            <Card key={s.id} style={{border:`1px solid ${dias<=7?C.red:C.amber}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                 <div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)} · Vence: {s.fecha_fin}</div></div>
                 <Badge color={dias<=7?"red":"amber"}>{dias}d restantes</Badge>
@@ -783,11 +790,11 @@ export default function App() {
     const list=user.role==="vendedor"?productions.filter(p=>p.ejecutivo===user.id):productions;
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
-        <div style={{fontSize:20,fontWeight:700,marginBottom:20}}>{user.role==="marketing"?"Producciones a confirmar":user.role==="gerente"?"Producciones":"Mis Producciones"}</div>
+        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>{user.role==="marketing"?"Producciones a confirmar":user.role==="gerente"?"Producciones":"Mis Producciones"}</div>
         {!list.length&&<EmptyState icon="🎬" title="Sin producciones" desc="No hay producciones pendientes"/>}
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {list.map(p=>{const s=getUser(p.ejecutivo);return(
-            <Card key={p.id} style={{border:`1.5px solid ${p.confirmado?C.green:C.gray200}`}}>
+            <Card key={p.id} style={{border:`1px solid ${p.confirmado?C.green:C.gray200}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                 <div><div style={{fontWeight:600,fontSize:13}}>{p.cliente}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s?.name} · ×{p.produccion_q}</div></div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -815,7 +822,7 @@ export default function App() {
   const Social = () => (
     <div style={{padding:"1.5rem",maxWidth:900}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-        <div style={{fontSize:20,fontWeight:700}}>Redes Sociales</div>
+        <div style={{fontSize:20,fontWeight:800,color:C.black}}>Redes Sociales</div>
         <Btn variant="primary" onClick={()=>setShowPostForm(true)}>+ Nuevo Post</Btn>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -859,18 +866,18 @@ export default function App() {
     ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>,
     producciones:<Producciones/>, social:<Social/>,
     modificaciones:<Modificaciones/>, alertas:<Alertas/>, alertas_admin:<Alertas/>, contratos:<Alertas/>,
-    comisiones:<div style={{padding:"1.5rem"}}><div style={{fontSize:20,fontWeight:700,marginBottom:8}}>Comisiones</div><div style={{color:C.gray400,fontSize:13,padding:"2rem",background:C.white,borderRadius:12,border:`1px solid ${C.gray200}`,textAlign:"center"}}>🔧 En configuración — próximamente</div></div>,
+    comisiones:<div style={{padding:"1.5rem"}}><div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:8}}>Comisiones</div><div style={{color:C.gray400,fontSize:13,padding:"2rem",background:C.white,borderRadius:12,border:`1px solid ${C.gray200}`,textAlign:"center"}}>🔧 En configuración — próximamente</div></div>,
     facturacion:<Facturacion sales={sales} invoices={invoices} isGerente={user.role==="gerente"} onUpdateSale={handleUpdateSale}
       onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}}
       onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}}/>,
-    clientes:<div style={{padding:"1.5rem",maxWidth:900}}><div style={{fontSize:20,fontWeight:700,marginBottom:20}}>Clientes</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()].map(s=><Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s.razon_social} · {s.rut}</div></div><div style={{fontWeight:700,color:C.red}}>{fmt(s.total)}</div></div></Card>)}</div></div>,
+    clientes:<div style={{padding:"1.5rem",maxWidth:900}}><div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Clientes</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()].map(s=><Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s.razon_social} · {s.rut}</div></div><div style={{fontWeight:700,color:C.red}}>{fmt(s.total)}</div></div></Card>)}</div></div>,
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<EmptyState icon="📈" title="Métricas" desc="En desarrollo"/>,
     reportes:<EmptyState icon="📊" title="Reportes" desc="En desarrollo"/>,
   };
 
   return (
-    <div style={{minHeight:"100vh",background:C.gray50,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"}}>
+    <div style={{minHeight:"100vh",background:C.gray50,fontFamily:"'Montserrat', sans-serif"}}>
       <NavBar/>
       <div style={{minHeight:"calc(100vh - 54px)"}}>
         {loading?<Spinner/>:(screens[tab]||<EmptyState icon="🔍" title="Sección no encontrada"/>)}

@@ -99,7 +99,7 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:20,fontWeight:700,color:C.gray900}}>Mis Comisiones</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.black}}>Mis Comisiones</div>
           <div style={{fontSize:13,color:C.gray400,marginTop:4}}>{mesActual}/{anioActual} · {pct}% por venta</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
@@ -163,7 +163,7 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
     <div style={{padding:"1.5rem",maxWidth:960}}>
       <EditModal/>
       <div style={{marginBottom:20}}>
-        <div style={{fontSize:20,fontWeight:700,color:C.gray900}}>Comisiones</div>
+        <div style={{fontSize:20,fontWeight:800,color:C.black}}>Comisiones</div>
         <div style={{fontSize:13,color:C.gray400,marginTop:4}}>Mes {mesActual}/{anioActual}</div>
       </div>
 
