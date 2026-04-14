@@ -56,6 +56,7 @@ export const TABS = {
     {id:"dashboard",label:"Dashboard"},
     {id:"ventas",label:"Mis Ventas"},
     {id:"kpis",label:"KPIs"},
+    {id:"cobros",label:"Cobros"},
     {id:"producciones",label:"Producciones"},
     {id:"disponibilidad",label:"Disponibilidad"},
     {id:"presentaciones",label:"Presentaciones"},

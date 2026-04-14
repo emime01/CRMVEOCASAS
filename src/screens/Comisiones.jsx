@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, fmt, USERS, calcComisionMensual } from "../constants";
+import { C, fmt, USERS, CRMS, calcComisionMensual } from "../constants";
 import { Stat, Card, Btn, Badge, Table, Field, inp, Modal, ModalHeader, ModalBody, ModalFooter } from "../components/UI";
 
 const SELLERS_ALL = USERS.filter(u=>["vendedor","inactivo"].includes(u.role));
@@ -47,9 +47,20 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
   }, 0);
   const comisionGerente = Math.round(totalFacMes * ((comisiones?.gerente||0)/100));
 
-  // Comisión CRM = % sobre total facturado
+  // Comisión CRM global (legado)
   const totalFacturado = ventasActivas.reduce((a,s)=>a+s.total,0);
   const comisionCRM = Math.round(totalFacturado * ((comisiones?.crm||0)/100));
+
+  // Comisiones por CRM (por_crm object)
+  const porCrm = comisiones?.por_crm || {};
+  const crmComisiones = CRMS.map(crm => {
+    const pct = porCrm[crm] || 0;
+    const ventasCrm = ventasActivas.filter(s => s.crm === crm);
+    const totalCrm = ventasCrm.reduce((a,s)=>a+s.total,0);
+    const comision = Math.round(totalCrm * (pct/100));
+    return { crm, pct, totalCrm, comision, ventas: ventasCrm.length };
+  });
+  const totalComisionesCrm = crmComisiones.reduce((a,x)=>a+x.comision,0);
 
   const handleSave = () => {
     const pct = parseFloat(tempPct)||0;
@@ -168,14 +179,14 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
-        <Stat label="Total comisiones mes" value={fmt(totalComisiones)} color={C.red}/>
+        <Stat label="Total comisiones mes" value={fmt(totalComisiones+totalComisionesCrm)} color={C.red}/>
         <Stat label="Comisión gerente" value={fmt(comisionGerente)} sub={`${comisiones?.gerente||0}% ventas totales`}/>
-        <Stat label="Comisión CRM" value={fmt(comisionCRM)} sub={`${comisiones?.crm||0}% facturado`}/>
+        <Stat label="Comisiones CRM" value={fmt(totalComisionesCrm)} sub="Por tasa individual por CRM"/>
         <Stat label="Base de cálculo" value={fmt(totalFacMes)} sub="Facturado este mes"/>
       </div>
 
       {/* Comisiones especiales */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:24}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
@@ -189,14 +200,36 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
-              <div style={{fontSize:12,fontWeight:500,color:C.gray400,textTransform:"uppercase",letterSpacing:0.5,marginBottom:4}}>Comisión CRM</div>
-              <div style={{fontSize:20,fontWeight:700,color:C.blue}}>{fmt(comisionCRM)}</div>
-              <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{comisiones?.crm||0}% sobre {fmt(totalFacturado)} total</div>
+              <div style={{fontSize:12,fontWeight:500,color:C.gray400,textTransform:"uppercase",letterSpacing:0.5,marginBottom:4}}>Total comisiones CRM</div>
+              <div style={{fontSize:20,fontWeight:700,color:C.blue}}>{fmt(totalComisionesCrm)}</div>
+              <div style={{fontSize:11,color:C.gray400,marginTop:2}}>Suma de todos los CRM por tasa individual</div>
             </div>
-            {isGerente&&<Btn size="sm" onClick={()=>{setEditando({key:"crm",label:"Comisión CRM",base:totalFacturado});setTempPct(String(comisiones?.crm||0));}}>Ajustar %</Btn>}
           </div>
         </Card>
       </div>
+
+      {/* Per-CRM commission table */}
+      <Card style={{marginBottom:24}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.black}}>Comisiones por CRM</div>
+          <div style={{fontSize:11,color:C.gray400}}>Total: {fmt(totalComisionesCrm)}</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {crmComisiones.map(({crm,pct,totalCrm,comision,ventas})=>(
+            <div key={crm} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderRadius:8,background:pct>0?C.blueLight:C.gray50,border:`1px solid ${pct>0?C.blue:C.gray200}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontWeight:600,fontSize:13,color:C.black,minWidth:100}}>{crm}</span>
+                <Badge color={pct>0?"blue":"gray"}>{pct}%</Badge>
+                <span style={{fontSize:11,color:C.gray400}}>{ventas} venta{ventas!==1?"s":""} · {fmt(totalCrm)}</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontWeight:700,fontSize:13,color:pct>0?C.blue:C.gray400}}>{fmt(comision)}</span>
+                {isGerente&&<Btn size="sm" variant="ghost" onClick={()=>{setEditando({key:`crm_${crm}`,label:`Comisión CRM — ${crm}`,base:totalCrm});setTempPct(String(pct));}}>Ajustar</Btn>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <div style={{fontWeight:600,fontSize:15,color:C.gray800,marginBottom:12}}>Comisiones por vendedor — {mesActual}/{anioActual}</div>
       <Table
