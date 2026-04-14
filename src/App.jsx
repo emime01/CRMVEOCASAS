@@ -15,6 +15,7 @@ import VentasGeneral from "./screens/VentasGeneral";
 import Reportes from "./screens/Reportes";
 import Competencias from "./screens/Competencias";
 import Metricas from "./screens/Metricas";
+import Cobros from "./screens/Cobros";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -71,6 +72,8 @@ export default function App() {
   const [metricas, setMetricas] = useState([]);
   const [dispModal, setDispModal] = useState(null);
   const [expandedClient, setExpandedClient] = useState(null);
+  const [expandedSale, setExpandedSale] = useState(null);
+  const [editingProd, setEditingProd] = useState(new Set());
 
   // ── CONSTANTS ─────────────────────────────────────────────
   const currentQ = Math.ceil((new Date().getMonth()+1)/3);
@@ -113,7 +116,7 @@ export default function App() {
   const ventasDeQ = (uid, q, anio=currentAnio) => {
     const qStart=new Date(anio,(q-1)*3,1).toISOString().split("T")[0];
     const qEnd=new Date(anio,q*3,0).toISOString().split("T")[0];
-    return sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_venta>=qStart&&s.fecha_venta<=qEnd);
+    return sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_inicio>=qStart&&s.fecha_inicio<=qEnd);
   };
   const totalDeQ = (uid,q,anio=currentAnio) => ventasDeQ(uid,q,anio).reduce((a,s)=>a+(s.total||0),0);
   const totalVentasQ = (uid) => totalDeQ(uid,currentQ);
@@ -122,7 +125,7 @@ export default function App() {
   const myKpi = (uid,week) => kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
 
   // Run helpers
-  const ventasEnPeriodo = (uid,fi,ff) => sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_venta>=fi&&s.fecha_venta<=ff);
+  const ventasEnPeriodo = (uid,fi,ff) => sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_inicio>=fi&&s.fecha_inicio<=ff);
   const totalEnPeriodo = (uid,fi,ff) => ventasEnPeriodo(uid,fi,ff).reduce((a,s)=>a+(s.total||0),0);
   const myRuns = (uid) => runs.filter(r=>r.activo&&r.participantes?.some(p=>p.ejecutivo===uid));
   const isRunActivo = (r) => { const h=new Date().toISOString().split("T")[0]; return r.activo&&r.fecha_inicio<=h&&r.fecha_fin>=h; };
@@ -199,6 +202,7 @@ export default function App() {
   const updateComision = async (key,value) => {
     let newCom;
     if(key.startsWith("vendedor_")){const uid=key.replace("vendedor_","");newCom={...comisiones,vendedores:{...comisiones.vendedores,[uid]:value}};}
+    else if(key.startsWith("crm_")){const crmName=key.slice(4);newCom={...comisiones,por_crm:{...(comisiones.por_crm||{}),[crmName]:value}};}
     else{newCom={...comisiones,[key]:value};}
     setComisiones(newCom); await upsertItem("comisiones","config",newCom);
   };
@@ -909,49 +913,89 @@ export default function App() {
   };
 
   const Producciones = () => {
+    const [calendarModal, setCalendarModal] = useState(null);
     const list=user.role==="vendedor"?productions.filter(p=>p.ejecutivo===user.id):productions;
+    const toggleEditing = (id) => setEditingProd(prev=>{const s=new Set(prev);s.has(id)?s.delete(id):s.add(id);return s;});
     return (
       <div style={{padding:"1.5rem",maxWidth:800}}>
+        {calendarModal&&(
+          <Modal onClose={()=>setCalendarModal(null)} maxWidth={460}>
+            <ModalHeader title={calendarModal.cliente} subtitle="Detalle de producción" onClose={()=>setCalendarModal(null)}/>
+            <ModalBody>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {[["Ejecutivo",getUser(calendarModal.ejecutivo)?.name],["Cantidad",`×${calendarModal.produccion_q}`],["Fecha",calendarModal.fecha],["Ciudad",calendarModal.ciudad||"—"],["Comentario",calendarModal.comentario||"—"],["Estado",calendarModal.confirmado?"Confirmado":"Pendiente"]].map(([k,v])=>(
+                  <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.gray100}`,fontSize:13}}>
+                    <span style={{color:C.gray500}}>{k}</span>
+                    <span style={{fontWeight:600,color:C.black}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </ModalBody>
+          </Modal>
+        )}
         <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>{user.role==="marketing"?"Producciones a confirmar":user.role==="gerente"?"Producciones":"Mis Producciones"}</div>
         {!list.length&&<EmptyState icon="🎬" title="Sin producciones" desc="No hay producciones pendientes"/>}
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {list.map(p=>{const s=getUser(p.ejecutivo);const canEditProd=user.role==="marketing"||user.role==="vendedor";return(
-            <Card key={p.id} style={{border:`1px solid ${p.confirmado?C.green:C.gray200}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:canEditProd?8:0}}>
-                <div>
-                  <div style={{fontWeight:600,fontSize:13}}>{p.cliente}</div>
-                  <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s?.name} · ×{p.produccion_q}{p.ciudad?` · 📍 ${p.ciudad}`:""}</div>
+          {list.map(p=>{
+            const s=getUser(p.ejecutivo);
+            const canEditProd=user.role==="marketing"||user.role==="vendedor";
+            const isComplete=!!(p.fecha&&p.ciudad&&p.comentario);
+            const isEditing=editingProd.has(p.id);
+            const showFields=canEditProd&&(!isComplete||isEditing);
+            return(
+              <Card key={p.id} style={{border:`1px solid ${isComplete&&!isEditing?C.green:p.confirmado?C.green:C.gray200}`,background:isComplete&&!isEditing?C.greenLight:C.white}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:showFields?8:0}}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:13,color:C.black}}>{p.cliente}</div>
+                    <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s?.name} · ×{p.produccion_q}{p.ciudad?` · 📍 ${p.ciudad}`:""}</div>
+                    {isComplete&&!isEditing&&<div style={{fontSize:11,color:C.green,marginTop:2,fontWeight:500}}>{p.fecha} · {p.comentario}</div>}
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                    <Badge color={p.confirmado?"green":"amber"}>{p.confirmado?"Confirmado":"Pendiente"}</Badge>
+                    {isComplete&&canEditProd&&(
+                      <button onClick={()=>toggleEditing(p.id)} style={{fontSize:11,color:C.blue,background:"none",border:`1px solid ${C.blue}`,borderRadius:6,cursor:"pointer",padding:"3px 8px",fontFamily:"'Montserrat',sans-serif"}}>{isEditing?"Cerrar":"Editar"}</button>
+                    )}
+                    {!isComplete&&canEditProd&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
+                    {isEditing&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
+                    {user.role==="marketing"&&!p.confirmado&&<Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>}
+                  </div>
                 </div>
-                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                  <Badge color={p.confirmado?"green":"amber"}>{p.confirmado?"Confirmado":"Pendiente"}</Badge>
-                  {canEditProd&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
-                  {user.role==="marketing"&&!p.confirmado&&<Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>}
-                </div>
-              </div>
-              {canEditProd&&(
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",borderTop:`1px solid ${C.gray100}`,paddingTop:8}}>
-                  <select value={p.ciudad||""} onChange={async e=>{await updateItem("producciones",p.id,{ciudad:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,ciudad:e.target.value}:x));}} style={{...inp,width:"auto",padding:"4px 8px",fontSize:11}}>
-                    <option value="">Ciudad...</option>
-                    {CIUDADES.map(c=><option key={c}>{c}</option>)}
-                  </select>
-                  <input value={p.comentario||""} onChange={async e=>{const v=e.target.value;await updateItem("producciones",p.id,{comentario:v});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,comentario:v}:x));}} style={{...inp,flex:1,minWidth:120,padding:"4px 8px",fontSize:11}} placeholder="Comentario..."/>
-                </div>
-              )}
-              {user.role==="gerente"&&(p.ciudad||p.comentario)&&(
-                <div style={{fontSize:11,color:C.gray500,marginTop:6}}>
-                  {p.ciudad&&<span style={{marginRight:8}}>📍 {p.ciudad}</span>}
-                  {p.comentario&&<span>{p.comentario}</span>}
-                </div>
-              )}
-            </Card>
-          );})}
+                {showFields&&(
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",borderTop:`1px solid ${C.gray100}`,paddingTop:8}}>
+                    <select value={p.ciudad||""} onChange={async e=>{await updateItem("producciones",p.id,{ciudad:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,ciudad:e.target.value}:x));}} style={{...inp,width:"auto",padding:"4px 8px",fontSize:11}}>
+                      <option value="">Ciudad...</option>
+                      {CIUDADES.map(c=><option key={c}>{c}</option>)}
+                    </select>
+                    <input value={p.comentario||""} onChange={async e=>{const v=e.target.value;await updateItem("producciones",p.id,{comentario:v});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,comentario:v}:x));}} style={{...inp,flex:1,minWidth:120,padding:"4px 8px",fontSize:11}} placeholder="Comentario..."/>
+                  </div>
+                )}
+                {user.role==="gerente"&&(p.ciudad||p.comentario)&&(
+                  <div style={{fontSize:11,color:C.gray500,marginTop:6}}>
+                    {p.ciudad&&<span style={{marginRight:8}}>📍 {p.ciudad}</span>}
+                    {p.comentario&&<span>{p.comentario}</span>}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </div>
         {user.role==="marketing"&&(
           <div style={{marginTop:24}}>
             <div style={{fontWeight:600,fontSize:14,marginBottom:12}}>Calendario</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
               {["L","M","M","J","V","S","D"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,color:C.gray400,padding:"4px 0",fontWeight:500}}>{d}</div>)}
-              {Array.from({length:30},(_,i)=>{const day=i+1;const has=productions.some(p=>p.confirmado&&p.fecha&&new Date(p.fecha).getDate()===day);return<div key={i} style={{textAlign:"center",padding:"8px 2px",borderRadius:6,background:has?C.red:C.gray100,color:has?C.white:C.gray700,fontSize:12,fontWeight:has?600:400}}>{day}</div>;})}
+              {Array.from({length:30},(_,i)=>{
+                const day=i+1;
+                const dayProds=productions.filter(p=>p.confirmado&&p.fecha&&new Date(p.fecha).getDate()===day);
+                const has=dayProds.length>0;
+                return(
+                  <div key={i} onClick={()=>has&&setCalendarModal(dayProds[0])}
+                    style={{textAlign:"center",padding:"6px 2px",borderRadius:6,background:has?C.red:C.gray100,color:has?C.white:C.gray700,fontSize:has?9:12,fontWeight:has?600:400,cursor:has?"pointer":"default",overflow:"hidden",minHeight:36,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+                    <div>{day}</div>
+                    {has&&<div style={{fontSize:8,lineHeight:1,opacity:0.9}}>{dayProds[0].cliente.slice(0,7)}{dayProds[0].cliente.length>7?"…":""}</div>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1008,6 +1052,7 @@ export default function App() {
     dashboard_ggeneral:<DashboardGeneral sales={sales} invoices={invoices} objetivos={objetivos} onNavigate={setTab}/>,
     ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>,
     ventas_ggeneral:<VentasGeneral sales={sales} setSales={setSales} invoices={invoices}/>,
+    cobros:<Cobros sales={sales} setSales={setSales} setTickets={setTickets} currentUser={user}/>,
     producciones:<Producciones/>, social:<Social/>,
     modificaciones:<Modificaciones/>, alertas:<Alertas/>, alertas_admin:<Alertas/>, contratos:<Alertas/>,
     comisiones:<Comisiones sales={sales} comisiones={comisiones} onUpdateComision={updateComision} currentUser={user}/>,
@@ -1037,19 +1082,53 @@ export default function App() {
                 {expanded&&(
                   <div style={{marginTop:12,borderTop:`1px solid ${C.gray100}`,paddingTop:10}}>
                     <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {clientSales.map(s=>(
-                        <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 10px",borderRadius:8,background:C.gray50,border:`1px solid ${C.gray100}`,flexWrap:"wrap",gap:6}}>
-                          <div>
-                            <div style={{fontWeight:600,fontSize:12,color:C.black}}>{s.plan} · {s.crm}</div>
-                            <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {s.fecha_inicio} → {s.fecha_fin}</div>
-                            {(s.num_cuotas||1)>1&&<div style={{fontSize:11,color:C.gray500,marginTop:1}}>Cuotas: {s.cuotas_pagadas||0}/{s.num_cuotas} pagadas</div>}
+                      {clientSales.map(s=>{
+                        const hasCuotas=(s.num_cuotas||1)>1;
+                        const saleExpanded=expandedSale===s.id;
+                        return(
+                        <div key={s.id} style={{borderRadius:8,border:`1px solid ${C.gray200}`,overflow:"hidden"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 10px",background:C.gray50,flexWrap:"wrap",gap:6,cursor:hasCuotas?"pointer":"default"}}
+                            onClick={()=>hasCuotas&&setExpandedSale(saleExpanded?null:s.id)}>
+                            <div>
+                              <div style={{fontWeight:600,fontSize:12,color:C.black}}>{s.plan} · {s.crm}</div>
+                              <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {s.fecha_inicio} → {s.fecha_fin}</div>
+                              {hasCuotas&&<div style={{fontSize:11,color:C.blue,marginTop:1}}>{s.num_cuotas} cuotas · haz click para ver detalle {saleExpanded?"▲":"▼"}</div>}
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontWeight:700,fontSize:12,color:C.red}}>{fmt(s.total)}</div>
+                              <Badge color={s.estado==="activa"||!s.estado?"green":"gray"}>{s.estado||"activa"}</Badge>
+                            </div>
                           </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontWeight:700,fontSize:12,color:C.red}}>{fmt(s.total)}</div>
-                            <Badge color={s.estado==="activa"||!s.estado?"green":"gray"}>{s.estado||"activa"}</Badge>
-                          </div>
+                          {saleExpanded&&hasCuotas&&(
+                            <div style={{background:C.white,padding:"8px 10px",borderTop:`1px solid ${C.gray200}`}}>
+                              <div style={{fontSize:11,fontWeight:700,color:C.gray500,marginBottom:6}}>DETALLE DE CUOTAS</div>
+                              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                                {Array.from({length:parseInt(s.num_cuotas)||1},(_,i)=>{
+                                  const det=(s.cuotas_detalle||[])[i]||{};
+                                  const fi=new Date(s.fecha_inicio);
+                                  const fc=new Date(fi);fc.setMonth(fi.getMonth()+i);
+                                  const fecha=fc.toISOString().split("T")[0];
+                                  const monto=det.monto||Math.round(s.total/(parseInt(s.num_cuotas)||1));
+                                  return(
+                                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",borderRadius:6,background:det.pagada?C.greenLight:C.gray50,border:`1px solid ${det.pagada?C.green:C.gray200}`}}>
+                                      <div style={{fontSize:11,color:C.black}}>
+                                        <span style={{fontWeight:600}}>Cuota {i+1}/{s.num_cuotas}</span>
+                                        <span style={{color:C.gray400,marginLeft:8}}>{fecha}</span>
+                                        {det.nro_factura&&<span style={{color:C.gray400,marginLeft:8}}>Fact: {det.nro_factura}</span>}
+                                      </div>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <span style={{fontWeight:700,fontSize:11,color:det.pagada?C.green:C.black}}>{fmt(monto)}</span>
+                                        <Badge color={det.pagada?"green":det.gestionado?"blue":"amber"}>{det.pagada?"Pagada":det.gestionado?"Gestionada":"Pendiente"}</Badge>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

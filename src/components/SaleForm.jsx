@@ -86,9 +86,9 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
                 <input type="checkbox" checked={(form.productos_seleccionados||[]).includes(p)} onChange={()=>toggle(p)} style={{accentColor:C.red}}/>
                 <span style={{flex:1,fontSize:12}}>{p}</span>
                 {(form.productos_seleccionados||[]).includes(p)&&["Destacadas","Superdestacadas","Producción"].includes(p)&&(
-                  <input type="number" min="0" placeholder="Cant." style={{...inp,width:52,padding:"3px 6px",fontSize:11}}
+                  <input type="text" inputMode="numeric" placeholder="Cant." style={{...inp,width:52,padding:"3px 6px",fontSize:11}}
                     value={p==="Destacadas"?form.destacadas_q:p==="Superdestacadas"?form.superdestacadas_q:form.produccion_q}
-                    onChange={e=>set(p==="Destacadas"?"destacadas_q":p==="Superdestacadas"?"superdestacadas_q":"produccion_q",e.target.value)}
+                    onChange={e=>{const v=e.target.value.replace(/\D/g,"");set(p==="Destacadas"?"destacadas_q":p==="Superdestacadas"?"superdestacadas_q":"produccion_q",v);}}
                     onClick={e=>e.stopPropagation()}/>
                 )}
               </label>
