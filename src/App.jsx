@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getAll, addItem, updateItem, deleteItem, upsertItem } from "./firebase";
-import { C, fmt, USERS, TABS, CREDENTIALS, daysUntil, getWeekDates, CIUDADES } from "./constants";
+import { C, fmt, USERS, TABS, CREDENTIALS, daysUntil, getWeekDates } from "./constants";
 import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
 import SaleForm from "./components/SaleForm";
@@ -16,6 +16,8 @@ import Reportes from "./screens/Reportes";
 import Competencias from "./screens/Competencias";
 import Metricas from "./screens/Metricas";
 import Cobros from "./screens/Cobros";
+import KPIs from "./screens/KPIs";
+import Producciones from "./screens/Producciones";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -718,65 +720,6 @@ export default function App() {
     );
   };
 
-  const KPIs = () => {
-    const week=getWeekDates(kpiWeekOffset);
-    const Nav=()=>(
-      <div style={{display:"flex",gap:6,alignItems:"center"}}>
-        <Btn size="sm" onClick={()=>setKpiWeekOffset(w=>w-1)}>←</Btn>
-        <span style={{fontSize:12,color:C.gray500,minWidth:130,textAlign:"center",fontWeight:500}}>{week.label}</span>
-        <Btn size="sm" onClick={()=>setKpiWeekOffset(w=>Math.min(w+1,0))}>→</Btn>
-      </div>
-    );
-    if(user.role==="gerente") return (
-      <div style={{padding:"1.5rem",maxWidth:960}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:800,color:C.black}}>KPIs del Equipo</div><Nav/></div>
-        {SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{const k=myKpi(s.id,kpiWeekOffset);return(
-          <Card key={s.id} style={{marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <div style={{width:34,height:34,borderRadius:9,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700}}>{s.avatar}</div>
-              <div style={{fontWeight:600,fontSize:14}}>{s.name}</div>
-              {k.fecha_inicio&&<span style={{fontSize:11,color:C.gray400,marginLeft:"auto"}}>Sem. {k.fecha_inicio}</span>}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-              {[["Contactados",k.contactados||0,"contactados"],["C. efectivos",k.contactados_efectivos||0,"contactados_efectivos"],["R. agendadas",k.reuniones_agendadas||0,"reuniones_agendadas"],["R. efectivas",k.reuniones_efectivas||0,"reuniones_efectivas"],["Concreción",`${k.concrecion||0}%`,null],["Ticket prom.",fmt(k.ticket_promedio||0),null],["Pos. concreción",fmt(k.posible_concrecion||0),null],["Control",k.control_calidad||"—",null]].map(([lbl,v,nk])=>(
-                <div key={lbl} style={{background:C.gray50,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.gray100}`}}>
-                  <div style={{fontSize:9,color:C.gray400,marginBottom:3,textTransform:"uppercase",letterSpacing:0.3,fontWeight:500}}>{lbl}</div>
-                  <div style={{fontWeight:600,fontSize:13,color:C.gray900}}>{v}</div>
-                  {nk&&k[nk+"_nombres"]&&<div style={{fontSize:9,color:C.gray500,marginTop:3,borderTop:`1px solid ${C.gray200}`,paddingTop:3,lineHeight:1.3}}>{k[nk+"_nombres"]}</div>}
-                </div>
-              ))}
-            </div>
-          </Card>
-        );})}
-      </div>
-    );
-    const cur=myKpi(user.id,kpiWeekOffset);
-    const fields=[["contactados","Contactados"],["contactados_efectivos","Contactados efectivos"],["reuniones_agendadas","Reuniones agendadas"],["reuniones_efectivas","Reuniones efectivas"],["concrecion","Concreción (%)"],["ticket_promedio","Ticket promedio"],["posible_concrecion","Posible concreción"],["control_calidad","Control calidad"]];
-    const nameFields=["contactados","contactados_efectivos","reuniones_agendadas","reuniones_efectivas"];
-    return (
-      <div style={{padding:"1.5rem",maxWidth:700}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:800,color:C.black}}>Mis KPIs</div><Nav/></div>
-        <Card>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 20px",marginBottom:14}}>
-            {fields.map(([f,lbl])=>(
-              <Field key={f} label={lbl}>
-                <input type="text" inputMode={f==="control_calidad"?undefined:"numeric"} value={kpiForm[f]!==undefined?kpiForm[f]:cur[f]||""} onChange={e=>{const v=f==="control_calidad"?e.target.value:e.target.value.replace(/[^\d.]/g,"");setKpiForm(p=>({...p,[f]:v}));}} style={inp} placeholder="0"/>
-                {nameFields.includes(f)&&(
-                  <textarea value={kpiForm[f+"_nombres"]!==undefined?kpiForm[f+"_nombres"]:cur[f+"_nombres"]||""} onChange={e=>setKpiForm(p=>({...p,[f+"_nombres"]:e.target.value}))} style={{...inp,height:52,resize:"none",marginTop:4,fontSize:11}} placeholder="Ej: García Props, Del Rey..."/>
-                )}
-              </Field>
-            ))}
-          </div>
-          <div style={{padding:"10px 14px",background:C.gray50,borderRadius:8,fontSize:13,marginBottom:14,border:`1px solid ${C.gray100}`}}>
-            <span style={{color:C.gray400}}>% Contactos efectivos: </span>
-            <strong>{pct(parseInt(kpiForm.contactados_efectivos||cur.contactados_efectivos)||0,parseInt(kpiForm.contactados||cur.contactados)||0)}%</strong>
-          </div>
-          <Btn variant="primary" onClick={saveKPI} style={{width:"100%",justifyContent:"center"}}>Guardar KPIs — {week.label}</Btn>
-        </Card>
-      </div>
-    );
-  };
-
   const Disponibilidad = () => {
     const clientsForProduct = (producto) => {
       return activeSales.filter(s=>(s.productos_seleccionados||[]).includes(producto));
@@ -912,97 +855,6 @@ export default function App() {
     );
   };
 
-  const Producciones = () => {
-    const [calendarModal, setCalendarModal] = useState(null);
-    const list=user.role==="vendedor"?productions.filter(p=>p.ejecutivo===user.id):productions;
-    const toggleEditing = (id) => setEditingProd(prev=>{const s=new Set(prev);s.has(id)?s.delete(id):s.add(id);return s;});
-    return (
-      <div style={{padding:"1.5rem",maxWidth:800}}>
-        {calendarModal&&(
-          <Modal onClose={()=>setCalendarModal(null)} maxWidth={460}>
-            <ModalHeader title={calendarModal.cliente} subtitle="Detalle de producción" onClose={()=>setCalendarModal(null)}/>
-            <ModalBody>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {[["Ejecutivo",getUser(calendarModal.ejecutivo)?.name],["Cantidad",`×${calendarModal.produccion_q}`],["Fecha",calendarModal.fecha],["Ciudad",calendarModal.ciudad||"—"],["Comentario",calendarModal.comentario||"—"],["Estado",calendarModal.confirmado?"Confirmado":"Pendiente"]].map(([k,v])=>(
-                  <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.gray100}`,fontSize:13}}>
-                    <span style={{color:C.gray500}}>{k}</span>
-                    <span style={{fontWeight:600,color:C.black}}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            </ModalBody>
-          </Modal>
-        )}
-        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>{user.role==="marketing"?"Producciones a confirmar":user.role==="gerente"?"Producciones":"Mis Producciones"}</div>
-        {!list.length&&<EmptyState icon="🎬" title="Sin producciones" desc="No hay producciones pendientes"/>}
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {list.map(p=>{
-            const s=getUser(p.ejecutivo);
-            const canEditProd=user.role==="marketing"||user.role==="vendedor";
-            const isComplete=!!(p.fecha&&p.ciudad&&p.comentario);
-            const isEditing=editingProd.has(p.id);
-            const showFields=canEditProd&&(!isComplete||isEditing);
-            return(
-              <Card key={p.id} style={{border:`1px solid ${isComplete&&!isEditing?C.green:p.confirmado?C.green:C.gray200}`,background:isComplete&&!isEditing?C.greenLight:C.white}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:showFields?8:0}}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13,color:C.black}}>{p.cliente}</div>
-                    <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s?.name} · ×{p.produccion_q}{p.ciudad?` · 📍 ${p.ciudad}`:""}</div>
-                    {isComplete&&!isEditing&&<div style={{fontSize:11,color:C.green,marginTop:2,fontWeight:500}}>{p.fecha} · {p.comentario}</div>}
-                  </div>
-                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                    <Badge color={p.confirmado?"green":"amber"}>{p.confirmado?"Confirmado":"Pendiente"}</Badge>
-                    {isComplete&&canEditProd&&(
-                      <button onClick={()=>toggleEditing(p.id)} style={{fontSize:11,color:C.blue,background:"none",border:`1px solid ${C.blue}`,borderRadius:6,cursor:"pointer",padding:"3px 8px",fontFamily:"'Montserrat',sans-serif"}}>{isEditing?"Cerrar":"Editar"}</button>
-                    )}
-                    {!isComplete&&canEditProd&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
-                    {isEditing&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
-                    {user.role==="marketing"&&!p.confirmado&&<Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>}
-                  </div>
-                </div>
-                {showFields&&(
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap",borderTop:`1px solid ${C.gray100}`,paddingTop:8}}>
-                    <select value={p.ciudad||""} onChange={async e=>{await updateItem("producciones",p.id,{ciudad:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,ciudad:e.target.value}:x));}} style={{...inp,width:"auto",padding:"4px 8px",fontSize:11}}>
-                      <option value="">Ciudad...</option>
-                      {CIUDADES.map(c=><option key={c}>{c}</option>)}
-                    </select>
-                    <input value={p.comentario||""} onChange={async e=>{const v=e.target.value;await updateItem("producciones",p.id,{comentario:v});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,comentario:v}:x));}} style={{...inp,flex:1,minWidth:120,padding:"4px 8px",fontSize:11}} placeholder="Comentario..."/>
-                  </div>
-                )}
-                {user.role==="gerente"&&(p.ciudad||p.comentario)&&(
-                  <div style={{fontSize:11,color:C.gray500,marginTop:6}}>
-                    {p.ciudad&&<span style={{marginRight:8}}>📍 {p.ciudad}</span>}
-                    {p.comentario&&<span>{p.comentario}</span>}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-        {user.role==="marketing"&&(
-          <div style={{marginTop:24}}>
-            <div style={{fontWeight:600,fontSize:14,marginBottom:12}}>Calendario</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
-              {["L","M","M","J","V","S","D"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,color:C.gray400,padding:"4px 0",fontWeight:500}}>{d}</div>)}
-              {Array.from({length:30},(_,i)=>{
-                const day=i+1;
-                const dayProds=productions.filter(p=>p.confirmado&&p.fecha&&new Date(p.fecha).getDate()===day);
-                const has=dayProds.length>0;
-                return(
-                  <div key={i} onClick={()=>has&&setCalendarModal(dayProds[0])}
-                    style={{textAlign:"center",padding:"6px 2px",borderRadius:6,background:has?C.red:C.gray100,color:has?C.white:C.gray700,fontSize:has?9:12,fontWeight:has?600:400,cursor:has?"pointer":"default",overflow:"hidden",minHeight:36,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
-                    <div>{day}</div>
-                    {has&&<div style={{fontSize:8,lineHeight:1,opacity:0.9}}>{dayProds[0].cliente.slice(0,7)}{dayProds[0].cliente.length>7?"…":""}</div>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const Social = () => (
     <div style={{padding:"1.5rem",maxWidth:900}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -1050,10 +902,10 @@ export default function App() {
     dashboard:<DashboardVendedor/>,
     dashboard_gerente:<DashboardGerente/>,
     dashboard_ggeneral:<DashboardGeneral sales={sales} invoices={invoices} objetivos={objetivos} onNavigate={setTab}/>,
-    ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>,
+    ventas:<Ventas/>, kpis:<KPIs currentUser={user} kpis={kpis} kpiForm={kpiForm} setKpiForm={setKpiForm} kpiWeekOffset={kpiWeekOffset} setKpiWeekOffset={setKpiWeekOffset} onSave={saveKPI}/>, disponibilidad:<Disponibilidad/>,
     ventas_ggeneral:<VentasGeneral sales={sales} setSales={setSales} invoices={invoices}/>,
     cobros:<Cobros sales={sales} setSales={setSales} setTickets={setTickets} currentUser={user}/>,
-    producciones:<Producciones/>, social:<Social/>,
+    producciones:<Producciones currentUser={user} productions={productions} setProductions={setProductions} editingProd={editingProd} setEditingProd={setEditingProd}/>, social:<Social/>,
     modificaciones:<Modificaciones/>, alertas:<Alertas/>, alertas_admin:<Alertas/>, contratos:<Alertas/>,
     comisiones:<Comisiones sales={sales} comisiones={comisiones} onUpdateComision={updateComision} currentUser={user}/>,
     facturacion:<Facturacion sales={sales} invoices={invoices} isGerente={user.role==="gerente"} onUpdateSale={handleUpdateSale}
