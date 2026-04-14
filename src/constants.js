@@ -79,6 +79,7 @@ export const TABS = {
     {id:"documentos",label:"Documentos"},
     {id:"reportes",label:"Reportes"},
     {id:"competencias",label:"Competencias"},
+    {id:"correccion_fechas",label:"⚠️ Fechas"},
   ],
   marketing:[
     {id:"producciones",label:"Producciones"},
