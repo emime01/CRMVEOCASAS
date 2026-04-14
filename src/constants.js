@@ -1,12 +1,13 @@
 export const USERS = [
-  { id:"mika",      name:"Mika",           role:"gerente",   avatar:"MI" },
-  { id:"sebastian", name:"Sebastian",       role:"vendedor",  avatar:"SE" },
-  { id:"juanba",    name:"Juanba",          role:"vendedor",  avatar:"JB" },
-  { id:"paty",      name:"Paty",            role:"vendedor",  avatar:"PA" },
-  { id:"stefano",   name:"Stefano",         role:"vendedor",  avatar:"ST" },
-  { id:"mateo",     name:"Mateo",           role:"marketing", avatar:"MA" },
-  { id:"admin",     name:"Administración",  role:"admin",     avatar:"AD" },
-  { id:"lucas",     name:"Lucas",           role:"inactivo",  avatar:"LU" },
+  { id:"mika",      name:"Mika",           role:"gerente",        avatar:"MI" },
+  { id:"sebastian", name:"Sebastian",       role:"vendedor",       avatar:"SE" },
+  { id:"juanba",    name:"Juanba",          role:"vendedor",       avatar:"JB" },
+  { id:"paty",      name:"Paty",            role:"vendedor",       avatar:"PA" },
+  { id:"stefano",   name:"Stefano",         role:"vendedor",       avatar:"ST" },
+  { id:"mateo",     name:"Mateo",           role:"marketing",      avatar:"MA" },
+  { id:"admin",     name:"Administración",  role:"admin",          avatar:"AD" },
+  { id:"lucas",     name:"Lucas",           role:"inactivo",       avatar:"LU" },
+  { id:"gonzalo",   name:"Gonzalo",         role:"gerente_general",avatar:"GO" },
 ];
 
 export const SELLERS = ["sebastian","juanba","paty","stefano","lucas"];
@@ -20,6 +21,7 @@ export const CREDENTIALS = [
   { id:"stefano",   username:"Stefano",   password:"Veo#St6q4" },
   { id:"mateo",     username:"Mateo",     password:"Veo#Mt2w8" },
   { id:"admin",     username:"Admin",     password:"Veo#Ad5r9" },
+  { id:"gonzalo",   username:"Gonzalo",   password:"Veo#Gz7p3" },
 ];
 
 export const CRMS = ["Tera","NAI","Casasweb","Tokko","Xintel","2clics","Otro CRM","SIN CRM"];
@@ -31,9 +33,12 @@ export const PRODUCTS = [
   "Índice","Producción","Banner","Desarrollos"
 ];
 
-export const PLANS = ["50","Standard","Premium","Elite","Unique","A medida"];
+export const PLANES = ["50","Standard","Premium","Elite","Unique","A medida"];
+export const PLANS = PLANES; // backward compat
 
 export const PLATFORMS = ["Instagram","Facebook","LinkedIn","TikTok","Twitter/X"];
+
+export const CIUDADES = ["Montevideo","Punta del Este","Otro"];
 
 export const C = {
   red:"#F20000", redDark:"#cc0000", redLight:"#fff0f0",
@@ -53,6 +58,10 @@ export const TABS = {
     {id:"kpis",label:"KPIs"},
     {id:"producciones",label:"Producciones"},
     {id:"disponibilidad",label:"Disponibilidad"},
+    {id:"presentaciones",label:"Presentaciones"},
+    {id:"documentos",label:"Documentos"},
+    {id:"tareas",label:"Tareas"},
+    {id:"tickets",label:"Tickets"},
   ],
   gerente:[
     {id:"dashboard_gerente",label:"Dashboard"},
@@ -64,12 +73,20 @@ export const TABS = {
     {id:"producciones",label:"Producciones"},
     {id:"modificaciones",label:"Modificaciones"},
     {id:"alertas",label:"Alertas"},
+    {id:"tareas",label:"Tareas"},
+    {id:"tickets",label:"Tickets"},
+    {id:"documentos",label:"Documentos"},
+    {id:"reportes",label:"Reportes"},
+    {id:"competencias",label:"Competencias"},
   ],
   marketing:[
     {id:"producciones",label:"Producciones"},
     {id:"social",label:"Redes Sociales"},
     {id:"assets",label:"Assets"},
     {id:"metricas",label:"Métricas"},
+    {id:"presentaciones",label:"Presentaciones"},
+    {id:"documentos",label:"Documentos"},
+    {id:"tickets",label:"Tickets"},
   ],
   admin:[
     {id:"facturacion",label:"Facturación"},
@@ -78,6 +95,14 @@ export const TABS = {
     {id:"clientes",label:"Clientes"},
     {id:"reportes",label:"Reportes"},
     {id:"alertas_admin",label:"Alertas"},
+    {id:"tickets",label:"Tickets"},
+  ],
+  gerente_general:[
+    {id:"dashboard_ggeneral",label:"Dashboard"},
+    {id:"ventas_ggeneral",label:"Ventas"},
+    {id:"facturacion",label:"Facturación"},
+    {id:"reportes_ggeneral",label:"Reportes"},
+    {id:"competencias",label:"Competencias"},
   ],
 };
 
@@ -95,6 +120,16 @@ export const getWeekDates = (offset=0) => {
     fin:sun.toISOString().split("T")[0],
     label:`${mon.getDate()}/${mon.getMonth()+1} - ${sun.getDate()}/${sun.getMonth()+1}`
   };
+};
+
+// ISO week string: "2025-W22"
+export const getISOWeek = (offset=0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset*7);
+  const jan4 = new Date(d.getFullYear(),0,4);
+  const dayOfYear = Math.floor((d-new Date(d.getFullYear(),0,0))/(24*60*60*1000));
+  const weekNum = Math.ceil((dayOfYear+jan4.getDay()-1)/7);
+  return `${d.getFullYear()}-W${String(weekNum).padStart(2,"0")}`;
 };
 
 // Calcular cuotas de una venta

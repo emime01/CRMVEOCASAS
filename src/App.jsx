@@ -1,10 +1,20 @@
 import { useState } from "react";
 import { getAll, addItem, updateItem, deleteItem, upsertItem } from "./firebase";
-import { C, fmt, USERS, TABS, CREDENTIALS, daysUntil, getWeekDates } from "./constants";
+import { C, fmt, USERS, TABS, CREDENTIALS, daysUntil, getWeekDates, CIUDADES } from "./constants";
 import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
 import SaleForm from "./components/SaleForm";
 import Facturacion from "./screens/Facturacion";
+import Comisiones from "./screens/Comisiones";
+import Tickets from "./screens/Tickets";
+import Tareas from "./screens/Tareas";
+import Documentos from "./screens/Documentos";
+import Presentaciones from "./screens/Presentaciones";
+import DashboardGeneral from "./screens/DashboardGeneral";
+import VentasGeneral from "./screens/VentasGeneral";
+import Reportes from "./screens/Reportes";
+import Competencias from "./screens/Competencias";
+import Metricas from "./screens/Metricas";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -53,22 +63,33 @@ export default function App() {
   const [postForm, setPostForm] = useState({fecha:"",platform:"Instagram",content:"",status:"borrador"});
   const [objetivoForm, setObjetivoForm] = useState({ejecutivo:"sebastian",objetivo:0,q:Math.ceil((new Date().getMonth()+1)/3),anio:new Date().getFullYear()});
   const [filterVendedor, setFilterVendedor] = useState("todos");
+  const [tickets, setTickets] = useState([]);
+  const [tareas, setTareas] = useState([]);
+  const [documentos, setDocumentos] = useState([]);
+  const [presentaciones, setPresentaciones] = useState([]);
+  const [competencias, setCompetencias] = useState([]);
+  const [metricas, setMetricas] = useState([]);
+  const [dispModal, setDispModal] = useState(null);
+  const [expandedClient, setExpandedClient] = useState(null);
 
   // ── CONSTANTS ─────────────────────────────────────────────
   const currentQ = Math.ceil((new Date().getMonth()+1)/3);
   const currentAnio = new Date().getFullYear();
-  const defaultTab = r => ({gerente:"dashboard_gerente",vendedor:"dashboard",marketing:"producciones",admin:"facturacion"}[r]||"dashboard");
+  const defaultTab = r => ({gerente:"dashboard_gerente",vendedor:"dashboard",marketing:"producciones",admin:"facturacion",gerente_general:"dashboard_ggeneral"}[r]||"dashboard");
 
   // ── LOGIN / LOGOUT ────────────────────────────────────────
   const login = async (u) => {
     setUser(u); setTab(defaultTab(u.role)); setLoading(true);
-    const [s,av,k,pr,po,inv,obj,com,rn] = await Promise.all([
+    const [s,av,k,pr,po,inv,obj,com,rn,tk,tar,doc,pres,comp,met] = await Promise.all([
       getAll("ventas","created_at"), getAll("disponibilidad"), getAll("kpis"),
       getAll("producciones","created_at"), getAll("posts_social","fecha"),
       getAll("facturas","created_at"), getAll("objetivos"), getAll("comisiones"), getAll("runs"),
+      getAll("tickets","created_at"), getAll("tareas","created_at"), getAll("documentos","created_at"),
+      getAll("presentaciones","created_at"), getAll("competencias","fecha"), getAll("metricas_ads","created_at"),
     ]);
     setSales(s); setKpis(k); setProductions(pr); setPosts(po); setInvoices(inv);
-    setObjetivos(obj); setRuns(rn||[]);
+    setObjetivos(obj); setRuns(rn||[]); setTickets(tk||[]); setTareas(tar||[]);
+    setDocumentos(doc||[]); setPresentaciones(pres||[]); setCompetencias(comp||[]); setMetricas(met||[]);
     if(com.length>0){const c=com[0];setComisiones({vendedores:c.vendedores||{},gerente:c.gerente||0,crm:c.crm||0});}
     if(av.length===0){for(const d of INIT_DISP) await upsertItem("disponibilidad",d.id,d);setAvailability(INIT_DISP);}
     else setAvailability(av);
@@ -78,6 +99,8 @@ export default function App() {
   const logout = () => {
     setUser(null); setSales([]); setAvailability([]); setKpis([]);
     setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); setRuns([]);
+    setTickets([]); setTareas([]); setDocumentos([]); setPresentaciones([]);
+    setCompetencias([]); setMetricas([]);
   };
 
   // ── HELPERS ───────────────────────────────────────────────
@@ -213,9 +236,12 @@ export default function App() {
     </div>
   );
 
-  const currentTabs = (TABS[user.role]||[]).map(t=>
-    (t.id==="alertas"||t.id==="alertas_admin")?{...t,label:`Alertas${alertas.length>0?` (${alertas.length})`:""}`}:t
-  );
+  const pendingTickets = tickets.filter(t=>t.para===user.id&&t.estado==="pendiente").length;
+  const currentTabs = (TABS[user.role]||[]).map(t=>{
+    if(t.id==="alertas"||t.id==="alertas_admin") return {...t,label:`Alertas${alertas.length>0?` (${alertas.length})`:""}`};
+    if(t.id==="tickets"&&pendingTickets>0) return {...t,label:`Tickets (${pendingTickets})`};
+    return t;
+  });
 
   // ── NAVBAR ────────────────────────────────────────────────
   const NavBar = () => (
@@ -390,10 +416,9 @@ export default function App() {
           <div style={{fontSize:28,fontWeight:800,color:C.black}}>Hola, {user.name} 👋</div>
           <div style={{fontSize:14,color:C.gray500,marginTop:4}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20}}>
           <Stat label="Ventas activas" value={mySales.filter(s=>s.estado!=="cancelada").length} color={C.red}/>
           <Stat label="Facturación total" value={fmt(totalVentas)}/>
-          <Stat label="Comisión este mes" value={fmt(comisionMes)} color={C.green} sub={`${comPct}% mensualizado`}/>
           <Stat label="Concreción" value={`${lastKpi.concrecion||0}%`} sub="Esta semana"/>
         </div>
 
@@ -405,13 +430,15 @@ export default function App() {
               {qAsignados.map(obj=>{
                 const tq=totalDeQ(user.id,obj.q);
                 const isActual=obj.q===currentQ;
+                const done=obj.objetivo>0&&tq>=obj.objetivo;
                 return (
-                  <Card key={obj.q} style={{border:`1px solid ${isActual?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
-                    {isActual&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
-                    <div style={{fontSize:11,fontWeight:600,color:isActual?C.red:C.gray500,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Q{obj.q} {isActual?"· Actual":"· Cerrado"}</div>
-                    <PieChart value={tq} max={obj.objetivo} label={`Q${obj.q}`} color={isActual?C.red:C.gray400} size={100}/>
+                  <Card key={obj.q} style={{border:`1px solid ${done?C.green:isActual?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
+                    {isActual&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:done?C.green:C.red,borderRadius:"12px 12px 0 0"}}/>}
+                    <div style={{fontSize:11,fontWeight:600,color:done?C.green:isActual?C.red:C.gray500,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Q{obj.q} {isActual?"· Actual":"· Cerrado"}</div>
+                    <PieChart value={tq} max={obj.objetivo} label={`Q${obj.q}`} color={done?C.green:isActual?C.red:C.gray400} size={100}/>
                     <div style={{marginTop:8,fontSize:11,color:C.gray400}}>{ventasDeQ(user.id,obj.q).length} ventas</div>
                     <div style={{marginTop:4,fontSize:11}}><span style={{color:C.gray500}}>Obj: </span><span style={{fontWeight:600,color:C.gray800}}>{fmt(obj.objetivo)}</span></div>
+                    {done&&<div style={{fontSize:12,color:C.green,fontWeight:700,marginTop:6}}>🎉 ¡Felicitaciones!</div>}
                   </Card>
                 );
               })}
@@ -433,21 +460,61 @@ export default function App() {
                 const total=totalEnPeriodo(user.id,run.fecha_inicio,run.fecha_fin);
                 const activo=isRunActivo(run);
                 const vencido=isRunVencido(run);
+                const done=(part?.objetivo||0)>0&&total>=(part?.objetivo||0);
                 return (
-                  <Card key={run.id} style={{border:`1px solid ${activo?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
-                    {activo&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
-                    <div style={{fontSize:11,fontWeight:600,color:activo?C.red:C.gray400,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{activo?"🔥 Activo":vencido?"Finalizado":"Próximo"}</div>
+                  <Card key={run.id} style={{border:`1px solid ${done?C.green:activo?C.red:C.gray200}`,position:"relative",textAlign:"center"}}>
+                    {activo&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:done?C.green:C.red,borderRadius:"12px 12px 0 0"}}/>}
+                    <div style={{fontSize:11,fontWeight:600,color:done?C.green:activo?C.red:C.gray400,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{done?"✅ Meta cumplida":activo?"🔥 Activo":vencido?"Finalizado":"Próximo"}</div>
                     <div style={{fontWeight:700,fontSize:13,color:C.gray900,marginBottom:2}}>{run.nombre}</div>
                     <div style={{fontSize:10,color:C.gray400,marginBottom:8}}>{run.fecha_inicio} → {run.fecha_fin}</div>
-                    <PieChart value={total} max={part?.objetivo||0} label={run.nombre} color={activo?C.red:C.gray400} size={90}/>
+                    <PieChart value={total} max={part?.objetivo||0} label={run.nombre} color={done?C.green:activo?C.red:C.gray400} size={90}/>
                     <div style={{marginTop:6,fontSize:11,color:C.gray400}}>{ventasEnPeriodo(user.id,run.fecha_inicio,run.fecha_fin).length} ventas</div>
                     <div style={{marginTop:3,fontSize:11}}><span style={{color:C.gray500}}>Meta: </span><span style={{fontWeight:600,color:C.gray800}}>{fmt(part?.objetivo||0)}</span></div>
+                    {done&&<div style={{fontSize:12,color:C.green,fontWeight:700,marginTop:6}}>🎉 ¡Felicitaciones!</div>}
                   </Card>
                 );
               })}
             </div>
           </div>
         )}
+
+        {(()=>{
+          const now2=new Date(); const mesNum=now2.getMonth()+1; const anioNum=now2.getFullYear();
+          const cobros=mySales.filter(s=>{
+            if(s.estado==="cancelada") return false;
+            const nc=parseInt(s.num_cuotas)||1;
+            if(nc<=1||!s.fecha_inicio) return false;
+            const pagadas=s.cuotas_pagadas||0;
+            if(pagadas>=nc) return false;
+            const fi=new Date(s.fecha_inicio);
+            const monthsDiff=(anioNum-fi.getFullYear())*12+(mesNum-(fi.getMonth()+1));
+            return monthsDiff>=0&&monthsDiff<nc&&monthsDiff>=pagadas;
+          });
+          if(!cobros.length) return null;
+          return (
+            <div style={{marginBottom:20}}>
+              <div style={{fontWeight:600,fontSize:14,color:C.amber,marginBottom:10}}>⚠️ Cobros pendientes este mes ({cobros.length})</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {cobros.map(s=>{
+                  const nc=parseInt(s.num_cuotas)||1;
+                  const pagadas=s.cuotas_pagadas||0;
+                  const montoCuota=Math.round(s.total/nc);
+                  return (
+                    <Card key={s.id} style={{border:`1px solid ${C.amber}`,background:C.amberLight}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:13,color:C.black}}>{s.inmobiliaria}</div>
+                          <div style={{fontSize:11,color:C.gray500,marginTop:2}}>Cuota {pagadas+1}/{nc} · {fmt(montoCuota)}</div>
+                        </div>
+                        <Badge color="amber">Cobrar</Badge>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Ventas — últimas 4 semanas</div><BarChart data={weeklyData} height={90}/></Card>
@@ -498,7 +565,7 @@ export default function App() {
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Facturación por semana</div><BarChart data={weeklyTeam} height={110}/></Card>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>KPIs esta semana</div>
-            {SELLERS_OBJ.map(s=>{const k=myKpi(s.id,0);return(
+            {SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{const k=myKpi(s.id,0);return(
               <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.gray100}`,fontSize:13}}>
                 <span style={{fontWeight:500}}>{s.name}</span>
                 <span style={{color:C.gray400}}>{k.contactados||0} · {k.concrecion||0}%</span>
@@ -519,20 +586,31 @@ export default function App() {
                 {totalObj>0&&<div style={{fontSize:12,color:C.gray400}}>Equipo: <strong style={{color:isActual?C.red:C.gray600}}>{fmt(totalQ)}</strong> de <strong>{fmt(totalObj)}</strong> ({pct(totalQ,totalObj)}%)</div>}
                 <button onClick={()=>deleteObjetivoQTodos(q)} style={{marginLeft:"auto",fontSize:11,color:C.gray400,background:"none",border:`1px solid ${C.gray200}`,borderRadius:6,padding:"3px 10px",cursor:"pointer"}}>🗑 Borrar Q{q}</button>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
-                {SELLERS_OBJ.map(s=>{
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:12}}>
+                {SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{
                   const obj=objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio);
                   const tq=totalDeQ(s.id,q);
+                  const done=obj?.objetivo>0&&tq>=obj.objetivo;
                   return (
-                    <Card key={s.id} style={{textAlign:"center",border:`1px solid ${isActual?C.gray200:C.gray100}`,opacity:obj?1:0.5}}>
-                      <PieChart value={tq} max={obj?.objetivo||0} label={s.name} color={isActual?C.red:C.gray400} size={90}/>
-                      <div style={{fontSize:11,color:C.gray400,marginTop:6}}>{ventasDeQ(s.id,q).length} ventas</div>
+                    <Card key={s.id} style={{textAlign:"center",border:`1px solid ${done?C.green:isActual?C.gray200:C.gray100}`,opacity:obj?1:0.55}}>
+                      <div style={{width:32,height:32,borderRadius:8,background:done?C.green:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:10,fontWeight:700,margin:"0 auto 6px"}}>{s.avatar}</div>
+                      <div style={{fontWeight:600,fontSize:12,color:C.black,marginBottom:6}}>{s.name}</div>
+                      <PieChart value={tq} max={obj?.objetivo||0} label="" color={done?C.green:isActual?C.red:C.gray400} size={80}/>
+                      <div style={{fontSize:12,fontWeight:700,color:done?C.green:C.red,marginTop:4}}>{fmt(tq)}</div>
+                      <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{ventasDeQ(s.id,q).length} ventas</div>
                       {obj?(
-                        <div style={{fontSize:11,color:C.gray500,marginTop:2,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                          {fmt(obj.objetivo)}
-                          <button onClick={()=>deleteObjetivoQ(s.id,q)} style={{fontSize:10,color:C.gray300,background:"none",border:"none",cursor:"pointer",padding:0}} title="Quitar objetivo">🗑</button>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginTop:4}}>
+                          <span style={{fontSize:11,color:C.gray500}}>{fmt(obj.objetivo)}</span>
+                          <button onClick={()=>{setObjetivoForm({ejecutivo:s.id,objetivo:obj.objetivo,q,anio:currentAnio});setShowObjetivoForm(true);}} style={{fontSize:11,color:C.blue,background:"none",border:"none",cursor:"pointer",padding:0}} title="Editar objetivo">✏️</button>
+                          <button onClick={()=>deleteObjetivoQ(s.id,q)} style={{fontSize:11,color:C.gray300,background:"none",border:"none",cursor:"pointer",padding:0}} title="Quitar objetivo">🗑</button>
                         </div>
-                      ):<div style={{fontSize:10,color:C.gray300,marginTop:2}}>Sin objetivo</div>}
+                      ):(
+                        <div style={{marginTop:4}}>
+                          <div style={{fontSize:10,color:C.gray300,marginBottom:3}}>Sin objetivo</div>
+                          <button onClick={()=>{setObjetivoForm({ejecutivo:s.id,objetivo:0,q,anio:currentAnio});setShowObjetivoForm(true);}} style={{fontSize:10,color:C.blue,background:"none",border:`1px solid ${C.blue}`,borderRadius:4,cursor:"pointer",padding:"2px 6px",fontFamily:"'Montserrat',sans-serif"}}>+ Asignar</button>
+                        </div>
+                      )}
+                      {done&&<div style={{fontSize:11,color:C.green,fontWeight:600,marginTop:4}}>🎉 ¡Felicitaciones!</div>}
                     </Card>
                   );
                 })}
@@ -571,12 +649,14 @@ export default function App() {
                   {(run.participantes||[]).map(p=>{
                     const s=getUser(p.ejecutivo);
                     const total=totalEnPeriodo(p.ejecutivo,run.fecha_inicio,run.fecha_fin);
+                    const partDone=(p.objetivo||0)>0&&total>=(p.objetivo||0);
                     return (
-                      <div key={p.ejecutivo} style={{textAlign:"center",padding:"10px 8px",background:C.gray50,borderRadius:8,border:`1px solid ${C.gray100}`}}>
-                        <div style={{fontWeight:500,fontSize:12,color:C.gray700,marginBottom:6}}>{s?.name}</div>
-                        <PieChart value={total} max={p.objetivo||0} label="" color={activo?C.red:C.gray400} size={80}/>
+                      <div key={p.ejecutivo} style={{textAlign:"center",padding:"10px 8px",background:partDone?C.greenLight:C.gray50,borderRadius:8,border:`1px solid ${partDone?C.green:C.gray100}`}}>
+                        <div style={{fontWeight:500,fontSize:12,color:partDone?C.green:C.gray700,marginBottom:6}}>{s?.name}</div>
+                        <PieChart value={total} max={p.objetivo||0} label="" color={partDone?C.green:activo?C.red:C.gray400} size={80}/>
                         <div style={{fontSize:11,color:C.gray500,marginTop:4}}>{fmt(total)} / {fmt(p.objetivo)}</div>
                         <div style={{fontSize:10,color:C.gray400,marginTop:2}}>{ventasEnPeriodo(p.ejecutivo,run.fecha_inicio,run.fecha_fin).length} ventas</div>
+                        {partDone&&<div style={{fontSize:11,color:C.green,fontWeight:600,marginTop:4}}>🎉 ¡Felicitaciones!</div>}
                       </div>
                     );
                   })}
@@ -589,7 +669,7 @@ export default function App() {
         <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>KPIs detallados — esta semana</div>
         <Table
           cols={[{key:"v",label:"Vendedor"},{key:"c",label:"Contactados"},{key:"ce",label:"C. efectivos"},{key:"pp",label:"%"},{key:"ra",label:"R. agendadas"},{key:"re",label:"R. efectivas"},{key:"con",label:"Concreción"},{key:"tk",label:"Ticket"},{key:"pc",label:"Pos. concreción"}]}
-          rows={SELLERS_OBJ.map(s=>{const k=myKpi(s.id,0);return{
+          rows={SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{const k=myKpi(s.id,0);return{
             v:<div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:6,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:9,fontWeight:700}}>{s.avatar}</div><span style={{fontWeight:500,fontSize:13}}>{s.name}</span></div>,
             c:k.contactados||0,ce:k.contactados_efectivos||0,
             pp:<Badge color={(k.contactados_efectivos||0)>0?"green":"gray"}>{pct(k.contactados_efectivos||0,k.contactados||0)}%</Badge>,
@@ -646,7 +726,7 @@ export default function App() {
     if(user.role==="gerente") return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:800,color:C.black}}>KPIs del Equipo</div><Nav/></div>
-        {SELLERS_OBJ.map(s=>{const k=myKpi(s.id,kpiWeekOffset);return(
+        {SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{const k=myKpi(s.id,kpiWeekOffset);return(
           <Card key={s.id} style={{marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
               <div style={{width:34,height:34,borderRadius:9,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700}}>{s.avatar}</div>
@@ -654,10 +734,11 @@ export default function App() {
               {k.fecha_inicio&&<span style={{fontSize:11,color:C.gray400,marginLeft:"auto"}}>Sem. {k.fecha_inicio}</span>}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-              {[["Contactados",k.contactados||0],["C. efectivos",k.contactados_efectivos||0],["R. agendadas",k.reuniones_agendadas||0],["R. efectivas",k.reuniones_efectivas||0],["Concreción",`${k.concrecion||0}%`],["Ticket prom.",fmt(k.ticket_promedio||0)],["Pos. concreción",fmt(k.posible_concrecion||0)],["Control",k.control_calidad||"—"]].map(([lbl,v])=>(
+              {[["Contactados",k.contactados||0,"contactados"],["C. efectivos",k.contactados_efectivos||0,"contactados_efectivos"],["R. agendadas",k.reuniones_agendadas||0,"reuniones_agendadas"],["R. efectivas",k.reuniones_efectivas||0,"reuniones_efectivas"],["Concreción",`${k.concrecion||0}%`,null],["Ticket prom.",fmt(k.ticket_promedio||0),null],["Pos. concreción",fmt(k.posible_concrecion||0),null],["Control",k.control_calidad||"—",null]].map(([lbl,v,nk])=>(
                 <div key={lbl} style={{background:C.gray50,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.gray100}`}}>
                   <div style={{fontSize:9,color:C.gray400,marginBottom:3,textTransform:"uppercase",letterSpacing:0.3,fontWeight:500}}>{lbl}</div>
                   <div style={{fontWeight:600,fontSize:13,color:C.gray900}}>{v}</div>
+                  {nk&&k[nk+"_nombres"]&&<div style={{fontSize:9,color:C.gray500,marginTop:3,borderTop:`1px solid ${C.gray200}`,paddingTop:3,lineHeight:1.3}}>{k[nk+"_nombres"]}</div>}
                 </div>
               ))}
             </div>
@@ -667,6 +748,7 @@ export default function App() {
     );
     const cur=myKpi(user.id,kpiWeekOffset);
     const fields=[["contactados","Contactados"],["contactados_efectivos","Contactados efectivos"],["reuniones_agendadas","Reuniones agendadas"],["reuniones_efectivas","Reuniones efectivas"],["concrecion","Concreción (%)"],["ticket_promedio","Ticket promedio"],["posible_concrecion","Posible concreción"],["control_calidad","Control calidad"]];
+    const nameFields=["contactados","contactados_efectivos","reuniones_agendadas","reuniones_efectivas"];
     return (
       <div style={{padding:"1.5rem",maxWidth:700}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:800,color:C.black}}>Mis KPIs</div><Nav/></div>
@@ -674,7 +756,10 @@ export default function App() {
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 20px",marginBottom:14}}>
             {fields.map(([f,lbl])=>(
               <Field key={f} label={lbl}>
-                <input type={f==="control_calidad"?"text":"number"} value={kpiForm[f]!==undefined?kpiForm[f]:cur[f]||""} onChange={e=>setKpiForm(p=>({...p,[f]:e.target.value}))} style={inp} placeholder="0"/>
+                <input type="text" inputMode={f==="control_calidad"?undefined:"numeric"} value={kpiForm[f]!==undefined?kpiForm[f]:cur[f]||""} onChange={e=>{const v=f==="control_calidad"?e.target.value:e.target.value.replace(/[^\d.]/g,"");setKpiForm(p=>({...p,[f]:v}));}} style={inp} placeholder="0"/>
+                {nameFields.includes(f)&&(
+                  <textarea value={kpiForm[f+"_nombres"]!==undefined?kpiForm[f+"_nombres"]:cur[f+"_nombres"]||""} onChange={e=>setKpiForm(p=>({...p,[f+"_nombres"]:e.target.value}))} style={{...inp,height:52,resize:"none",marginTop:4,fontSize:11}} placeholder="Ej: García Props, Del Rey..."/>
+                )}
               </Field>
             ))}
           </div>
@@ -688,37 +773,74 @@ export default function App() {
     );
   };
 
-  const Disponibilidad = () => (
-    <div style={{padding:"1.5rem",maxWidth:800}}>
-      <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Disponibilidad de Productos</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        {availability.map(a=>{
-          const p=Math.round((a.used/a.total)*100);
-          const color=p>=90?C.red:p>=60?C.amber:C.green;
-          return (
-            <Card key={a.producto}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontWeight:600,fontSize:13}}>{a.producto}</span>
-                <span style={{fontSize:12,color:C.gray400}}>{a.used}/{a.total}</span>
-              </div>
-              <div style={{height:6,background:C.gray100,borderRadius:3,overflow:"hidden",marginBottom:6}}>
-                <div style={{height:"100%",width:`${p}%`,background:color,borderRadius:3,transition:"width 0.4s"}}/>
-              </div>
-              <div style={{fontSize:11,color,fontWeight:600}}>{p}% ocupado</div>
-              {user.role==="gerente"&&editAvail===a.id?(
-                <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-                  <input type="number" defaultValue={a.total} id={`t-${a.id}`} style={{...inp,width:60,padding:"4px 6px",fontSize:12}}/>
-                  <input type="number" defaultValue={a.used} id={`u-${a.id}`} style={{...inp,width:60,padding:"4px 6px",fontSize:12}}/>
-                  <Btn size="sm" variant="primary" onClick={async()=>{const t=parseInt(document.getElementById(`t-${a.id}`).value)||a.total;const u=parseInt(document.getElementById(`u-${a.id}`).value)||a.used;await upsertItem("disponibilidad",a.id,{...a,total:t,used:u});setAvailability(prev=>prev.map(x=>x.id===a.id?{...x,total:t,used:u}:x));setEditAvail(null);}}>OK</Btn>
-                  <Btn size="sm" onClick={()=>setEditAvail(null)}>×</Btn>
+  const Disponibilidad = () => {
+    const clientsForProduct = (producto) => {
+      return activeSales.filter(s=>(s.productos_seleccionados||[]).includes(producto));
+    };
+    return (
+      <div style={{padding:"1.5rem",maxWidth:800}}>
+        {dispModal&&(
+          <Modal onClose={()=>setDispModal(null)} maxWidth={520}>
+            <ModalHeader title={dispModal.producto} subtitle="Clientes con este producto activo" onClose={()=>setDispModal(null)}/>
+            <ModalBody>
+              {(()=>{
+                const cls=clientsForProduct(dispModal.producto);
+                if(!cls.length) return <div style={{color:C.gray400,fontSize:13,padding:"1rem",textAlign:"center"}}>No hay clientes con este producto actualmente</div>;
+                return (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {cls.map(s=>(
+                      <div key={s.id} style={{padding:"10px 14px",borderRadius:8,background:C.gray50,border:`1px solid ${C.gray200}`}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
+                          <div>
+                            <div style={{fontWeight:600,fontSize:13,color:C.black}}>{s.inmobiliaria}</div>
+                            <div style={{fontSize:11,color:C.gray500,marginTop:2}}>{getUser(s.ejecutivo)?.name} · Vence: {s.fecha_fin}</div>
+                          </div>
+                          <span style={{fontWeight:700,color:C.red,fontSize:13}}>{fmt(s.total)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </ModalBody>
+          </Modal>
+        )}
+        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Disponibilidad de Productos</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          {availability.map(a=>{
+            const p=Math.round((a.used/a.total)*100);
+            const color=p>=90?C.red:p>=60?C.amber:C.green;
+            const clientCount=clientsForProduct(a.producto).length;
+            return (
+              <Card key={a.producto} style={{cursor:"pointer"}} onClick={()=>{ if(editAvail!==a.id) setDispModal(a); }}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                  <span style={{fontWeight:600,fontSize:13}}>{a.producto}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {clientCount>0&&<span style={{fontSize:11,background:C.redLight,color:C.red,borderRadius:4,padding:"1px 6px",fontWeight:600}}>{clientCount} cliente{clientCount!==1?"s":""}</span>}
+                    <span style={{fontSize:12,color:C.gray400}}>{a.used}/{a.total}</span>
+                  </div>
                 </div>
-              ):user.role==="gerente"&&<button onClick={()=>setEditAvail(a.id)} style={{marginTop:6,fontSize:11,color:C.red,background:"none",border:"none",cursor:"pointer",padding:0,fontWeight:500}}>Editar</button>}
-            </Card>
-          );
-        })}
+                <div style={{height:6,background:C.gray100,borderRadius:3,overflow:"hidden",marginBottom:6}}>
+                  <div style={{height:"100%",width:`${p}%`,background:color,borderRadius:3,transition:"width 0.4s"}}/>
+                </div>
+                <div style={{fontSize:11,color,fontWeight:600}}>{p}% ocupado</div>
+                {user.role==="gerente"&&editAvail===a.id?(
+                  <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}} onClick={e=>e.stopPropagation()}>
+                    <input type="text" inputMode="numeric" defaultValue={a.total} id={`t-${a.id}`} style={{...inp,width:60,padding:"4px 6px",fontSize:12}}/>
+                    <input type="text" inputMode="numeric" defaultValue={a.used} id={`u-${a.id}`} style={{...inp,width:60,padding:"4px 6px",fontSize:12}}/>
+                    <Btn size="sm" variant="primary" onClick={async()=>{const t=parseInt(document.getElementById(`t-${a.id}`).value)||a.total;const u=parseInt(document.getElementById(`u-${a.id}`).value)||a.used;await upsertItem("disponibilidad",a.id,{...a,total:t,used:u});setAvailability(prev=>prev.map(x=>x.id===a.id?{...x,total:t,used:u}:x));setEditAvail(null);}}>OK</Btn>
+                    <Btn size="sm" onClick={()=>setEditAvail(null)}>×</Btn>
+                  </div>
+                ):user.role==="gerente"&&(
+                  <button onClick={e=>{e.stopPropagation();setEditAvail(a.id);}} style={{marginTop:6,fontSize:11,color:C.red,background:"none",border:"none",cursor:"pointer",padding:0,fontWeight:500}}>Editar</button>
+                )}
+              </Card>
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const Modificaciones = () => {
     const pending=sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
@@ -793,16 +915,34 @@ export default function App() {
         <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>{user.role==="marketing"?"Producciones a confirmar":user.role==="gerente"?"Producciones":"Mis Producciones"}</div>
         {!list.length&&<EmptyState icon="🎬" title="Sin producciones" desc="No hay producciones pendientes"/>}
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {list.map(p=>{const s=getUser(p.ejecutivo);return(
+          {list.map(p=>{const s=getUser(p.ejecutivo);const canEditProd=user.role==="marketing"||user.role==="vendedor";return(
             <Card key={p.id} style={{border:`1px solid ${p.confirmado?C.green:C.gray200}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                <div><div style={{fontWeight:600,fontSize:13}}>{p.cliente}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s?.name} · ×{p.produccion_q}</div></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:canEditProd?8:0}}>
+                <div>
+                  <div style={{fontWeight:600,fontSize:13}}>{p.cliente}</div>
+                  <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s?.name} · ×{p.produccion_q}{p.ciudad?` · 📍 ${p.ciudad}`:""}</div>
+                </div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                   <Badge color={p.confirmado?"green":"amber"}>{p.confirmado?"Confirmado":"Pendiente"}</Badge>
-                  {(user.role==="marketing"||user.role==="vendedor")&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
+                  {canEditProd&&<input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>}
                   {user.role==="marketing"&&!p.confirmado&&<Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>}
                 </div>
               </div>
+              {canEditProd&&(
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",borderTop:`1px solid ${C.gray100}`,paddingTop:8}}>
+                  <select value={p.ciudad||""} onChange={async e=>{await updateItem("producciones",p.id,{ciudad:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,ciudad:e.target.value}:x));}} style={{...inp,width:"auto",padding:"4px 8px",fontSize:11}}>
+                    <option value="">Ciudad...</option>
+                    {CIUDADES.map(c=><option key={c}>{c}</option>)}
+                  </select>
+                  <input value={p.comentario||""} onChange={async e=>{const v=e.target.value;await updateItem("producciones",p.id,{comentario:v});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,comentario:v}:x));}} style={{...inp,flex:1,minWidth:120,padding:"4px 8px",fontSize:11}} placeholder="Comentario..."/>
+                </div>
+              )}
+              {user.role==="gerente"&&(p.ciudad||p.comentario)&&(
+                <div style={{fontSize:11,color:C.gray500,marginTop:6}}>
+                  {p.ciudad&&<span style={{marginRight:8}}>📍 {p.ciudad}</span>}
+                  {p.comentario&&<span>{p.comentario}</span>}
+                </div>
+              )}
             </Card>
           );})}
         </div>
@@ -861,19 +1001,74 @@ export default function App() {
   );
 
   // ── SCREENS MAP ───────────────────────────────────────────
+  const clientList=[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()];
   const screens = {
-    dashboard:<DashboardVendedor/>, dashboard_gerente:<DashboardGerente/>,
+    dashboard:<DashboardVendedor/>,
+    dashboard_gerente:<DashboardGerente/>,
+    dashboard_ggeneral:<DashboardGeneral sales={sales} invoices={invoices} objetivos={objetivos} onNavigate={setTab}/>,
     ventas:<Ventas/>, kpis:<KPIs/>, disponibilidad:<Disponibilidad/>,
+    ventas_ggeneral:<VentasGeneral sales={sales} setSales={setSales} invoices={invoices}/>,
     producciones:<Producciones/>, social:<Social/>,
     modificaciones:<Modificaciones/>, alertas:<Alertas/>, alertas_admin:<Alertas/>, contratos:<Alertas/>,
-    comisiones:<div style={{padding:"1.5rem"}}><div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:8}}>Comisiones</div><div style={{color:C.gray400,fontSize:13,padding:"2rem",background:C.white,borderRadius:12,border:`1px solid ${C.gray200}`,textAlign:"center"}}>🔧 En configuración — próximamente</div></div>,
+    comisiones:<Comisiones sales={sales} comisiones={comisiones} onUpdateComision={updateComision} currentUser={user}/>,
     facturacion:<Facturacion sales={sales} invoices={invoices} isGerente={user.role==="gerente"} onUpdateSale={handleUpdateSale}
       onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}}
       onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}}/>,
-    clientes:<div style={{padding:"1.5rem",maxWidth:900}}><div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Clientes</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()].map(s=><Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{s.razon_social} · {s.rut}</div></div><div style={{fontWeight:700,color:C.red}}>{fmt(s.total)}</div></div></Card>)}</div></div>,
+    clientes:(
+      <div style={{padding:"1.5rem",maxWidth:900}}>
+        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Clientes ({clientList.length})</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {clientList.map(c=>{
+            const clientSales=sales.filter(s=>s.inmobiliaria===c.inmobiliaria);
+            const expanded=expandedClient===c.inmobiliaria;
+            const total=clientSales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
+            return (
+              <Card key={c.inmobiliaria}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,cursor:"pointer"}} onClick={()=>setExpandedClient(expanded?null:c.inmobiliaria)}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:13,color:C.black}}>{c.inmobiliaria}</div>
+                    <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{c.razon_social||""}{c.rut?` · RUT: ${c.rut}`:""} · {clientSales.length} venta{clientSales.length!==1?"s":""}</div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontWeight:700,color:C.red}}>{fmt(total)}</span>
+                    <span style={{fontSize:12,color:C.gray400,fontWeight:600}}>{expanded?"▲":"▼"}</span>
+                  </div>
+                </div>
+                {expanded&&(
+                  <div style={{marginTop:12,borderTop:`1px solid ${C.gray100}`,paddingTop:10}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {clientSales.map(s=>(
+                        <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 10px",borderRadius:8,background:C.gray50,border:`1px solid ${C.gray100}`,flexWrap:"wrap",gap:6}}>
+                          <div>
+                            <div style={{fontWeight:600,fontSize:12,color:C.black}}>{s.plan} · {s.crm}</div>
+                            <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {s.fecha_inicio} → {s.fecha_fin}</div>
+                            {(s.num_cuotas||1)>1&&<div style={{fontSize:11,color:C.gray500,marginTop:1}}>Cuotas: {s.cuotas_pagadas||0}/{s.num_cuotas} pagadas</div>}
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontWeight:700,fontSize:12,color:C.red}}>{fmt(s.total)}</div>
+                            <Badge color={s.estado==="activa"||!s.estado?"green":"gray"}>{s.estado||"activa"}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+          {!clientList.length&&<EmptyState icon="👥" title="Sin clientes" desc="Las inmobiliarias activas aparecerán aquí"/>}
+        </div>
+      </div>
+    ),
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
-    metricas:<EmptyState icon="📈" title="Métricas" desc="En desarrollo"/>,
-    reportes:<EmptyState icon="📊" title="Reportes" desc="En desarrollo"/>,
+    metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
+    reportes:<Reportes sales={sales}/>,
+    reportes_ggeneral:<Reportes sales={sales}/>,
+    competencias:<Competencias competencias={competencias} setCompetencias={setCompetencias} currentUser={user}/>,
+    tickets:<Tickets tickets={tickets} setTickets={setTickets} currentUser={user}/>,
+    tareas:<Tareas tareas={tareas} setTareas={setTareas} currentUser={user}/>,
+    documentos:<Documentos documentos={documentos} setDocumentos={setDocumentos} currentUser={user}/>,
+    presentaciones:<Presentaciones presentaciones={presentaciones} setPresentaciones={setPresentaciones} currentUser={user}/>,
   };
 
   return (

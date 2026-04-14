@@ -63,7 +63,7 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
       <ModalBody>
         <Field label="Porcentaje (%)">
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <input type="number" min="0" max="100" step="0.1" value={tempPct} onChange={e=>setTempPct(e.target.value)} style={{...inp,width:100}} placeholder="0.0"/>
+            <input type="text" inputMode="decimal" value={tempPct} onChange={e=>setTempPct(e.target.value.replace(/[^\d.]/g,""))} style={{...inp,width:100}} placeholder="0.0"/>
             <span style={{fontSize:14,color:C.gray500}}>%</span>
           </div>
         </Field>
