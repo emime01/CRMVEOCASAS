@@ -24,6 +24,63 @@ const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
 const PLATFORMS = ["Instagram","Facebook","LinkedIn","TikTok","Twitter/X"];
 
+const fmtDate = iso => {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+};
+const siNo = v => v ? "Sí" : "No";
+const hasProduct = (sale, name) => (sale.productos_seleccionados || []).includes(name);
+
+const exportVentasExcel = async (sales) => {
+  const XLSX = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs");
+  const rows = sales.filter(s => s.estado !== "cancelada").map(s => ({
+    "Inmobiliaria": s.inmobiliaria || "",
+    "CRM": s.crm || "",
+    "Fecha venta": fmtDate(s.created_at?.slice(0, 10)),
+    "Inicio": fmtDate(s.fecha_inicio),
+    "Fin": fmtDate(s.fecha_fin),
+    "Plan": s.plan || "",
+    "Prop.": s.propiedades || 0,
+    "Destacadas": s.destacadas_q || 0,
+    "Superdestacadas": s.superdestacadas_q || 0,
+    "Producción": s.produccion_q || 0,
+    "Índice": siNo(s.indice || hasProduct(s, "Índice")),
+    "Dest. Home Venta": siNo(s.destacadas_home || hasProduct(s, "Destacada Home Venta")),
+    "SD Home Venta": siNo(hasProduct(s, "Super destacada Home Venta")),
+    "Dest. Home Alquiler": siNo(hasProduct(s, "Destacada Home Alquiler")),
+    "SD Home Alquiler": siNo(hasProduct(s, "Super destacada Home Alquiler")),
+    "Banner": siNo(hasProduct(s, "Banner")),
+    "Desarrollos": siNo(hasProduct(s, "Desarrollos")),
+    "Subtotal": s.subtotal || 0,
+    "Total (IVA inc.)": s.total || 0,
+    "Método de pago": s.metodo_pago || s.subtipo_contado || "",
+    "N° Cuotas": s.num_cuotas || 1,
+    "Ejecutivo": getUser(s.ejecutivo)?.name || s.ejecutivo || "",
+    "Facturado": siNo(s.facturado),
+    "N° Factura": s.nro_factura || "",
+    "Estado": s.estado || "activa",
+    "Razón Social": s.razon_social || "",
+    "RUT": s.rut || "",
+    "Mail": s.mail || "",
+    "Teléfono": s.telefono || "",
+    "Detalle": s.detalle || "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Column widths
+  ws["!cols"] = [
+    {wch:22},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:6},{wch:11},{wch:14},{wch:11},
+    {wch:7},{wch:14},{wch:14},{wch:16},{wch:16},{wch:7},{wch:11},{wch:11},{wch:14},{wch:18},
+    {wch:8},{wch:14},{wch:10},{wch:10},{wch:10},{wch:18},{wch:14},{wch:22},{wch:13},{wch:22},
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Ventas");
+  const fecha = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `ventas-veocasas-${fecha}.xlsx`);
+};
+
 const INIT_DISP = [
   {id:"Propiedades",producto:"Propiedades",total:10,used:3},
   {id:"Destacadas",producto:"Destacadas",total:10,used:5},
@@ -702,6 +759,7 @@ export default function App() {
                 {SELLERS_OBJ.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             )}
+            {user.role==="gerente"&&<Btn onClick={()=>exportVentasExcel(list)}>📊 Exportar Excel</Btn>}
             {user.role==="vendedor"&&<Btn variant="primary" onClick={()=>setShowSaleForm(true)}>+ Nueva Venta</Btn>}
           </div>
         </div>
