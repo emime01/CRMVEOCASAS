@@ -113,7 +113,7 @@ export default function DashboardGeneral({ sales, invoices, objetivos, onNavigat
       </div>
 
       {/* KPI Stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:12,marginBottom:24}}>
         <Stat label="Ventas activas" value={filtered.length} color={C.red}/>
         <Stat label="Facturación total" value={fmt(totalFac)}/>
         <Stat label="Facturación este mes" value={fmt(mesFac)}/>

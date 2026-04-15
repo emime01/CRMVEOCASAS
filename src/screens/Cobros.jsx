@@ -119,7 +119,7 @@ export default function Cobros({ sales, setSales, setTickets, currentUser }) {
       </div>
 
       {/* Summary row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(150px,100%),1fr))", gap: 12, marginBottom: 20 }}>
         <div style={{ padding: "12px 16px", borderRadius: 10, background: C.amberLight, border: `1px solid ${C.amber}` }}>
           <div style={{ fontSize: 11, color: C.amber, fontWeight: 600, marginBottom: 4 }}>SIN GESTIONAR</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: C.amber }}>{pending.filter(c => !c.gestionado).length}</div>

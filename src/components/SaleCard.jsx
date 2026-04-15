@@ -85,7 +85,7 @@ export function SaleDetailModal({ sale, onClose, canEdit, canDelete, onEdit, onD
       </div>
       <ModalBody>
         {tab==="info"&&(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 20px",fontSize:13}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:"10px 20px",fontSize:13}}>
             {[
               ["Ejecutivo",seller?.name||sale.ejecutivo],
               ["CRM",sale.crm],

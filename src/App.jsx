@@ -276,7 +276,7 @@ export default function App() {
       </div>
       <div style={{background:C.white,borderRadius:16,padding:"2rem",width:"100%",maxWidth:480,border:`1px solid ${C.gray200}`}}>
         <div style={{fontSize:16,fontWeight:700,color:C.black,marginBottom:16}}>Seleccioná tu perfil</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(190px,100%),1fr))",gap:10,marginBottom:16}}>
           {USERS.filter(u=>u.role!=="inactivo").map(u=>(
             <button key={u.id} onClick={()=>login(u)}
               style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",border:`1px solid ${C.gray200}`,borderRadius:12,background:C.white,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif"}}
@@ -292,7 +292,7 @@ export default function App() {
         </div>
         <div style={{padding:"12px 14px",background:C.gray50,borderRadius:10,fontSize:11,color:C.gray500,border:`1px solid ${C.gray200}`}}>
           <div style={{fontWeight:600,color:C.gray700,marginBottom:6}}>Credenciales:</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(170px,100%),1fr))",gap:3}}>
             {CREDENTIALS.map(c=><div key={c.id}><span style={{color:C.gray700,fontWeight:500}}>{c.username}:</span> {c.password}</div>)}
           </div>
         </div>
@@ -310,13 +310,14 @@ export default function App() {
   // ── NAVBAR ────────────────────────────────────────────────
   const NavBar = () => (
     <>
-      <div style={{background:"#212121",padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:54,position:"sticky",top:0,zIndex:100}}>
-        <div style={{display:"flex",alignItems:"center",gap:20}}>
-          <span style={{fontSize:16,fontWeight:800,color:C.red,letterSpacing:"-0.5px",flexShrink:0}}>veocasas</span>
-          <div style={{display:"flex",gap:2}} id="desktop-nav">
+      <div style={{background:"#212121",padding:"0 1rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:54,position:"sticky",top:0,zIndex:100,gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0,flex:1,overflow:"hidden"}}>
+          <span style={{fontSize:15,fontWeight:800,color:C.red,letterSpacing:"-0.5px",flexShrink:0}}>veocasas</span>
+          <div id="desktop-nav" style={{display:"flex",gap:1,overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none",WebkitOverflowScrolling:"touch"}}>
+            <style>{`#desktop-nav::-webkit-scrollbar{display:none}`}</style>
             {currentTabs.map(t=>(
               <button key={t.id} onClick={()=>setTab(t.id)}
-                style={{padding:"4px 12px",borderRadius:6,border:"none",background:tab===t.id?"rgba(242,0,0,0.18)":"transparent",color:tab===t.id?C.red:"rgba(255,255,255,0.65)",fontSize:14,fontWeight:500,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",fontFamily:"'Montserrat', sans-serif"}}
+                style={{padding:"4px 10px",borderRadius:6,border:"none",background:tab===t.id?"rgba(242,0,0,0.18)":"transparent",color:tab===t.id?C.red:"rgba(255,255,255,0.65)",fontSize:13,fontWeight:500,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",fontFamily:"'Montserrat', sans-serif",flexShrink:0}}
                 onMouseEnter={e=>{if(tab!==t.id)e.currentTarget.style.color="rgba(255,255,255,0.9)";}}
                 onMouseLeave={e=>{if(tab!==t.id)e.currentTarget.style.color="rgba(255,255,255,0.65)";}}>
                 {t.label}
@@ -324,32 +325,20 @@ export default function App() {
             ))}
           </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {saving&&<span style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>Guardando...</span>}
-          {alertas.length>0&&<div style={{width:7,height:7,borderRadius:"50%",background:C.red}}/>}
-          <div style={{width:32,height:32,borderRadius:9,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700}}>{user.avatar}</div>
-          <span style={{color:"rgba(255,255,255,0.8)",fontSize:13,fontWeight:500}}>{user.name}</span>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          {saving&&<span style={{fontSize:11,color:"rgba(255,255,255,0.5)",display:"none"}} id="saving-txt">Guardando...</span>}
+          {alertas.length>0&&<div style={{width:7,height:7,borderRadius:"50%",background:C.red,flexShrink:0}}/>}
+          <div style={{width:30,height:30,borderRadius:8,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700,flexShrink:0}}>{user.avatar}</div>
+          <span id="user-name" style={{color:"rgba(255,255,255,0.8)",fontSize:12,fontWeight:500,whiteSpace:"nowrap"}}>{user.name}</span>
           <button onClick={logout}
-            style={{padding:"5px 10px",borderRadius:7,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.6)",fontSize:11,fontWeight:500,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif"}}
+            style={{padding:"5px 8px",borderRadius:7,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.6)",fontSize:11,fontWeight:500,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif",whiteSpace:"nowrap"}}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,1)";e.currentTarget.style.color="rgba(255,255,255,1)";}}
             onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.2)";e.currentTarget.style.color="rgba(255,255,255,0.6)";}}>
             Salir
           </button>
-          <button onClick={()=>setMenuOpen(m=>!m)} id="mobile-menu-btn"
-            style={{display:"none",padding:"5px 8px",border:"1px solid rgba(255,255,255,0.2)",borderRadius:7,background:"transparent",color:C.white,fontSize:16,cursor:"pointer",lineHeight:1}}>☰</button>
         </div>
       </div>
-      <style>{`@media(max-width:768px){#desktop-nav{display:none!important;}#mobile-menu-btn{display:flex!important;}}`}</style>
-      {menuOpen&&(
-        <div style={{background:"#212121",borderBottom:"1px solid rgba(255,255,255,0.1)",padding:"8px 1rem",display:"flex",flexDirection:"column",gap:2}}>
-          {currentTabs.map(t=>(
-            <button key={t.id} onClick={()=>{setTab(t.id);setMenuOpen(false);}}
-              style={{padding:"10px 14px",borderRadius:8,border:"none",background:tab===t.id?"rgba(242,0,0,0.18)":"transparent",color:tab===t.id?C.red:"rgba(255,255,255,0.65)",fontSize:13,fontWeight:500,cursor:"pointer",textAlign:"left",fontFamily:"'Montserrat', sans-serif"}}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <style>{`@media(max-width:480px){#user-name{display:none!important;}}`}</style>
     </>
   );
 
@@ -480,7 +469,7 @@ export default function App() {
           <div style={{fontSize:28,fontWeight:800,color:C.black}}>Hola, {user.name} 👋</div>
           <div style={{fontSize:14,color:C.gray500,marginTop:4}}>Semana: {getWeekDates(0).label} · Q{currentQ} {currentAnio}</div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:12,marginBottom:20}}>
           <Stat label="Ventas activas" value={mySales.filter(s=>s.estado!=="cancelada").length} color={C.red}/>
           <Stat label="Facturación total" value={fmt(totalVentas)}/>
           <Stat label="Concreción" value={`${lastKpi.concrecion||0}%`} sub="Esta semana"/>
@@ -490,7 +479,7 @@ export default function App() {
         {qAsignados.length>0?(
           <div style={{marginBottom:20}}>
             <div style={{fontWeight:600,fontSize:14,color:C.gray700,marginBottom:12}}>Objetivos por trimestre</div>
-            <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(qAsignados.length,4)},1fr)`,gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:12}}>
               {qAsignados.map(obj=>{
                 const tq=totalDeQ(user.id,obj.q);
                 const isActual=obj.q===currentQ;
@@ -518,7 +507,7 @@ export default function App() {
         {runsDelVendedor.length>0&&(
           <div style={{marginBottom:20}}>
             <div style={{fontWeight:600,fontSize:14,color:C.gray700,marginBottom:12}}>🔥 Bonos activos</div>
-            <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(runsDelVendedor.length,3)},1fr)`,gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:12}}>
               {runsDelVendedor.map(run=>{
                 const part=run.participantes.find(p=>p.ejecutivo===user.id);
                 const total=totalEnPeriodo(user.id,run.fecha_inicio,run.fecha_fin);
@@ -580,7 +569,7 @@ export default function App() {
           );
         })()}
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:16,marginBottom:20}}>
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Ventas — últimas 4 semanas</div><BarChart data={weeklyData} height={90}/></Card>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>KPIs esta semana</div>
@@ -619,13 +608,13 @@ export default function App() {
             <Btn variant="primary" onClick={()=>setShowObjetivoForm(true)}>+ Asignar objetivo</Btn>
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:12,marginBottom:20}}>
           <Stat label="Ventas activas" value={activeSales.length} color={C.red}/>
           <Stat label="Facturación total" value={fmt(total)}/>
           <Stat label="Modificaciones pendientes" value={pending.length} color={pending.length>0?C.amber:C.green} alert={pending.length>0}/>
           <Stat label="Alertas vencimiento" value={alertas.length} color={alertas.length>0?C.red:C.green} alert={alertas.length>0}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:24}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:16,marginBottom:24}}>
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Facturación por semana</div><BarChart data={weeklyTeam} height={110}/></Card>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>KPIs esta semana</div>
@@ -709,7 +698,7 @@ export default function App() {
                     <Btn size="sm" variant="danger" onClick={()=>deleteRun(run.id)}>Eliminar</Btn>
                   </div>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(run.participantes?.length||1,5)},1fr)`,gap:10}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(130px,100%),1fr))",gap:10}}>
                   {(run.participantes||[]).map(p=>{
                     const s=getUser(p.ejecutivo);
                     const total=totalEnPeriodo(p.ejecutivo,run.fecha_inicio,run.fecha_fin);
@@ -764,7 +753,7 @@ export default function App() {
           </div>
         </div>
         {user.role==="gerente"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:12,marginBottom:16}}>
             <Stat label="Ventas activas" value={active.length} color={C.red}/>
             <Stat label="Facturación" value={fmt(active.reduce((a,s)=>a+(s.total||0),0))}/>
             <Stat label="Ticket promedio" value={active.length?fmt(Math.round(active.reduce((a,s)=>a+(s.total||0),0)/active.length)):"-"}/>
@@ -812,7 +801,7 @@ export default function App() {
           </Modal>
         )}
         <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Disponibilidad de Productos</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:12}}>
           {availability.map(a=>{
             const p=Math.round((a.used/a.total)*100);
             const color=p>=90?C.red:p>=60?C.amber:C.green;

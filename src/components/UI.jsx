@@ -1,11 +1,12 @@
 import { C, fmt } from "../constants";
 
 export const inp = {
-  width:"100%", padding:"9px 12px", borderRadius:8,
+  width:"100%", padding:"10px 12px", borderRadius:8,
   border:`1.5px solid ${C.gray200}`, fontSize:13, outline:"none",
   boxSizing:"border-box", background:C.white, color:C.black,
   fontFamily:"'Montserrat', sans-serif",
   transition:"border-color 0.15s",
+  minHeight:"42px",
 };
 
 export const Field = ({label,children,hint}) => (
@@ -16,8 +17,9 @@ export const Field = ({label,children,hint}) => (
   </div>
 );
 
+// Responsive 2-column → 1-column on narrow screens
 export const Grid2 = ({children,gap="12px 16px"}) => (
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap}}>{children}</div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap}}>{children}</div>
 );
 
 export const Sec = ({title,children}) => (
@@ -37,18 +39,18 @@ export const Badge = ({children,color="gray",style={}}) => {
   };
   const col = colors[color]||colors.gray;
   return (
-    <span style={{display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:500,background:col.bg,color:col.text,...style}}>
+    <span style={{display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:500,background:col.bg,color:col.text,whiteSpace:"nowrap",...style}}>
       {children}
     </span>
   );
 };
 
 export const Stat = ({label,value,sub,color,alert,trend}) => (
-  <div style={{background:C.white,border:`1px solid ${alert?C.red:C.gray200}`,borderRadius:12,padding:"16px 18px",position:"relative",overflow:"hidden"}}>
+  <div style={{background:C.white,border:`1px solid ${alert?C.red:C.gray200}`,borderRadius:12,padding:"14px 16px",position:"relative",overflow:"hidden",minWidth:0}}>
     {alert&&<div style={{position:"absolute",top:0,left:0,right:0,height:3,background:C.red,borderRadius:"12px 12px 0 0"}}/>}
-    <div style={{fontSize:11,fontWeight:600,color:C.gray500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.8}}>{label}</div>
-    <div style={{fontSize:22,fontWeight:800,color:color||C.black,lineHeight:1}}>{value}</div>
-    {sub&&<div style={{fontSize:12,color:C.gray500,marginTop:6}}>{sub}</div>}
+    <div style={{fontSize:10,fontWeight:600,color:C.gray500,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8,lineHeight:1.3}}>{label}</div>
+    <div style={{fontSize:20,fontWeight:800,color:color||C.black,lineHeight:1,wordBreak:"break-word"}}>{value}</div>
+    {sub&&<div style={{fontSize:11,color:C.gray500,marginTop:5,lineHeight:1.3}}>{sub}</div>}
     {trend!==undefined&&(
       <div style={{fontSize:11,color:trend>=0?C.green:C.red,marginTop:4,fontWeight:500}}>
         {trend>=0?"↑":"↓"} {Math.abs(trend)}%
@@ -58,7 +60,7 @@ export const Stat = ({label,value,sub,color,alert,trend}) => (
 );
 
 export const Card = ({children,style={},onClick}) => (
-  <div onClick={onClick} style={{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:12,padding:"16px 18px",cursor:onClick?"pointer":"default",transition:"border-color 0.15s",...style}}
+  <div onClick={onClick} style={{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:12,padding:"14px 16px",cursor:onClick?"pointer":"default",transition:"border-color 0.15s",minWidth:0,...style}}
     onMouseEnter={onClick?e=>{e.currentTarget.style.borderColor=C.red;}:null}
     onMouseLeave={onClick?e=>{e.currentTarget.style.borderColor=style.border?style.border.split(" ").pop():C.gray200;}:null}>
     {children}
@@ -66,7 +68,11 @@ export const Card = ({children,style={},onClick}) => (
 );
 
 export const Btn = ({children,onClick,variant="outline",size="md",disabled,style={}}) => {
-  const sizes = {sm:{padding:"5px 12px",fontSize:12},md:{padding:"8px 16px",fontSize:13},lg:{padding:"11px 22px",fontSize:14}};
+  const sizes = {
+    sm:{padding:"7px 12px",fontSize:12,minHeight:"34px"},
+    md:{padding:"9px 16px",fontSize:13,minHeight:"40px"},
+    lg:{padding:"11px 22px",fontSize:14,minHeight:"44px"},
+  };
   const variants = {
     primary:{background:C.red,color:C.white,border:"none"},
     outline:{background:"transparent",color:C.gray600,border:`1px solid ${C.gray200}`},
@@ -75,7 +81,7 @@ export const Btn = ({children,onClick,variant="outline",size="md",disabled,style
     success:{background:C.greenLight,color:C.green,border:`1px solid ${C.green}`},
   };
   return (
-    <button onClick={onClick} disabled={disabled} style={{...sizes[size],...variants[variant],borderRadius:8,fontWeight:600,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.5:1,display:"inline-flex",alignItems:"center",gap:6,transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif",...style}}
+    <button onClick={onClick} disabled={disabled} style={{...sizes[size],...variants[variant],borderRadius:8,fontWeight:600,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.5:1,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif",whiteSpace:"nowrap",...style}}
       onMouseEnter={!disabled?e=>{if(variant==="primary")e.currentTarget.style.background=C.redDark;if(variant==="outline"){e.currentTarget.style.borderColor=C.red;e.currentTarget.style.color=C.red;}}:null}
       onMouseLeave={!disabled?e=>{if(variant==="primary")e.currentTarget.style.background=C.red;if(variant==="outline"){e.currentTarget.style.borderColor=C.gray200;e.currentTarget.style.color=C.gray600;}}:null}>
       {children}
@@ -93,7 +99,7 @@ export const PieChart = ({value,max,label,color=C.red,size=110}) => {
     :`M ${cx} ${cy-r} A ${r} ${r} 0 ${large} 1 ${x} ${y} L ${cx} ${cy} Z`;
   return (
     <div style={{textAlign:"center"}}>
-      <svg width={size} height={size}>
+      <svg width={size} height={size} style={{maxWidth:"100%"}}>
         <circle cx={cx} cy={cy} r={r} fill={C.gray100}/>
         {p>0&&<path d={path} fill={color} opacity="0.9"/>}
         <circle cx={cx} cy={cy} r={30} fill={C.white}/>
@@ -111,12 +117,12 @@ export const BarChart = ({data,height=100}) => {
   if(!data?.length) return null;
   const max=Math.max(...data.map(d=>d.value),1);
   return (
-    <div style={{display:"flex",alignItems:"flex-end",gap:8,height:height+36,padding:"0 4px"}}>
+    <div style={{display:"flex",alignItems:"flex-end",gap:4,height:height+36,padding:"0 4px",overflowX:"auto"}}>
       {data.map((d,i)=>(
-        <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+        <div key={i} style={{flex:"1 0 24px",display:"flex",flexDirection:"column",alignItems:"center",gap:4,minWidth:0}}>
           {d.value>0&&<div style={{fontSize:9,color:C.gray400,fontWeight:500,textAlign:"center"}}>{fmt(d.value)}</div>}
           <div style={{width:"100%",background:d.highlight?C.red:C.gray200,borderRadius:"6px 6px 0 0",height:Math.max((d.value/max)*height,2),transition:"height 0.4s ease"}}/>
-          <div style={{fontSize:9,color:C.gray400,textAlign:"center",lineHeight:1.3}}>{d.label}</div>
+          <div style={{fontSize:9,color:C.gray400,textAlign:"center",lineHeight:1.3,wordBreak:"break-word"}}>{d.label}</div>
         </div>
       ))}
     </div>
@@ -137,43 +143,44 @@ export const ProgressBar = ({value,max,color=C.red,showLabel=true}) => {
   );
 };
 
+// Modal: fits screen on mobile, scrollable content
 export const Modal = ({children,onClose,maxWidth=640}) => (
-  <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}} onClick={onClose}>
-    <div style={{background:C.white,borderRadius:16,width:"100%",maxWidth,maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+  <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"env(safe-area-inset-top, 12px) 12px 12px",overflowY:"auto"}} onClick={onClose}>
+    <div style={{background:C.white,borderRadius:16,width:"100%",maxWidth,marginTop:"auto",marginBottom:"auto",position:"relative"}} onClick={e=>e.stopPropagation()}>
       {children}
     </div>
   </div>
 );
 
 export const ModalHeader = ({title,subtitle,onClose}) => (
-  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"20px 24px 16px",borderBottom:`1px solid ${C.gray200}`}}>
-    <div>
-      <div style={{fontSize:20,fontWeight:700,color:C.black}}>{title}</div>
-      {subtitle&&<div style={{fontSize:13,color:C.gray500,marginTop:3}}>{subtitle}</div>}
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"18px 20px 14px",borderBottom:`1px solid ${C.gray200}`}}>
+    <div style={{minWidth:0,paddingRight:8}}>
+      <div style={{fontSize:18,fontWeight:700,color:C.black,lineHeight:1.2}}>{title}</div>
+      {subtitle&&<div style={{fontSize:12,color:C.gray500,marginTop:3}}>{subtitle}</div>}
     </div>
-    <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.gray500,fontSize:20,lineHeight:1,padding:"2px 4px",borderRadius:6,transition:"color 0.15s",fontFamily:"'Montserrat', sans-serif"}}
+    <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.gray500,fontSize:22,lineHeight:1,padding:"2px 4px",borderRadius:6,transition:"color 0.15s",fontFamily:"'Montserrat', sans-serif",flexShrink:0}}
       onMouseEnter={e=>e.currentTarget.style.color=C.black}
       onMouseLeave={e=>e.currentTarget.style.color=C.gray500}>×</button>
   </div>
 );
 
 export const ModalBody = ({children}) => (
-  <div style={{padding:"20px 24px"}}>{children}</div>
+  <div style={{padding:"18px 20px"}}>{children}</div>
 );
 
 export const ModalFooter = ({children}) => (
-  <div style={{display:"flex",gap:10,justifyContent:"flex-end",padding:"16px 24px",borderTop:`1px solid ${C.gray200}`}}>
+  <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap",padding:"14px 20px",borderTop:`1px solid ${C.gray200}`}}>
     {children}
   </div>
 );
 
 export const Table = ({cols,rows,emptyMsg="Sin datos"}) => (
   <div style={{background:C.white,border:`1px solid ${C.gray200}`,borderRadius:12,overflow:"hidden"}}>
-    <div style={{overflowX:"auto"}}>
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:cols.length*100}}>
+    <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:`${cols.length*90}px`}}>
         <thead>
           <tr style={{background:C.gray50,borderBottom:`1px solid ${C.gray200}`}}>
-            {cols.map(c=><th key={c.key||c} style={{padding:"11px 14px",textAlign:"left",fontWeight:600,fontSize:11,color:C.gray500,textTransform:"uppercase",letterSpacing:0.5,whiteSpace:"nowrap"}}>{c.label||c}</th>)}
+            {cols.map(c=><th key={c.key||c} style={{padding:"10px 12px",textAlign:"left",fontWeight:600,fontSize:11,color:C.gray500,textTransform:"uppercase",letterSpacing:0.5,whiteSpace:"nowrap"}}>{c.label||c}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -183,7 +190,7 @@ export const Table = ({cols,rows,emptyMsg="Sin datos"}) => (
               onMouseEnter={e=>e.currentTarget.style.background=C.redLight}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               {cols.map(c=>(
-                <td key={c.key||c} style={{padding:"10px 14px",whiteSpace:c.wrap?"normal":"nowrap",color:C.gray700}}>{row[c.key||c]}</td>
+                <td key={c.key||c} style={{padding:"9px 12px",whiteSpace:c.wrap?"normal":"nowrap",color:C.gray700}}>{row[c.key||c]}</td>
               ))}
             </tr>
           ))}
@@ -202,10 +209,10 @@ export const Spinner = () => (
 );
 
 export const EmptyState = ({icon="📭",title,desc,action}) => (
-  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"4rem 2rem",textAlign:"center"}}>
-    <div style={{fontSize:40,marginBottom:12}}>{icon}</div>
+  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"3rem 1.5rem",textAlign:"center"}}>
+    <div style={{fontSize:36,marginBottom:10}}>{icon}</div>
     <div style={{fontSize:15,fontWeight:600,color:C.gray600,marginBottom:6}}>{title}</div>
-    {desc&&<div style={{fontSize:13,color:C.gray500,marginBottom:16}}>{desc}</div>}
+    {desc&&<div style={{fontSize:13,color:C.gray500,marginBottom:16,maxWidth:320}}>{desc}</div>}
     {action}
   </div>
 );
