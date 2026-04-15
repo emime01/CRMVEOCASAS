@@ -142,7 +142,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(150px,100%),1fr))", gap: 12, marginBottom: 20 }}>
         <Stat label="Contratos en cuotas" value={ventasConCuotas.length} color={C.red} />
         <Stat label={`Cuotas este mes (${mes}/${anio})`} value={cuotasMesActual.length} sub={`${pendientesCobro} sin cobrar`} />
         <Stat label="Monto a cobrar este mes" value={fmt(cuotasMesActual.filter(c => !c.pagada).reduce((a, c) => a + (c.monto || 0), 0))} color={pendientesCobro > 0 ? C.amber : C.green} alert={pendientesCobro > 0} />
@@ -408,7 +408,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
       {/* ── TAB: FACTURAS ── */}
       {tabMain === "facturas" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(160px,100%),1fr))", gap: 12, marginBottom: 16 }}>
             <Stat label="Emitidas" value={invoices.length} />
             <Stat label="Cobradas" value={invoices.filter(i => i.status === "pagada").length} color={C.green} />
             <Stat label="Total cobrado" value={fmt(invoices.filter(i => i.status === "pagada").reduce((a, i) => a + (i.amount || 0), 0))} color={C.green} />
@@ -461,7 +461,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
         <Modal onClose={() => setShowForm(false)} maxWidth={480}>
           <ModalHeader title="Nueva Factura Manual" onClose={() => setShowForm(false)} />
           <ModalBody>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(180px,100%),1fr))", gap: "10px 14px" }}>
               <Field label="Folio"><input value={form.folio} onChange={e => setForm(f => ({ ...f, folio: e.target.value }))} style={inp} placeholder="F-400" /></Field>
               <Field label="Cliente"><input value={form.client} onChange={e => setForm(f => ({ ...f, client: e.target.value }))} style={inp} /></Field>
               <Field label="Monto">

@@ -30,7 +30,7 @@ export default function KPIs({ currentUser, kpis, kpiForm, setKpiForm, kpiWeekOf
               <div style={{fontWeight:600,fontSize:14}}>{s.name}</div>
               {k.fecha_inicio&&<span style={{fontSize:11,color:C.gray400,marginLeft:"auto"}}>Sem. {k.fecha_inicio}</span>}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(140px,100%),1fr))",gap:8}}>
               {[["Contactados",k.contactados||0,"contactados"],["C. efectivos",k.contactados_efectivos||0,"contactados_efectivos"],["R. agendadas",k.reuniones_agendadas||0,"reuniones_agendadas"],["R. efectivas",k.reuniones_efectivas||0,"reuniones_efectivas"],["Concreción",`${k.concrecion||0}%`,null],["Ticket prom.",fmt(k.ticket_promedio||0),null],["Pos. concreción",fmt(k.posible_concrecion||0),null],["Control",k.control_calidad||"—",null]].map(([lbl,v,nk])=>(
                 <div key={lbl} style={{background:C.gray50,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.gray100}`}}>
                   <div style={{fontSize:9,color:C.gray400,marginBottom:3,textTransform:"uppercase",letterSpacing:0.3,fontWeight:500}}>{lbl}</div>
@@ -65,7 +65,7 @@ export default function KPIs({ currentUser, kpis, kpiForm, setKpiForm, kpiWeekOf
         <Nav/>
       </div>
       <Card>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 20px",marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:"12px 20px",marginBottom:14}}>
           {fields.map(([f,lbl])=>(
             <Field key={f} label={lbl}>
               <input

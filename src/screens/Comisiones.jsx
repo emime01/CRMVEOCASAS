@@ -113,7 +113,7 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
           <div style={{fontSize:20,fontWeight:800,color:C.black}}>Mis Comisiones</div>
           <div style={{fontSize:13,color:C.gray400,marginTop:4}}>{mesActual}/{anioActual} · {pct}% por venta</div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:12,marginBottom:24}}>
           <Stat label="Comisión este mes" value={fmt(totalCom)} color={C.red}/>
           <Stat label="Ventas activas" value={ventasPropias.length}/>
           <Stat label="% asignado" value={`${pct}%`} sub="sobre ventas mensualiz."/>
@@ -178,7 +178,7 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
         <div style={{fontSize:13,color:C.gray400,marginTop:4}}>Mes {mesActual}/{anioActual}</div>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:12,marginBottom:24}}>
         <Stat label="Total comisiones mes" value={fmt(totalComisiones+totalComisionesCrm)} color={C.red}/>
         <Stat label="Comisión gerente" value={fmt(comisionGerente)} sub={`${comisiones?.gerente||0}% ventas totales`}/>
         <Stat label="Comisiones CRM" value={fmt(totalComisionesCrm)} sub="Por tasa individual por CRM"/>
@@ -186,7 +186,7 @@ export default function Comisiones({ sales, comisiones, onUpdateComision, curren
       </div>
 
       {/* Comisiones especiales */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:12,marginBottom:16}}>
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>

@@ -112,7 +112,7 @@ export default function Reportes({ sales }) {
         <BarChart data={qChartData} height={100}/>
       </Card>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:16,marginBottom:20}}>
         {/* By vendedor */}
         <div>
           <div style={{fontWeight:700,fontSize:14,color:C.black,marginBottom:10}}>Por vendedor</div>

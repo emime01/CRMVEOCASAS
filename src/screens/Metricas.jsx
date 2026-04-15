@@ -89,7 +89,7 @@ export default function Metricas({ metricas, setMetricas, currentUser }) {
                 return(
                   <div style={{padding:"10px 14px",background:C.redLight,borderRadius:8,border:`1px solid ${C.red}`,fontSize:12}}>
                     <strong>Preview KPIs:</strong>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:4,marginTop:6}}>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(80px,100%),1fr))",gap:4,marginTop:6}}>
                       {[["CTR",k.ctr+"%"],["CPM","$"+k.cpm],["CPC","$"+k.cpc],["CPA","$"+k.cpa],["Frecuencia",k.frecuencia]].map(([l,v])=>(
                         <div key={l} style={{background:C.white,borderRadius:6,padding:"4px 8px",textAlign:"center"}}>
                           <div style={{fontSize:10,color:C.gray500}}>{l}</div>
@@ -153,7 +153,7 @@ export default function Metricas({ metricas, setMetricas, currentUser }) {
                         {m.gasto&&<span style={{fontSize:13,fontWeight:700,color:C.red}}>Gasto: ${parseFloat(m.gasto).toLocaleString()}</span>}
                       </div>
                       {/* Raw metrics */}
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:10}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100px,100%),1fr))",gap:6,marginBottom:10}}>
                         {[["Impresiones",m.impresiones],["Alcance",m.alcance],["Clics",m.clics],["Conversiones",m.conversiones]].filter(([,v])=>v).map(([l,v])=>(
                           <div key={l} style={{background:C.gray50,borderRadius:6,padding:"6px 8px",border:`1px solid ${C.gray200}`}}>
                             <div style={{fontSize:10,color:C.gray500,marginBottom:2}}>{l}</div>
@@ -162,7 +162,7 @@ export default function Metricas({ metricas, setMetricas, currentUser }) {
                         ))}
                       </div>
                       {/* Calculated KPIs */}
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(80px,100%),1fr))",gap:6}}>
                         {[["CTR",k.ctr+"%"],["CPM","$"+k.cpm],["CPC","$"+k.cpc],["CPA","$"+k.cpa],["Frecuencia",k.frecuencia]].map(([l,v])=>(
                           <div key={l} style={{background:C.redLight,borderRadius:6,padding:"6px 8px",border:`1px solid ${C.red}`,textAlign:"center"}}>
                             <div style={{fontSize:10,color:C.red,fontWeight:600,marginBottom:2}}>{l}</div>
