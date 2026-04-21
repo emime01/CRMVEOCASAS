@@ -39,12 +39,31 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
   const pendientesCobro = cuotasMesActual.filter(c => !c.pagada).length;
   const totalPendiente = sales.filter(s => !s.facturado && s.estado !== "cancelada").reduce((a, s) => a + (s.total || 0), 0);
 
+  // Build default cuotas_detalle for a sale (fallback for legacy data)
+  const buildDefaultCuotas = (venta) => {
+    const nc = parseInt(venta.num_cuotas) || 1;
+    return Array.from({ length: nc }, (_, i) => {
+      let fecha = "";
+      if (venta.fecha_inicio) {
+        const f = new Date(venta.fecha_inicio);
+        f.setMonth(f.getMonth() + i);
+        fecha = f.toISOString().split("T")[0];
+      }
+      return {
+        numero: i + 1, fecha,
+        monto: Math.round((venta.total || 0) / nc),
+        pagada: false, gestionado: false, nro_factura: "",
+      };
+    });
+  };
+
   // ── Guardar cambio en cuota ────────────────────────────
   const updateCuota = async (ventaId, cuotaIdx, changes) => {
     setSaving(`${ventaId}_${cuotaIdx}`);
     const venta = sales.find(s => s.id === ventaId);
-    if (!venta) return;
-    const nuevasCuotas = (venta.cuotas_detalle || []).map((c, i) =>
+    if (!venta) { setSaving(null); return; }
+    const base = venta.cuotas_detalle?.length ? venta.cuotas_detalle : buildDefaultCuotas(venta);
+    const nuevasCuotas = base.map((c, i) =>
       i === cuotaIdx ? { ...c, ...changes } : c
     );
     await onUpdateSale(ventaId, { cuotas_detalle: nuevasCuotas });
@@ -173,7 +192,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
         <div>
           {ventasConCuotas.length === 0 && <EmptyState icon="📋" title="Sin contratos en cuotas" />}
           {ventasConCuotas.map(venta => {
-            const cuotas = venta.cuotas_detalle || [];
+            const cuotas = venta.cuotas_detalle?.length ? venta.cuotas_detalle : buildDefaultCuotas(venta);
             const pagadas = cuotas.filter(c => c.pagada).length;
             return (
               <div key={venta.id} style={{ marginBottom: 24 }}>

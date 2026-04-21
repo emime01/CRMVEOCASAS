@@ -60,14 +60,26 @@ export default function Cobros({ sales, setSales, setTickets, currentUser }) {
     const sale = sales.find(s => s.id === cuota.saleId);
     if (!sale) { setSaving(null); return; }
 
-    // Update cuota gestionado flag
-    const nuevasCuotas = (sale.cuotas_detalle || Array.from({ length: parseInt(sale.num_cuotas) || 1 }, (_, i) => ({
-      numero: i + 1,
-      fecha: "",
-      monto: Math.round(sale.total / (parseInt(sale.num_cuotas) || 1)),
-      pagada: false,
-      gestionado: false,
-    }))).map((c, i) => i === cuota.idx ? { ...c, gestionado: true } : c);
+    // Update cuota gestionado flag (build default array if legacy sale has none)
+    const nc = parseInt(sale.num_cuotas) || 1;
+    const buildDefault = () => Array.from({ length: nc }, (_, i) => {
+      let fecha = "";
+      if (sale.fecha_inicio) {
+        const f = new Date(sale.fecha_inicio);
+        f.setMonth(f.getMonth() + i);
+        fecha = f.toISOString().split("T")[0];
+      }
+      return {
+        numero: i + 1,
+        fecha,
+        monto: Math.round(sale.total / nc),
+        pagada: false,
+        gestionado: false,
+        nro_factura: "",
+      };
+    });
+    const nuevasCuotas = (sale.cuotas_detalle?.length ? sale.cuotas_detalle : buildDefault())
+      .map((c, i) => i === cuota.idx ? { ...c, gestionado: true } : c);
 
     await updateItem("ventas", cuota.saleId, { cuotas_detalle: nuevasCuotas });
     setSales(prev => prev.map(s => s.id === cuota.saleId ? { ...s, cuotas_detalle: nuevasCuotas } : s));
