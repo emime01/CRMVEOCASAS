@@ -23,6 +23,10 @@ a { color: inherit; }
 .top h1 { font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; margin: 0; font-weight: 700; }
 .top p { margin: 6px 0 0; color: var(--tenue); }
 
+.aviso { background: var(--ambar-suave); color: var(--tinta); border-left: 4px solid var(--ambar); border-radius: 6px; padding: 10px 14px; margin: -16px 0 28px; }
+.aviso p { margin: 0; }
+.aviso p + p { margin-top: 4px; }
+
 /* El flujo: etapas conectadas por una sola línea, ancho según volumen */
 .flujo { display: flex; gap: 0; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; }
 .etapa {

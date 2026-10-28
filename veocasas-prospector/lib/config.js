@@ -15,10 +15,16 @@ export const CONFIG = {
   agendaUrl: env('AGENDA_URL', ''),
 
   cupoDiario: Number(env('DAILY_NEW_LIMIT', 25)),  // primeros correos por día hábil (subir de a poco)
+  topePlacesMes: Number(env('PLACES_MONTHLY_LIMIT', 900)), // llamadas a Places por mes; el tramo gratis es 1.000
   secuenciaDias: [3, 7, 10],                         // seguimientos, en días desde el primer correo
   graciaFinalDias: 3,                                // tras el día 10, espera antes de pasar a "sin respuesta"
   conversacionSinRespuestaDias: 7,                   // tras una respuesta automática del agente
   autoResponderInfo: env('AUTO_REPLY_INFO', 'true') === 'true',
+
+  // Pruebas: con MODO_PRUEBA_EMAIL, todo correo va a esa casilla (nunca a inmobiliarias ni ejecutivos).
+  // Los crons solo corren con AGENTE_ACTIVO=true; los botones del panel funcionan siempre.
+  modoPrueba: env('MODO_PRUEBA_EMAIL', '').trim().toLowerCase(),
+  agenteActivo: env('AGENTE_ACTIVO', 'false') === 'true',
 
   ejecutivos: (() => { try { return JSON.parse(env('EXECUTIVES_JSON', '[]')); } catch { return []; } })(),
   fuentesActivas: env('FUENTES', 'maps,google').split(',').map(s => s.trim()),

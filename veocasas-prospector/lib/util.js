@@ -14,6 +14,8 @@ export function ajustarHabil(d) {
   return dia === 6 ? addDays(d, 2) : dia === 0 ? addDays(d, 1) : d;
 }
 
+export const mesUY = (d = new Date()) => new Date(new Date(d).getTime() + UY).toISOString().slice(0, 7); // "2026-10"
+
 export function inicioDiaUY(now = new Date()) {
   const local = new Date(now.getTime() + UY);
   local.setUTCHours(0, 0, 0, 0);

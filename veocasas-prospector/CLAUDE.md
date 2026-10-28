@@ -9,7 +9,7 @@ El agente:
 4. lee y clasifica las respuestas con IA,
 5. le pasa las interesadas a un ejecutivo de ventas humano, que cierra la venta.
 
-Hay una primera versión funcional en `veocasas-prospector.zip`. Este documento explica qué hace y por qué, para seguir construyéndolo.
+El código vive en `veocasas-prospector/` dentro del repo del CRM y se despliega como un proyecto aparte de Vercel (`veocasas-prospector`, Root Directory = esta carpeta). Este documento explica qué hace y por qué, para seguir construyéndolo.
 
 ---
 
@@ -169,7 +169,7 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 - **Duración de las funciones:** las funciones de Vercel tienen máximo 300 s. Por eso cada paso recibe una función `vivo()` (presupuesto de tiempo) y deja el trabajo a medias en la cola para la próxima corrida. El orden del ciclo diario es: respuestas → procesar → enriquecer → enviar.
 - **Respuestas antes de enviar:** antes de mandar un seguimiento se revisa el hilo. Si hay respuesta nueva, no se envía.
 - **Días y horario:** no se envía nada sábados ni domingos (hora UY), y las fechas de seguimiento que caen en fin de semana se corren al lunes.
-- **Tope de Places API:** hay que mantenerse dentro de las 1.000 llamadas gratis por mes del SKU Text Search Enterprise. El field mask pide web y teléfono, que son de ese SKU. Hay que poner un tope de cuota en Google Cloud.
+- **Tope de Places API:** hay que mantenerse dentro de las 1.000 llamadas gratis por mes del SKU Text Search Enterprise. El field mask pide web y teléfono, que son de ese SKU. Google no deja bajar la cuota diaria de Text Search ("Ajustable: No"), así que el tope lo lleva el agente: cada llamada se cuenta en `prospeccion_meta/places_{AAAA-MM}` y al llegar a `PLACES_MONTHLY_LIMIT` (900 por defecto) deja de consultar Places hasta el mes siguiente. Como respaldo, alerta de presupuesto en Google Cloud.
 - **Inicialización perezosa:** Firebase, Gmail y Anthropic se inicializan recién cuando se usan, para que `next build` no falle sin variables de entorno.
 - **Fuentes y build:** `next/font/google` (Instrument Sans) necesita internet en el build. En Vercel funciona.
 
@@ -186,7 +186,8 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 | General y seguridad | `BASE_URL`, `CRON_SECRET`, `UNSUB_SECRET`, `DASHBOARD_PASSWORD` |
 | Firebase | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` |
 | Gmail y remitente | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `SENDER_EMAIL`, `SENDER_NAME`, `ADMIN_EMAIL` |
-| Comportamiento del agente | `EXECUTIVES_JSON`, `DAILY_NEW_LIMIT`, `AUTO_REPLY_INFO`, `AGENDA_URL`, `FUENTES` (`maps,google`) |
+| Comportamiento del agente | `EXECUTIVES_JSON`, `DAILY_NEW_LIMIT`, `AUTO_REPLY_INFO`, `AGENDA_URL`, `FUENTES` (`maps,google`), `PLACES_MONTHLY_LIMIT` |
+| Pruebas y lanzamiento | `MODO_PRUEBA_EMAIL` (todo correo va a esa casilla), `AGENTE_ACTIVO` (los crons solo corren con `true`) |
 | Proveedores | `GOOGLE_PLACES_API_KEY`, `SERPER_API_KEY`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
 
 ---

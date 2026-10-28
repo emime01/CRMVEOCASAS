@@ -1,4 +1,20 @@
-import { sleep } from './util.js';
+import { db, META } from './firebase.js';
+import { CONFIG } from './config.js';
+import { sleep, mesUY } from './util.js';
+
+// Google no deja bajar la cuota diaria de Text Search: el tope mensual lo lleva el agente en Firestore.
+// Cada llamada se cuenta antes de hacerla, aunque después falle.
+async function reservarLlamadaPlaces() {
+  const ref = db().collection(META).doc(`places_${mesUY()}`);
+  const ok = await db().runTransaction(async t => {
+    const s = await t.get(ref);
+    const n = s.exists ? s.data().n : 0;
+    if (n >= CONFIG.topePlacesMes) return false;
+    t.set(ref, { n: n + 1, actualizado: new Date() });
+    return true;
+  });
+  if (!ok) throw Object.assign(new Error(`Tope mensual de Places alcanzado (${CONFIG.topePlacesMes} llamadas)`), { code: 'TOPE_PLACES' });
+}
 
 // Google Places API (New): Text Search con web y teléfono (SKU Text Search Enterprise, 1.000 llamadas gratis/mes)
 const CAMPOS = ['places.displayName', 'places.formattedAddress', 'places.websiteUri', 'places.nationalPhoneNumber',
@@ -8,6 +24,11 @@ export async function buscarPlaces(textQuery, paginas = 3) {
   const out = [];
   let pageToken;
   for (let i = 0; i < paginas; i++) {
+    try { await reservarLlamadaPlaces(); } catch (e) {
+      if (e.code !== 'TOPE_PLACES' || !out.length) throw e;
+      out.topeAlcanzado = true; // se queda con las páginas ya pagadas
+      break;
+    }
     const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY, 'X-Goog-FieldMask': CAMPOS },

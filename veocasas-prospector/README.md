@@ -46,6 +46,12 @@ Google Places API (Maps) + Google vía Serper (portales, Instagram, Facebook, Ti
 
 En plan Pro de Vercel cambiá `frecuente` a `0 * * * *` para leer respuestas cada hora. Las funciones usan hasta 300 s (requiere Fluid Compute, activo por defecto en proyectos nuevos).
 
+## Probar antes de lanzar
+
+- `AGENTE_ACTIVO=false` (por defecto): los crons no hacen nada. Todo se dispara a mano con los botones del panel.
+- `MODO_PRUEBA_EMAIL=tu@casilla.com`: cada correo (a inmobiliarias y a ejecutivos) va a esa casilla, con una línea arriba que dice a quién iba. Respondé desde esa casilla para probar la clasificación: el agente lo toma como si respondiera la inmobiliaria. Tiene que ser distinta de `SENDER_EMAIL`.
+- Para lanzar: vaciá `MODO_PRUEBA_EMAIL`, poné `AGENTE_ACTIVO=true` y volvé a desplegar.
+
 ## Entregabilidad
 
 - Empezá con `DAILY_NEW_LIMIT=20` y subí de a 10 por semana hasta ~60.

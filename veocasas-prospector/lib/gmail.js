@@ -26,6 +26,13 @@ function textoAHtml(t) {
 export const esMio = from => String(from || '').toLowerCase().includes(CONFIG.remitente.email.toLowerCase());
 
 export async function enviarCorreo({ to, cc, subject, text, threadId, inReplyTo, references, unsubscribeUrl }) {
+  if (CONFIG.modoPrueba) {
+    // si fuera la misma casilla que envía, esMio() descartaría las respuestas de prueba
+    if (CONFIG.modoPrueba === CONFIG.remitente.email.toLowerCase()) throw new Error('MODO_PRUEBA_EMAIL tiene que ser distinto de SENDER_EMAIL');
+    text = `[PRUEBA] Este correo iba a: ${to}${cc ? ` (cc: ${cc})` : ''}\n\n${text}`;
+    to = CONFIG.modoPrueba;
+    cc = undefined;
+  }
   const boundary = 'vc_' + Math.random().toString(36).slice(2);
   const headers = [
     `From: ${enc(CONFIG.remitente.nombre)} <${CONFIG.remitente.email}>`,

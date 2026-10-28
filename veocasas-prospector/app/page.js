@@ -1,5 +1,6 @@
 import { db, COL } from '@/lib/firebase';
 import { toISO } from '@/lib/util';
+import { CONFIG } from '@/lib/config';
 import { FLUJO, EVALUAR, OTROS, AYUDA } from './estados';
 import TablaLeads from './TablaLeads';
 import CorrerAhora from './CorrerAhora';
@@ -36,6 +37,13 @@ export default async function Panel({ searchParams }) {
         </div>
         <CorrerAhora />
       </header>
+
+      {(CONFIG.modoPrueba || !CONFIG.agenteActivo) && (
+        <div className="aviso" role="note">
+          {CONFIG.modoPrueba && <p><strong>Modo prueba:</strong> todos los correos van a {CONFIG.modoPrueba}, ninguno a inmobiliarias ni ejecutivos.</p>}
+          {!CONFIG.agenteActivo && <p><strong>Agente pausado:</strong> los ciclos automáticos no corren. Usá los botones de arriba para probar a mano.</p>}
+        </div>
+      )}
 
       <nav className="flujo" aria-label="Etapas del flujo">
         {[...FLUJO, EVALUAR].map(([e, l]) => (

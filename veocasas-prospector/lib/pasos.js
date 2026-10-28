@@ -29,9 +29,15 @@ export async function prospectar(vivo = () => true) {
     for (const q of f.consultas()) {
       if (!vivo()) break;
       try {
-        if (fuente === 'maps') items.push(...await buscarPlaces(q, f.paginas));
-        else items.push({ consulta: q, resultados: await buscarGoogle(q, f.paginas) });
-      } catch (e) { console.error(`[${fuente}]`, q, e.message); }
+        if (fuente === 'maps') {
+          const lugares = await buscarPlaces(q, f.paginas);
+          items.push(...lugares);
+          if (lugares.topeAlcanzado) { res.topePlaces = true; break; }
+        } else items.push({ consulta: q, resultados: await buscarGoogle(q, f.paginas) });
+      } catch (e) {
+        console.error(`[${fuente}]`, q, e.message);
+        if (e.code === 'TOPE_PLACES') { res.topePlaces = true; break; }
+      }
     }
     await guardarLote(fuente, items);
     res[fuente] = items.length;
