@@ -16,7 +16,8 @@ El código vive en `veocasas-prospector/` dentro del repo del CRM y se despliega
 ## Stack
 
 - **Next.js 14 (App Router)** desplegado en **Vercel**, con Vercel Cron.
-- **Firestore** (firebase-admin). Es el mismo proyecto Firebase del CRM de Veocasas, pero en colecciones propias con prefijo `prospeccion_`.
+- **Firestore** (`@google-cloud/firestore`, no firebase-admin). Es el mismo proyecto Firebase del CRM de Veocasas (`crmveocasas-4fc8c`), pero en colecciones propias con prefijo `prospeccion_`.
+  - **Sin claves:** la organización de Google (movimagen.com.uy) prohíbe crear claves de cuentas de servicio. En Vercel se usa federación de identidades: Google confía en el token OIDC de Vercel (pool y proveedor `vercel`) y lo cambia por la cuenta `firebase-adminsdk-fbsvc@crmveocasas-4fc8c.iam.gserviceaccount.com`. firebase-admin no acepta estas credenciales para Firestore; por eso se usa la librería de Firestore directo (misma API).
 - **Gmail API**, con OAuth y refresh token de una casilla dedicada. Se usa para enviar correos, leer hilos y detectar rebotes.
 - **Claude API**, modelo `claude-haiku-5-5`, para:
   - extraer inmobiliarias de texto desordenado,
@@ -184,7 +185,7 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 | Grupo | Variables |
 |---|---|
 | General y seguridad | `BASE_URL`, `CRON_SECRET`, `UNSUB_SECRET`, `DASHBOARD_PASSWORD` |
-| Firebase | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` |
+| Firebase | `FIREBASE_PROJECT_ID` + una de: `GCP_WORKLOAD_IDENTITY_PROVIDER` y `GCP_SERVICE_ACCOUNT_EMAIL` (Vercel, sin claves) · `FIREBASE_CLIENT_EMAIL` y `FIREBASE_PRIVATE_KEY` (clave) · nada (gcloud local) |
 | Gmail y remitente | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `SENDER_EMAIL`, `SENDER_NAME`, `ADMIN_EMAIL` |
 | Comportamiento del agente | `EXECUTIVES_JSON`, `DAILY_NEW_LIMIT`, `AUTO_REPLY_INFO`, `AGENDA_URL`, `FUENTES` (`maps,google`), `PLACES_MONTHLY_LIMIT` |
 | Pruebas y lanzamiento | `MODO_PRUEBA_EMAIL` (todo correo va a esa casilla), `AGENTE_ACTIVO` (los crons solo corren con `true`) |
@@ -200,3 +201,4 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 4. **Respuestas fuera del hilo:** si una inmobiliaria responde en un hilo nuevo en lugar de contestar el original, hoy no se detecta. Habría que buscar por remitente contra `keys em:`.
 5. **Conexión con el CRM:** al marcar un lead como `cliente`, podría crearse automáticamente en el CRM de ventas existente.
 6. **Plan de Vercel:** en Hobby los crons corren una vez por día. En Pro, cambiar `/api/cron/frecuente` a cada hora para leer respuestas más rápido.
+7. **Crawler sin credenciales:** `.github/workflows/directorios.yml` usa `FIREBASE_PRIVATE_KEY`, que no se puede crear. Hay que pasarlo a federación con GitHub (`google-github-actions/auth`) o hacer que mande las páginas al deploy de Vercel.

@@ -23,7 +23,12 @@ Google Places API (Maps) + Google vía Serper (portales, Instagram, Facebook, Ti
 
 ## Puesta en marcha
 
-1. **Firebase**: usá el proyecto del CRM. Creá una cuenta de servicio y cargá `FIREBASE_*`. Desplegá los índices: `firebase deploy --only firestore:indexes` (archivo `firestore.indexes.json`). Colecciones nuevas: `prospeccion_leads`, `prospeccion_jobs`, `prospeccion_excluidos`, `prospeccion_meta`.
+1. **Firebase**: usá el proyecto del CRM (`crmveocasas-4fc8c`). La organización no deja crear claves de cuentas de servicio, así que en Vercel se autentica sin claves con federación de identidades:
+   - En Google Cloud habilitá *IAM API*, *Security Token Service API* e *IAM Service Account Credentials API*.
+   - IAM → Federación de identidades para cargas de trabajo → crear grupo `vercel` con un proveedor OIDC `vercel`: emisor `https://oidc.vercel.com/emime01s-projects`, público permitido `https://vercel.com/emime01s-projects`, asignación `google.subject = assertion.sub` y `attribute.project = assertion.project`, condición `assertion.project == 'veocasas-prospector'`.
+   - En el grupo, *Otorgar acceso* con suplantación de la cuenta `firebase-adminsdk-fbsvc@crmveocasas-4fc8c.iam.gserviceaccount.com`, para el atributo `project` = `veocasas-prospector`.
+   - Variables: `FIREBASE_PROJECT_ID`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL` (ver `.env.example`).
+   Desplegá los índices: `firebase deploy --only firestore:indexes` (archivo `firestore.indexes.json`). Colecciones nuevas: `prospeccion_leads`, `prospeccion_jobs`, `prospeccion_excluidos`, `prospeccion_meta`.
 2. **Gmail**: en Google Cloud, habilitá Gmail API y creá un cliente OAuth "Web" con redirect `http://localhost:3333`. Completá `GMAIL_CLIENT_ID/SECRET` en `.env.local` y corré `npm run gmail-token` logueado con la casilla que envía. Si es Google Workspace interno, marcá la app como "Interna" para que el token no venza.
 3. **Búsqueda**:
    - En Google Cloud habilitá **Places API (New)**, creá una API key restringida a esa API y cargala en `GOOGLE_PLACES_API_KEY`. Poné un tope de cuota diario para que nunca salga del tramo gratuito.
