@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    { "collectionGroup": "prospeccion_leads", "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "estado", "order": "ASCENDING" }, { "fieldPath": "proximoEnvio", "order": "ASCENDING" }] },
+    { "collectionGroup": "prospeccion_leads", "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "estado", "order": "ASCENDING" }, { "fieldPath": "actualizado", "order": "DESCENDING" }] },
+    { "collectionGroup": "prospeccion_leads", "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "estado", "order": "ASCENDING" }, { "fieldPath": "creado", "order": "ASCENDING" }] },
+    { "collectionGroup": "prospeccion_jobs", "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "done", "order": "ASCENDING" }, { "fieldPath": "creado", "order": "ASCENDING" }] }
+  ],
+  "fieldOverrides": []
+}
