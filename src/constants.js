@@ -111,12 +111,11 @@ export const TABS = {
     {id:"documentos",label:"Documentos"},
     {id:"reportes",label:"Reportes"},
     {id:"competencias",label:"Competencias"},
-    {id:"correccion_fechas",label:"⚠️ Fechas"},
+    {id:"correccion_fechas",label:"Corregir fechas"},
   ],
   marketing:[
     {id:"producciones",label:"Producciones"},
     {id:"social",label:"Redes Sociales"},
-    {id:"assets",label:"Assets"},
     {id:"metricas",label:"Métricas"},
     {id:"presentaciones",label:"Presentaciones"},
     {id:"documentos",label:"Documentos"},
@@ -124,7 +123,6 @@ export const TABS = {
   ],
   admin:[
     {id:"facturacion",label:"Facturación"},
-    {id:"contratos",label:"Contratos"},
     // {id:"comisiones",label:"Comisiones"}, // en pausa hasta definir las reglas de comisión
     {id:"clientes",label:"Clientes"},
     {id:"reportes",label:"Reportes"},

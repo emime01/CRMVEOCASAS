@@ -25,3 +25,9 @@ El paso 2 tiene que ir antes del 3: con las reglas publicadas ya no se puede esc
   con `{id}@crm.veocasas.com.uy`, y en Firestore crear `usuarios/{UID de la cuenta}` con `id`, `nombre` y `rol`.
 - Contraseña olvidada: borrar la cuenta en Authentication, crearla de nuevo con una contraseña nueva, y en
   `usuarios` crear el documento con el UID nuevo (mismos campos) y borrar el viejo.
+
+## Probar pantallas sin entrar a la base
+
+`npm run dev` y abrir `http://localhost:5173/?demo=gerente` (o `vendedor`, `admin`, `marketing`, `gerente_general`):
+entra sin login con datos inventados (`src/demo.js`) que viven en memoria. Solo funciona en desarrollo; no está
+en la versión publicada.

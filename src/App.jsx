@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil } from "./firebase";
+import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil, DEMO } from "./firebase";
 import { C, fmt, USERS, TABS, daysUntil, getWeekDates } from "./constants";
 import CambiarClave from "./components/CambiarClave";
+import Layout from "./components/Layout";
 import { cuotasDelMes, mesActual } from "./cuotas";
 import Clientes from "./screens/Clientes";
 import Renovaciones from "./screens/Renovaciones";
@@ -191,7 +192,9 @@ export default function App() {
   };
 
   // El perfil (id y rol) sale de usuarios/{uid}, el mismo documento que usan las reglas de Firestore
-  useEffect(()=>onAuthStateChanged(auth, async fb=>{
+  useEffect(()=>{
+    if(DEMO){ const u=USERS.find(x=>x.role===DEMO||x.id===DEMO); setAuthListo(true); if(u) login(u); return; }
+    return onAuthStateChanged(auth, async fb=>{
     if(!fb){ setUser(null); setAuthListo(true); return; }
     const perfil = await getPerfil(fb.uid).catch(()=>null);
     const u = USERS.find(x=>x.id===perfil?.id);
@@ -201,7 +204,8 @@ export default function App() {
     }
     setAuthListo(true);
     login(u);
-  }),[]);
+  });
+  },[]);
 
   const entrar = async e => {
     e.preventDefault();
@@ -230,6 +234,8 @@ export default function App() {
   // ── HELPERS ───────────────────────────────────────────────
   const mySales = user ? sales.filter(s=>s.ejecutivo===user.id) : [];
   const activeSales = sales.filter(s=>s.estado!=="cancelada");
+  // venta cargada en esa semana (antes se sumaba todo lo cargado desde el inicio de la semana: las barras se acumulaban)
+  const enSemana = (s,wd) => { const f=String(s.created_at||"").slice(0,10); return f>=wd.inicio&&f<=wd.fin; };
   const alertas = activeSales.filter(s=>{const d=daysUntil(s.fecha_fin);return d!==null&&d>=0&&d<=30;});
   const pct = (a,b) => b>0?Math.round((a/b)*100):0;
 
@@ -364,45 +370,6 @@ export default function App() {
     return t;
   });
 
-  // ── NAVBAR ────────────────────────────────────────────────
-  const NavBar = () => (
-    <>
-      <div style={{background:"#212121",padding:"0 1rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:54,position:"sticky",top:0,zIndex:100,gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0,flex:1,overflow:"hidden"}}>
-          <span style={{fontSize:15,fontWeight:800,color:C.red,letterSpacing:"-0.5px",flexShrink:0}}>veocasas</span>
-          <div id="desktop-nav" style={{display:"flex",gap:1,overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none",WebkitOverflowScrolling:"touch"}}>
-            <style>{`#desktop-nav::-webkit-scrollbar{display:none}`}</style>
-            {currentTabs.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)}
-                style={{padding:"4px 10px",borderRadius:6,border:"none",background:tab===t.id?"rgba(242,0,0,0.18)":"transparent",color:tab===t.id?C.red:"rgba(255,255,255,0.65)",fontSize:13,fontWeight:500,cursor:"pointer",transition:"all 0.15s",whiteSpace:"nowrap",fontFamily:"'Montserrat', sans-serif",flexShrink:0}}
-                onMouseEnter={e=>{if(tab!==t.id)e.currentTarget.style.color="rgba(255,255,255,0.9)";}}
-                onMouseLeave={e=>{if(tab!==t.id)e.currentTarget.style.color="rgba(255,255,255,0.65)";}}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          {saving&&<span style={{fontSize:11,color:"rgba(255,255,255,0.5)",display:"none"}} id="saving-txt">Guardando...</span>}
-          {alertas.length>0&&<div style={{width:7,height:7,borderRadius:"50%",background:C.red,flexShrink:0}}/>}
-          <div style={{width:30,height:30,borderRadius:8,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700,flexShrink:0}}>{user.avatar}</div>
-          <span id="user-name" style={{color:"rgba(255,255,255,0.8)",fontSize:12,fontWeight:500,whiteSpace:"nowrap"}}>{user.name}</span>
-          <button onClick={()=>setCambiandoClave(true)} title="Cambiar contraseña"
-            style={{padding:"5px 8px",borderRadius:7,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.6)",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"'Montserrat', sans-serif",whiteSpace:"nowrap"}}>
-            Contraseña
-          </button>
-          <button onClick={logout}
-            style={{padding:"5px 8px",borderRadius:7,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.6)",fontSize:11,fontWeight:500,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif",whiteSpace:"nowrap"}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,1)";e.currentTarget.style.color="rgba(255,255,255,1)";}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.2)";e.currentTarget.style.color="rgba(255,255,255,0.6)";}}>
-            Salir
-          </button>
-        </div>
-      </div>
-      <style>{`@media(max-width:480px){#user-name{display:none!important;}}`}</style>
-    </>
-  );
-
   // ── MODALES ───────────────────────────────────────────────
   const ObjetivoModal = () => (
     <Modal onClose={()=>setShowObjetivoForm(false)} maxWidth={380}>
@@ -514,7 +481,7 @@ export default function App() {
     const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
     const qAsignados=getObjetivosVendedor(user.id).filter(o=>o.q<=currentQ);
     const runsDelVendedor=myRuns(user.id);
-    const weeklyData=[-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
+    const weeklyData=[-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&enSemana(s,wd)).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
     return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{marginBottom:20}}>
@@ -634,7 +601,7 @@ export default function App() {
 
   const DashboardGerente = () => {
     const total=activeSales.reduce((a,s)=>a+(s.total||0),0);
-    const weeklyTeam=[-4,-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:activeSales.filter(s=>s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
+    const weeklyTeam=[-4,-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:activeSales.filter(s=>enSemana(s,wd)).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
     const pending=sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
     const qsConObjetivo=[...new Set(objetivos.filter(o=>o.anio===currentAnio).map(o=>o.q))].sort((a,b)=>a-b);
     const qsAMostrar=qsConObjetivo.length>0?qsConObjetivo:[currentQ];
@@ -1015,11 +982,10 @@ export default function App() {
   };
 
   return (
-    <div style={{minHeight:"100vh",background:C.gray50,fontFamily:"'Montserrat', sans-serif"}}>
-      <NavBar/>
-      <div style={{minHeight:"calc(100vh - 54px)"}}>
+    <div style={{fontFamily:"'Montserrat', sans-serif"}}>
+      <Layout tabs={currentTabs} tab={tab} setTab={setTab} user={user} onPassword={()=>setCambiandoClave(true)} onLogout={logout}>
         {loading?<Spinner/>:(screens[tab]||<EmptyState icon="🔍" title="Sección no encontrada"/>)}
-      </div>
+      </Layout>
       {detailSale&&(
         <SaleDetailModal sale={detailSale} onClose={()=>setDetailSale(null)}
           canEdit={detailSale.modificacion_aprobada&&user.role==="vendedor"}
