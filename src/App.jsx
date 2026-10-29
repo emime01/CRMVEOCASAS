@@ -19,6 +19,9 @@ import Cobros from "./screens/Cobros";
 import KPIs from "./screens/KPIs";
 import Producciones from "./screens/Producciones";
 import CorreccionFechas from "./screens/CorreccionFechas";
+import Prospectos from "./screens/Prospectos";
+import MisProspectos from "./screens/MisProspectos";
+import { COL_PROSPECTOS, marcarCliente } from "./prospectos";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -134,6 +137,20 @@ export default function App() {
   const [expandedClient, setExpandedClient] = useState(null);
   const [expandedSale, setExpandedSale] = useState(null);
   const [editingProd, setEditingProd] = useState(new Set());
+  // prospectos del agente: se cargan al abrir Prospectos / Mis prospectos (son miles; no frenan el login)
+  const [prospectos, setProspectos] = useState(null);
+  const [cargandoProspectos, setCargandoProspectos] = useState(false);
+  const [saleDraft, setSaleDraft] = useState(null); // venta nueva precargada desde un prospecto
+  const cargarProspectos = async () => {
+    setCargandoProspectos(true);
+    const p = await getAll(COL_PROSPECTOS);
+    setProspectos(p.filter(l=>!["descartado","duplicado"].includes(l.estado)));
+    setCargandoProspectos(false);
+  };
+  const crearVentaDesde = l => setSaleDraft({
+    inmobiliaria:l.nombre||"", mail:l.email||"", telefono:l.telefono||(l.whatsapp?`+${l.whatsapp}`:""),
+    ejecutivo:user.id, lead_id:l.id,
+  });
 
   // ── CONSTANTS ─────────────────────────────────────────────
   const currentQ = Math.ceil((new Date().getMonth()+1)/3);
@@ -163,7 +180,7 @@ export default function App() {
     setUser(null); setSales([]); setAvailability([]); setKpis([]);
     setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); setRuns([]);
     setTickets([]); setTareas([]); setDocumentos([]); setPresentaciones([]);
-    setCompetencias([]); setMetricas([]);
+    setCompetencias([]); setMetricas([]); setProspectos(null); setSaleDraft(null);
   };
 
   // ── HELPERS ───────────────────────────────────────────────
@@ -1047,6 +1064,8 @@ export default function App() {
     competencias:<Competencias competencias={competencias} setCompetencias={setCompetencias} currentUser={user}/>,
     tickets:<Tickets tickets={tickets} setTickets={setTickets} currentUser={user}/>,
     tareas:<Tareas tareas={tareas} setTareas={setTareas} currentUser={user}/>,
+    prospectos:<Prospectos currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos}/>,
+    mis_prospectos:<MisProspectos currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos} onCrearVenta={crearVentaDesde}/>,
     documentos:<Documentos documentos={documentos} setDocumentos={setDocumentos} currentUser={user}/>,
     presentaciones:<Presentaciones presentaciones={presentaciones} setPresentaciones={setPresentaciones} currentUser={user}/>,
   };
@@ -1066,12 +1085,20 @@ export default function App() {
           onApprove={id=>{handleApproveMod(id);setDetailSale(s=>({...s,modificacion_aprobada:true}));}}
           onReject={id=>{handleRejectMod(id);setDetailSale(null);}}/>
       )}
-      {(showSaleForm||editSale)&&(
-        <SaleForm initialData={editSale} currentUser={user}
-          onClose={()=>{setShowSaleForm(false);setEditSale(null);}}
+      {(showSaleForm||editSale||saleDraft)&&(
+        <SaleForm initialData={editSale||saleDraft} currentUser={user}
+          onClose={()=>{setShowSaleForm(false);setEditSale(null);setSaleDraft(null);}}
           onSave={async form=>{
             if(editSale){await handleUpdateSale(editSale.id,{...form,modificacion_aprobada:false,solicitud_modificacion:false});setEditSale(null);}
-            else await saveSale(form);
+            else {
+              await saveSale(form);
+              // venta creada desde un prospecto: la inmobiliaria pasa a cliente y el agente no le escribe más
+              if(form.lead_id){
+                const cambios = await marcarCliente(form.lead_id,form).catch(()=>null);
+                if(cambios) setProspectos(prev=>prev&&prev.map(l=>l.id===form.lead_id?{...l,...cambios}:l));
+              }
+              setSaleDraft(null);
+            }
           }}/>
       )}
       {showRunForm&&<RunModal onClose={()=>{setShowRunForm(false);setEditRun(null);}}/>}

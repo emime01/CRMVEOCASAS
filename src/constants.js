@@ -24,6 +24,39 @@ export const CREDENTIALS = [
   { id:"gonzalo",   username:"Gonzalo",   password:"Veo#Gz7p3" },
 ];
 
+// ── PROSPECTOS (agente de prospección: veocasas-prospector/, colección prospeccion_leads) ──
+// La gerente asigna prospectos a vendedores; el agente nunca asigna por su cuenta.
+export const ASIGNABLES = ["sebastian","juanba","paty","stefano","mika"];
+
+export const ESTADOS_PROSPECTO = {
+  nuevo:{label:"Buscando email",color:"gray"},
+  listo:{label:"En cola del agente",color:"gray"},
+  en_secuencia:{label:"El agente le escribe",color:"blue"},
+  conversando:{label:"Conversando con el agente",color:"blue"},
+  derivado:{label:"Interesada",color:"red"},
+  manual:{label:"Asignada a vendedor",color:"amber"},
+  sin_respuesta:{label:"No respondió",color:"gray"},
+  no_interesado:{label:"No interesada",color:"gray"},
+  sin_email:{label:"Sin email",color:"gray"},
+  cliente:{label:"Cliente",color:"green"},
+  ex_cliente:{label:"Ex cliente",color:"amber"},
+  rebotado:{label:"Email rebotado",color:"gray"},
+  baja:{label:"Pidió no recibir correos",color:"gray"},
+};
+
+// Resultados que registra el vendedor al contactar un prospecto
+export const RESULTADOS_GESTION = [
+  {id:"sin_respuesta",label:"No respondió"},
+  {id:"contactado",label:"Contactado, en conversación"},
+  {id:"volver",label:"Volver a contactar"},
+  {id:"interesada",label:"Interesada"},
+  {id:"no_interesada",label:"No interesada"},
+];
+export const CANALES_GESTION = ["WhatsApp","Llamada","Email","Visita","Instagram"];
+
+// EDITAR: primer mensaje de WhatsApp que se abre ya escrito ({nombre}, {vendedor})
+export const MENSAJE_WHATSAPP = "Hola, ¿cómo están? Soy {vendedor}, de Veocasas, el portal inmobiliario. Les escribo para invitar a {nombre} a publicar sus propiedades con nosotros. ¿Les puedo contar en 5 minutos cómo funciona?";
+
 export const CRMS = ["Tera","NAI","Casasweb","Tokko","Xintel","2clics","Otro CRM","SIN CRM"];
 
 export const PRODUCTS = [
@@ -55,6 +88,7 @@ export const TABS = {
   vendedor:[
     {id:"dashboard",label:"Dashboard"},
     {id:"ventas",label:"Mis Ventas"},
+    {id:"mis_prospectos",label:"Mis prospectos"},
     {id:"kpis",label:"KPIs"},
     {id:"cobros",label:"Cobros"},
     {id:"producciones",label:"Producciones"},
@@ -67,6 +101,7 @@ export const TABS = {
   gerente:[
     {id:"dashboard_gerente",label:"Dashboard"},
     {id:"ventas",label:"Ventas"},
+    {id:"prospectos",label:"Prospectos"},
     {id:"kpis",label:"KPIs"},
     {id:"facturacion",label:"Facturación"},
     {id:"comisiones",label:"Comisiones"},

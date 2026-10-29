@@ -13,12 +13,18 @@ const sinTildesCfg = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
 export const CONFIG = {
   remitente: { nombre: env('SENDER_NAME', 'Equipo Veocasas'), email: env('SENDER_EMAIL', '') },
   adminEmail: env('ADMIN_EMAIL', ''),
+  // la gerente comercial recibe las interesadas y las asigna desde el CRM
+  gerenteEmail: env('GERENTE_EMAIL', '') || env('ADMIN_EMAIL', ''),
+  crmUrl: env('CRM_URL', 'https://crmveocasas.vercel.app'),
   baseUrl: env('BASE_URL', 'http://localhost:3000'),
   agendaUrl: env('AGENDA_URL', ''),
 
   cupoDiario: Number(env('DAILY_NEW_LIMIT', 25)),  // primeros correos por día hábil (subir de a poco)
   topePlacesMes: Number(env('PLACES_MONTHLY_LIMIT', 900)), // llamadas a Places por mes; el tramo gratis es 1.000
   secuenciaDias: [3, 7, 10],                         // seguimientos, en días desde el primer correo
+  secuenciaDiasRonda2: [5],                          // segunda ronda: un solo recordatorio
+  // segunda ronda automática con otro enfoque; después de esa, solo contacto humano (WhatsApp, llamada)
+  reactivarDias: { sin_respuesta: 90, no_interesado: 180 },
   graciaFinalDias: 3,                                // tras el día 10, espera antes de pasar a "sin respuesta"
   conversacionSinRespuestaDias: 7,                   // tras una respuesta automática del agente
   autoResponderInfo: env('AUTO_REPLY_INFO', 'true') === 'true',
@@ -28,6 +34,7 @@ export const CONFIG = {
   modoPrueba: env('MODO_PRUEBA_EMAIL', '').trim().toLowerCase(),
   agenteActivo: env('AGENTE_ACTIVO', 'false') === 'true',
 
+  // Vendedores, con el mismo id que en el CRM: [{"id":"sebastian","nombre":"Sebastian","email":"..."}]
   ejecutivos: (() => { try { return JSON.parse(env('EXECUTIVES_JSON', '[]')); } catch { return []; } })(),
   fuentesActivas: env('FUENTES', 'maps,google,directorios').split(',').map(s => s.trim()),
 
@@ -59,10 +66,40 @@ O simplemente respondan este correo y lo coordinamos.`,
 ¿Les interesa que les mande la propuesta por escrito?`,
       `Una consulta rápida: ¿quién es la persona indicada en {{nombre}} para hablar de la publicación de propiedades?
 
-Si no es usted, le agradezco si me pasa su contacto.`,
+Si no son ustedes, les agradezco si me pasan su contacto.`,
       `Este es mi último correo para no llenarles la bandeja.
 
 Si en algún momento quieren evaluar Veocasas, respondan este correo y lo retomamos.`,
+    ],
+    // cuando la gerente todavía no asignó vendedor
+    derivacionEquipo: `{{saludo}}
+
+Ya le pasé su consulta a nuestro equipo comercial. En breve los contacta un ejecutivo para avanzar.`,
+    // EDITAR: segunda ronda, meses después y con otro enfoque. Variables: las mismas de la secuencia
+    reactivacion: {
+      sin_respuesta: {
+        asunto: '{{nombre}}: ¿es mejor momento?',
+        cuerpo: `Hola, equipo de {{nombre}}:
+
+Hace unos meses les escribí para invitarlos a publicar sus propiedades en Veocasas y quizás no era el momento.
+
+Seguimos sumando inmobiliarias de {{zona}}. ¿Les interesa que les cuente en 15 minutos cómo funciona? Pueden elegir el horario acá: {{agenda}}
+
+O respondan este correo y lo coordinamos.`,
+      },
+      no_interesado: {
+        asunto: 'Veocasas: una consulta para {{nombre}}',
+        cuerpo: `Hola, equipo de {{nombre}}:
+
+Hace un tiempo nos dijeron que publicar en Veocasas no era prioridad, y lo respetamos. Les escribo una sola vez más por si algo cambió de su lado.
+
+Si quieren, les cuento en 15 minutos cómo funciona hoy: {{agenda}}
+
+Si no, no les vamos a volver a escribir por este tema.`,
+      },
+    },
+    seguimientosRonda2: [
+      `Les subo este correo por si quedó tapado. Si ahora no es el momento, no hay problema.`,
     ],
     derivacion: `{{saludo}}
 

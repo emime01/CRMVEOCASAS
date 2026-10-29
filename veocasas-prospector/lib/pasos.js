@@ -6,6 +6,7 @@ import { upsertLead, excluir, motivoExclusion, estadoExcluido } from './leads.js
 import { tieneMX, buscarContactoEnWeb, buscarContactosEnGoogle } from './enrich.js';
 import { enviarCorreo, leerHilo, hayRespuestaNueva, listarMensajes, destinatarioRebotado, esMio } from './gmail.js';
 import { clasificar } from './claude.js';
+import { sincronizarClientesCRM } from './crm.js';
 import { cleanEmail, domainOf, esBloqueado } from './normalize.js';
 import { addDays, ajustarHabil, esFinDeSemana, inicioDiaUY, render, pool, sleep, bajaUrl } from './util.js';
 
@@ -171,9 +172,14 @@ function vars(l, id) {
   };
 }
 const conPie = (cuerpo, v) => render(cuerpo, v) + render(CONFIG.plantillas.pie, v);
-const proximo = (primer, paso) => paso <= CONFIG.secuenciaDias.length
-  ? ajustarHabil(addDays(primer, CONFIG.secuenciaDias[paso - 1]))
+// la segunda ronda (reactivación) tiene su propio texto y un solo recordatorio
+const secuencia = l => (l.ronda === 2 ? CONFIG.secuenciaDiasRonda2 : CONFIG.secuenciaDias);
+const seguimientosDe = l => (l.ronda === 2 ? CONFIG.plantillas.seguimientosRonda2 : CONFIG.plantillas.seguimientos);
+const proximo = (primer, paso, dias = CONFIG.secuenciaDias) => paso <= dias.length
+  ? ajustarHabil(addDays(primer, dias[paso - 1]))
   : ajustarHabil(addDays(ahora(), CONFIG.graciaFinalDias));
+// al cerrar la primera ronda se agenda la segunda; después de esa, solo contacto humano desde el CRM
+const agendarReintento = (l, motivo) => ({ reintentarEn: (l.ronda || 1) < 2 ? addDays(ahora(), CONFIG.reactivarDias[motivo]) : null });
 
 // clientes o bajas cargados después de crear el lead: se revisa justo antes de cada envío
 async function frenarSiExcluido(doc, l) {
@@ -204,16 +210,17 @@ export async function enviar(vivo) {
   if (esFinDeSemana()) return { omitido: 'fin de semana' };
   const d = db();
   const res = { seguimientos: 0, iniciales: 0, sinRespuesta: 0, excluidos: 0, duplicados: 0 };
-  const totalPasos = CONFIG.secuenciaDias.length + 1;
-
   const vencidos = await d.collection(COL).where('estado', 'in', ['en_secuencia', 'conversando'])
     .where('proximoEnvio', '<=', ahora()).orderBy('proximoEnvio').limit(150).get();
 
   for (const doc of vencidos.docs) {
     if (!vivo()) break;
     const l = doc.data();
-    if (l.estado === 'conversando' || l.paso >= totalPasos) {
-      await doc.ref.update({ estado: 'sin_respuesta', proximoEnvio: null, sinRespuestaEn: ahora(), historial: evento('sin_respuesta') });
+    if (l.estado === 'conversando' || l.paso >= secuencia(l).length + 1) {
+      await doc.ref.update({
+        estado: 'sin_respuesta', proximoEnvio: null, sinRespuestaEn: ahora(), ...agendarReintento(l, 'sin_respuesta'),
+        historial: evento('sin_respuesta'),
+      });
       res.sinRespuesta++; continue;
     }
     // desde lo último ya visto: si no, un "fuera de oficina" ya procesado frena la secuencia para siempre
@@ -222,14 +229,14 @@ export async function enviar(vivo) {
     if (await frenarSiExcluido(doc, l)) { res.excluidos++; continue; }
     const v = vars(l, doc.id);
     const r = await enviarCorreo({
-      to: l.email, subject: `Re: ${l.asunto}`, text: conPie(CONFIG.plantillas.seguimientos[l.paso - 1], v),
+      to: l.email, subject: `Re: ${l.asunto}`, text: conPie(seguimientosDe(l)[l.paso - 1], v),
       threadId: l.threadId, inReplyTo: l.ultimoMessageId, references: l.referencias, unsubscribeUrl: v.bajaUrl,
     });
     const paso = l.paso + 1;
     await doc.ref.update({
       paso, ultimoEnvio: ahora(), ultimoMessageId: r.messageId,
       referencias: [l.referencias, r.messageId].filter(Boolean).join(' '),
-      proximoEnvio: proximo(l.primerEnvio.toDate(), paso), historial: evento('seguimiento', { paso }),
+      proximoEnvio: proximo(l.primerEnvio.toDate(), paso, secuencia(l)), historial: evento('seguimiento', { paso }),
       actualizado: FieldValue.serverTimestamp(),
     });
     res.seguimientos++;
@@ -245,13 +252,19 @@ export async function enviar(vivo) {
       const l = doc.data();
       if (await frenarSiExcluido(doc, l)) { res.excluidos++; continue; }
       if (await frenarSiYaEscrito(doc, l)) { res.duplicados++; continue; }
+      // asignada por la gerente a un vendedor: la contacta una persona, no el agente
+      if (l.asignadoA) {
+        await doc.ref.update({ estado: 'manual', historial: evento('asignada_no_se_envia', { a: l.asignadoA }), actualizado: FieldValue.serverTimestamp() });
+        continue;
+      }
       const v = vars(l, doc.id);
-      const asunto = render(CONFIG.plantillas.inicial.asunto, v);
-      const r = await enviarCorreo({ to: l.email, subject: asunto, text: conPie(CONFIG.plantillas.inicial.cuerpo, v), unsubscribeUrl: v.bajaUrl });
+      const tpl = l.ronda === 2 ? CONFIG.plantillas.reactivacion[l.reactivacion] || CONFIG.plantillas.reactivacion.sin_respuesta : CONFIG.plantillas.inicial;
+      const asunto = render(tpl.asunto, v);
+      const r = await enviarCorreo({ to: l.email, subject: asunto, text: conPie(tpl.cuerpo, v), unsubscribeUrl: v.bajaUrl });
       const t = ahora();
       await doc.ref.update({
         estado: 'en_secuencia', paso: 1, asunto, threadId: r.threadId, ultimoMessageId: r.messageId, referencias: r.messageId,
-        primerEnvio: t, ultimoEnvio: t, proximoEnvio: proximo(t, 1), historial: evento('inicial'),
+        primerEnvio: t, ultimoEnvio: t, proximoEnvio: proximo(t, 1, secuencia(l)), historial: evento(l.ronda === 2 ? 'inicial_ronda2' : 'inicial'),
         actualizado: FieldValue.serverTimestamp(),
       });
       res.iniciales++;
@@ -262,61 +275,102 @@ export async function enviar(vivo) {
 }
 
 /* ---------- 5. Respuestas: detecta, clasifica y actúa ---------- */
-async function asignarEjecutivo(etapa, depto) {
-  const lista = CONFIG.ejecutivos.filter(e =>
-    (!e.etapas || e.etapas.includes(etapa)) && (!e.departamentos?.length || e.departamentos.includes(depto)));
-  const candidatos = lista.length ? lista : CONFIG.ejecutivos.filter(e => !e.etapas || e.etapas.includes(etapa));
-  if (!candidatos.length) return null;
-  const ref = db().collection(META).doc(`rr_${etapa}`);
-  const n = await db().runTransaction(async t => {
-    const s = await t.get(ref);
-    const n = s.exists ? s.data().n : 0;
-    t.set(ref, { n: n + 1 });
-    return n;
+// La gerente comercial asigna vendedores desde el CRM (asignadoA, con el id de usuario del CRM).
+// Si una interesada ya tiene vendedor, el agente lo presenta en el hilo; si no, avisa que la contacta
+// el equipo comercial y queda en el CRM como "Interesada sin asignar". El agente nunca elige vendedor.
+const ejecutivoPorId = id => CONFIG.ejecutivos.find(e => e.id === id) || null;
+
+async function avisarDerivacion(l, ej, etapa, c, ultimoTexto) {
+  const para = ej?.email || CONFIG.gerenteEmail;
+  if (!para) return;
+  const aviso = [
+    `${etapa === 'cierre' ? 'LISTO PARA CERRAR' : 'Interesada'} (score ${c.score ?? '-'}/100): ${l.nombre}`,
+    '', `Resumen: ${c.resumen || '-'}`, '',
+    `Email: ${l.email}`, `Teléfono: ${l.telefono || '-'}`, `WhatsApp: ${l.whatsapp ? '+' + l.whatsapp : '-'}`, `Web: ${l.web || '-'}`,
+    `Instagram: ${l.instagram ? '@' + l.instagram : '-'}`, `Zona: ${l.departamento || '-'}`, `Origen: ${(l.fuentes || []).join(', ')}`,
+    ...(ultimoTexto ? ['', 'Último mensaje:', ultimoTexto.split('\n').map(x => `> ${x}`).join('\n')] : []), '',
+    ej ? 'Ya te presenté en el hilo (estás en copia). Seguí directo con "Responder a todos".'
+       : 'Todavía no tiene vendedor: asignala en el CRM, en Prospectos → "Interesadas sin asignar". Al asignarla, el agente presenta al vendedor en el hilo.',
+    `CRM: ${CONFIG.crmUrl}`,
+  ].join('\n');
+  await enviarCorreo({
+    to: para, cc: ej && CONFIG.gerenteEmail && CONFIG.gerenteEmail !== ej.email ? CONFIG.gerenteEmail : undefined,
+    subject: `[Veocasas] ${etapa === 'cierre' ? 'Cierre' : 'Interesada'}: ${l.nombre}`, text: aviso,
   });
-  return candidatos[n % candidatos.length];
 }
 
 async function derivar(doc, l, base, etapa, ultimo, c) {
-  const ej = await asignarEjecutivo(etapa, l.departamento);
+  const ej = l.asignadoA ? ejecutivoPorId(l.asignadoA) : null;
   const v = vars(l, doc.id);
   const referencias = [l.referencias, ultimo.messageId].filter(Boolean).join(' ');
-  let threadPatch = {};
-  if (ej) {
+  const saludo = c.contacto ? `Gracias, ${c.contacto}.` : 'Muchas gracias por responder.';
+  const texto = ej?.email
+    ? render(CONFIG.plantillas.derivacion, { saludo, ejecutivo: ej.nombre, ejecutivoEmail: ej.email })
+    : render(CONFIG.plantillas.derivacionEquipo, { saludo });
+  const r = await enviarCorreo({
+    to: l.email, cc: ej?.email || undefined, subject: `Re: ${l.asunto}`, text: texto + render(CONFIG.plantillas.pie, v),
+    threadId: l.threadId, inReplyTo: ultimo.messageId, references: referencias, unsubscribeUrl: v.bajaUrl,
+  });
+  await avisarDerivacion(l, ej, etapa, c, ultimo.texto);
+  await doc.ref.update({
+    ...base, ultimoMessageId: r.messageId, referencias: `${referencias} ${r.messageId}`, ultimoEnvio: ahora(),
+    estado: 'derivado', etapa, presentado: Boolean(ej?.email), derivadoEn: ahora(), proximoEnvio: null, reintentarEn: null,
+    historial: FieldValue.arrayUnion(
+      { tipo: 'respuesta', fecha: new Date(), etapa: c.etapa, resumen: c.resumen || '' },
+      { tipo: 'derivado', fecha: new Date(), ejecutivo: ej?.id || null },
+    ),
+  });
+}
+
+// La gerente asignó vendedor en el CRM a una interesada que el agente dejó en espera: se lo presenta en el hilo
+export async function presentarAsignados(vivo) {
+  const snap = await db().collection(COL).where('estado', '==', 'derivado').get();
+  const res = { presentados: 0, vendedorSinEmail: 0 };
+  for (const doc of snap.docs) {
+    if (!vivo()) break;
+    const l = doc.data();
+    if (l.presentado || !l.asignadoA || !l.threadId) continue;
+    const ej = ejecutivoPorId(l.asignadoA);
+    if (!ej?.email) { res.vendedorSinEmail++; continue; } // falta en EXECUTIVES_JSON: lo presenta la gerente a mano
+    const v = vars(l, doc.id);
     const texto = render(CONFIG.plantillas.derivacion, {
-      saludo: c.contacto ? `Gracias, ${c.contacto}.` : 'Muchas gracias por responder.',
-      ejecutivo: ej.nombre, ejecutivoEmail: ej.email,
+      saludo: l.contacto ? `Hola, ${l.contacto}.` : 'Hola de nuevo.', ejecutivo: ej.nombre, ejecutivoEmail: ej.email,
     }) + render(CONFIG.plantillas.pie, v);
     const r = await enviarCorreo({
       to: l.email, cc: ej.email, subject: `Re: ${l.asunto}`, text: texto,
-      threadId: l.threadId, inReplyTo: ultimo.messageId, references: referencias, unsubscribeUrl: v.bajaUrl,
+      threadId: l.threadId, inReplyTo: l.ultimoMessageId, references: l.referencias, unsubscribeUrl: v.bajaUrl,
     });
-    threadPatch = { ultimoMessageId: r.messageId, referencias: `${referencias} ${r.messageId}`, ultimoEnvio: ahora() };
-  }
-  const aviso = [
-    `${etapa === 'cierre' ? 'LISTO PARA CERRAR' : 'Lead caliente'} (score ${c.score}/100): ${l.nombre}`,
-    '', `Resumen: ${c.resumen || '-'}`, '',
-    `Email: ${l.email}`, `Teléfono: ${l.telefono || '-'}`, `Web: ${l.web || '-'}`,
-    `Instagram: ${l.instagram ? '@' + l.instagram : '-'}`, `Zona: ${l.departamento || '-'}`, `Origen: ${(l.fuentes || []).join(', ')}`,
-    '', 'Último mensaje:', ultimo.texto.split('\n').map(x => `> ${x}`).join('\n'), '',
-    ej ? 'Ya te presenté en el hilo (estás en copia). Seguí directo con "Responder a todos".'
-       : 'No hay ejecutivo configurado para esta etapa: asignalo a mano.',
-    `Panel: ${CONFIG.baseUrl}/?estado=derivado`,
-  ].join('\n');
-  const para = ej?.email || CONFIG.adminEmail;
-  if (para) {
-    await enviarCorreo({
-      to: para, cc: ej && CONFIG.adminEmail && CONFIG.adminEmail !== ej.email ? CONFIG.adminEmail : undefined,
-      subject: `[Veocasas] ${etapa === 'cierre' ? 'Cierre' : 'Caliente'}: ${l.nombre}`, text: aviso,
+    await avisarDerivacion(l, ej, l.etapa || 'caliente', { score: l.score, resumen: l.resumenIA }, null);
+    await doc.ref.update({
+      presentado: true, presentadoEn: ahora(), ultimoMessageId: r.messageId, ultimoEnvio: ahora(),
+      referencias: [l.referencias, r.messageId].filter(Boolean).join(' '),
+      historial: evento('presentado', { ejecutivo: ej.id }), actualizado: FieldValue.serverTimestamp(),
     });
+    res.presentados++;
+    await sleep(1500);
   }
-  await doc.ref.update({
-    ...base, ...threadPatch, estado: 'derivado', etapa, ejecutivo: ej || null, derivadoEn: ahora(), proximoEnvio: null,
-    historial: FieldValue.arrayUnion(
-      { tipo: 'respuesta', fecha: new Date(), etapa: c.etapa, resumen: c.resumen || '' },
-      { tipo: 'derivado', fecha: new Date(), ejecutivo: ej?.nombre || null },
-    ),
-  });
+  return res;
+}
+
+// Segunda ronda: sin respuesta (90 días) o no interesadas (180 días) vuelven a la fila con otro texto.
+// Las asignadas a un vendedor no: esas las trabaja una persona.
+export async function reactivar(vivo) {
+  const snap = await db().collection(COL).where('reintentarEn', '<=', ahora()).limit(200).get();
+  const res = { reactivadas: 0 };
+  for (const doc of snap.docs) {
+    if (!vivo()) break;
+    const l = doc.data();
+    const patch = { reintentarEn: null };
+    if (['sin_respuesta', 'no_interesado'].includes(l.estado) && !l.asignadoA && l.email) {
+      Object.assign(patch, {
+        estado: 'listo', ronda: 2, reactivacion: l.estado, paso: 0, threadId: null, asunto: null, proximoEnvio: null,
+        historial: evento('segunda_ronda', { desde: l.estado }), actualizado: FieldValue.serverTimestamp(),
+      });
+      res.reactivadas++;
+    }
+    await doc.ref.update(patch);
+  }
+  return res;
 }
 
 async function procesarHilo(doc) {
@@ -346,7 +400,7 @@ async function procesarHilo(doc) {
       await doc.ref.update({ ...base, estado: 'baja', proximoEnvio: null, historial: registro });
       await excluir(l, 'pidió la baja por correo'); break;
     case 'no_interesado':
-      await doc.ref.update({ ...base, estado: 'no_interesado', proximoEnvio: null, historial: registro }); break;
+      await doc.ref.update({ ...base, estado: 'no_interesado', proximoEnvio: null, ...agendarReintento(l, 'no_interesado'), historial: registro }); break;
     case 'redirige': {
       const nuevo = cleanEmail(c.nuevo_email);
       if (nuevo && nuevo !== l.email && (await tieneMX(nuevo))) {
@@ -424,9 +478,11 @@ const SIN_GMAIL = { omitido: 'Gmail sin configurar' };
 
 export async function cicloDiario(hasta) {
   return {
-    respuestas: gmailListo() ? await revisarRespuestas(hasta(70_000)) : SIN_GMAIL,
+    respuestas: gmailListo() ? await revisarRespuestas(hasta(60_000)) : SIN_GMAIL,
+    presentar: gmailListo() ? await presentarAsignados(hasta(75_000)) : SIN_GMAIL,
     procesar: await procesarJobs(hasta(120_000)),
-    enriquecer: await enriquecer(hasta(175_000)),
+    enriquecer: await enriquecer(hasta(170_000)),
+    reactivar: await reactivar(hasta(178_000)),
     enviar: gmailListo() ? await enviar(hasta(285_000)) : SIN_GMAIL,
   };
 }
@@ -435,6 +491,9 @@ export async function cicloDiario(hasta) {
 export async function cicloFrecuente(hasta) {
   return {
     respuestas: gmailListo() ? await revisarRespuestas(hasta(60_000)) : SIN_GMAIL,
+    presentar: gmailListo() ? await presentarAsignados(hasta(75_000)) : SIN_GMAIL,
+    // clientes del CRM: una vez por día alcanza (antes del envío de la mañana siguiente)
+    crm: await sincronizarClientesCRM().catch(e => ({ error: e.message })),
     busqueda: (await busquedaEnCurso()) ? await prospectar(hasta(150_000)) : { omitido: 'sin búsqueda en curso' },
     // margen: un pedido a Claude o a una web en curso puede seguir ~60 s después del presupuesto
     procesar: await procesarJobs(hasta(180_000)),

@@ -64,7 +64,8 @@ export async function motivoExclusion(keys) {
   const s = await db().collection(EXCL).where('keys', 'array-contains-any', keys.slice(0, 30)).limit(1).get();
   return s.empty ? null : s.docs[0].data().motivo || 'excluido';
 }
-export const estadoExcluido = motivo => (!motivo ? null : motivo === 'cliente' ? 'cliente' : 'baja');
+// 'ex_cliente' viene del cruce con el CRM: no se le escribe en frío, lo decide la gerente
+export const estadoExcluido = motivo => (!motivo ? null : ['cliente', 'ex_cliente'].includes(motivo) ? motivo : 'baja');
 
 export async function excluir(lead, motivo) {
   await db().collection(EXCL).add({ keys: lead.keys || clavesDe(lead), nombre: lead.nombre || null, motivo, fecha: new Date() });

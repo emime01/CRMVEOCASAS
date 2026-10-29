@@ -8,7 +8,7 @@ export const FLUJO = [
 export const EVALUAR = ['sin_respuesta', 'Sin respuesta, a evaluar'];
 export const OTROS = [
   ['sin_email', 'Sin email'], ['manual', 'Contacto manual'], ['no_interesado', 'No interesadas'],
-  ['rebotado', 'Rebotadas'], ['baja', 'Pidieron la baja'], ['cliente', 'Ya son clientes'], ['descartado', 'Descartadas'], ['duplicado', 'Repetidas (fusionadas)'],
+  ['rebotado', 'Rebotadas'], ['baja', 'Pidieron la baja'], ['cliente', 'Ya son clientes'], ['ex_cliente', 'Ex clientes'], ['descartado', 'Descartadas'], ['duplicado', 'Repetidas (fusionadas)'],
 ];
 export const TODAS = ['todas', 'Todas las inmobiliarias'];
 export const ETIQUETA = Object.fromEntries([...FLUJO, EVALUAR, ...OTROS]);
@@ -21,5 +21,8 @@ export const AYUDA = {
   derivado: 'Mostraron interés o quieren contratar. Su ejecutivo está en copia del hilo.',
   sin_respuesta: 'Terminaron la secuencia sin responder. Elegí qué hacer con cada una.',
   duplicado: 'Registros repetidos de una misma inmobiliaria: sus datos se pasaron al registro principal y no se les escribe.',
+  cliente: 'Tienen una venta vigente en el CRM (o se marcaron a mano). Nunca reciben correos del agente.',
+  ex_cliente: 'Tuvieron ventas en el CRM que ya vencieron o se cancelaron. No reciben correos en frío: la gerente decide desde el CRM.',
+  manual: 'La gerente las asignó a un vendedor desde el CRM: las contacta una persona, no el agente.',
   sin_email: 'No encontramos un correo. Agregalo a mano o contactalas por otro canal.',
 };

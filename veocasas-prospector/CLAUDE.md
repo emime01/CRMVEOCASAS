@@ -78,7 +78,9 @@ DERIVACIÓN
 | `en_secuencia` | Ya recibió el primer correo; `paso` va de 1 a 4 |
 | `conversando` | Hizo una pregunta general y el agente respondió. A los 7 días sin respuesta pasa a `sin_respuesta` |
 | `derivado` | Lo tiene un ejecutivo |
-| `sin_respuesta` | Terminó la secuencia sin responder. Acciones en el panel: reiniciar, contacto manual o descartar |
+| `sin_respuesta` | Terminó la secuencia sin responder. Segunda ronda automática a los 90 días si nadie la asignó |
+| `manual` | La gerente la asignó a un vendedor desde el CRM: la contacta una persona |
+| `ex_cliente` | Tuvo ventas en el CRM que vencieron o se cancelaron: no recibe correos en frío |
 | `sin_email` | No se encontró correo en la web ni en Google. Se puede cargar a mano o trabajar por WhatsApp/teléfono |
 | `no_interesado`, `rebotado`, `baja`, `cliente`, `descartado`, `manual` | Estados finales o fuera del flujo |
 
@@ -99,17 +101,30 @@ Reglas importantes:
 - **El agente nunca inventa precios ni condiciones.** Si la respuesta necesita algo que no está en `conocimiento`, se deriva.
 - **Si la IA falla o devuelve algo inválido, la etapa es `caliente`.** Así la respuesta pasa a una persona.
 
-## Ejecutivos
+## Integración con el CRM/ERP (app en la raíz del repo)
 
-Se configuran en `EXECUTIVES_JSON`, con este formato:
+El CRM/ERP de Veocasas (React + Vite, raíz del repo) usa el mismo Firebase. No tiene colección de clientes:
+los clientes son las inmobiliarias con ventas (`ventas.inmobiliaria`, vendedor en `ventas.ejecutivo`; las ventas
+no guardan email). **La asignación de vendedores la decide la gerente comercial desde el CRM; el agente nunca asigna.**
 
-```json
-[{"nombre":"Ana","email":"ana@veocasas.com.uy","etapas":["caliente","cierre"],"departamentos":["Maldonado"]}]
-```
-
-- La asignación se reparte por turnos (round-robin), por etapa.
-- Si algún ejecutivo tiene `departamentos` y el lead es de uno de esos departamentos, se asigna entre esos ejecutivos.
-- Si no hay ejecutivo para la etapa, se avisa a `ADMIN_EMAIL`.
+- **Clientes** (`lib/crm.js`, `sincronizarClientesCRM`, diario en `frecuente` y paso del panel `crm`): cruza las
+  ventas con la base por nombre (nm:), email y teléfono. Venta vigente → `cliente` (asignado a su vendedor);
+  ventas vencidas/canceladas → `ex_cliente` (no se le escribe en frío; `asignadoSugerido` = su último vendedor).
+  Los clientes que no estaban en la base se agregan (fuente `crm`) y se escriben en `prospeccion_excluidos`
+  (`crm_{slug}`), así ninguna búsqueda ni envío futuro les escribe. Una secuencia en curso a un cliente se frena.
+- **Asignación** (CRM → pestaña Prospectos, rol gerente): escribe `asignadoA`, `asignadoPor`, `asignadoEn` en
+  `prospeccion_leads`. Las que el agente no estaba contactando pasan a `manual` (con `estadoPrevio`); el agente
+  no envía correos a leads asignados.
+- **Interesadas**: si la lead ya tiene `asignadoA`, el agente presenta a ese vendedor en el hilo (CC). Si no,
+  responde con `plantillas.derivacionEquipo`, avisa a `GERENTE_EMAIL` y queda como "Interesada sin asignar" en el
+  CRM. Cuando la gerente asigna, `presentarAsignados` presenta al vendedor en el hilo (`presentado: true`).
+- **Vendedores** (CRM → Mis prospectos): WhatsApp con mensaje armado (`MENSAJE_WHATSAPP` en el CRM), llamada,
+  `gestiones[]` / `ultimaGestion` (canal, resultado, nota, próximo contacto) y "Crear venta": abre el formulario
+  de venta precargado (`lead_id`) y al guardar la lead pasa a `cliente`.
+- **Segunda ronda**: `sin_respuesta` (90 días) y `no_interesado` (180 días) sin asignar vuelven a la fila con
+  `plantillas.reactivacion` y un solo recordatorio (`ronda: 2`). Después, solo contacto humano.
+- `EXECUTIVES_JSON`: `[{"id":"sebastian","nombre":"Sebastian","email":"..."}]`, con el id de usuario del CRM
+  (`src/constants.js`). Sin email del vendedor, la presentación queda pendiente y la hace la gerente.
 
 ---
 
@@ -194,7 +209,7 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 |---|---|
 | General y seguridad | `BASE_URL`, `CRON_SECRET`, `UNSUB_SECRET`, `DASHBOARD_PASSWORD` |
 | Firebase | `FIREBASE_PROJECT_ID` + una de: `GCP_WORKLOAD_IDENTITY_PROVIDER` y `GCP_SERVICE_ACCOUNT_EMAIL` (Vercel, sin claves) · `FIREBASE_CLIENT_EMAIL` y `FIREBASE_PRIVATE_KEY` (clave) · nada (gcloud local) |
-| Gmail y remitente | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `SENDER_EMAIL`, `SENDER_NAME`, `ADMIN_EMAIL` |
+| Gmail y remitente | `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `SENDER_EMAIL`, `SENDER_NAME`, `ADMIN_EMAIL`, `GERENTE_EMAIL`, `CRM_URL` |
 | Comportamiento del agente | `EXECUTIVES_JSON`, `DAILY_NEW_LIMIT`, `AUTO_REPLY_INFO`, `AGENDA_URL`, `FUENTES` (`maps,google`), `PLACES_MONTHLY_LIMIT` |
 | Pruebas y lanzamiento | `MODO_PRUEBA_EMAIL` (todo correo va a esa casilla), `AGENTE_ACTIVO` (los crons solo corren con `true`) |
 | Proveedores | `GOOGLE_PLACES_API_KEY`, `SERPER_API_KEY`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
@@ -207,7 +222,7 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 2. **URLs de directorios:** verificar las URLs exactas de los listados de inmobiliarias en InfoCasas, Casas y Más y Gallito, y de las listas de socios de las cámaras (CIU, ADIU), en `DIRECTORIOS.startUrls`.
 3. **Pruebas:** no hay tests todavía. Conviene cubrir `normalize.js`, el cálculo de fechas de la secuencia y la clasificación con un set de respuestas reales.
 4. **Respuestas fuera del hilo:** si una inmobiliaria responde en un hilo nuevo en lugar de contestar el original, hoy no se detecta. Habría que buscar por remitente contra `keys em:`.
-5. **Conexión con el CRM:** al marcar un lead como `cliente`, podría crearse automáticamente en el CRM de ventas existente.
+5. **CRM:** las ventas no guardan email ni hay colección de clientes; el cruce es por nombre y teléfono y puede fallar con nombres muy distintos. Conviene cargar el email en las ventas.
 6. **Plan de Vercel:** en Hobby los crons corren una vez por día. En Pro, cambiar `/api/cron/frecuente` a cada hora para leer respuestas más rápido.
 7. **Crawler sin credenciales:** `.github/workflows/directorios.yml` usa `FIREBASE_PRIVATE_KEY`, que no se puede crear. Los directorios que se leen sin navegador ya están en `FUENTES.directorios`; el crawler solo haría falta para sitios que necesiten JavaScript.
 8. **Instagram oficial:** si Veocasas tiene cuenta de empresa, la API de Meta (business discovery) permite leer la bio y la web de otras cuentas de empresa, de forma legal.

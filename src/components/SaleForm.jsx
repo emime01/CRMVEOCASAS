@@ -17,7 +17,8 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
     productos_seleccionados:[], estado:"activa",
     solicitud_modificacion:false, modificacion_aprobada:false,
   };
-  const [form, setForm] = useState(initialData || blank);
+  // un borrador desde un prospecto trae solo algunos campos: el resto sale de blank
+  const [form, setForm] = useState(initialData ? { ...blank, ...initialData } : blank);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   const toggle = p => setForm(f=>({...f,productos_seleccionados:(f.productos_seleccionados||[]).includes(p)?(f.productos_seleccionados||[]).filter(x=>x!==p):[...(f.productos_seleccionados||[]),p]}));
 
