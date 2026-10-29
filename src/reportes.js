@@ -2,9 +2,9 @@ import { cuotasDe, enCuotas, mesDe, hoyISO, sumarMeses } from "./cuotas";
 
 // Cálculos de los reportes administrativos. Todo sale de las ventas no canceladas y sus cuotas (src/cuotas.js).
 // - Ingreso devengado: el subtotal sin IVA de cada venta repartido en partes iguales entre los meses de su período.
-// - A cobrar / cobrado / pendiente: cuotas por mes de vencimiento (con IVA). Las ventas al contado cuentan como
-//   un solo pago en el mes de inicio; el CRM no registra si se cobraron, solo si se facturaron.
-// - Cuentas por cobrar: cuotas vencidas sin pagar, por antigüedad.
+// - A cobrar / cobrado / pendiente: cuotas por mes de vencimiento (con IVA). Una venta al contado es un solo pago
+//   en su mes de inicio (cobrado y fecha_pago). Las ventas al contado viejas, sin el dato, van aparte ("sin registrar").
+// - Cuentas por cobrar: cuotas y pagos al contado vencidos sin cobrar, por antigüedad.
 
 const utc = iso => { const [a, m, d] = iso.slice(0, 10).split("-").map(Number); return Date.UTC(a, m - 1, d); };
 const diasEntre = (desde, hasta) => Math.round((utc(hasta) - utc(desde)) / 86400000);
@@ -22,7 +22,10 @@ const sinIva = v => v.subtotal || Math.round((v.total || 0) / 1.22);
 // Lo que se cobra de una venta: sus cuotas, o un único pago si es al contado
 export const pagosDe = v => enCuotas(v)
   ? cuotasDe(v).map(c => ({ ...c, facturada: Boolean(c.nro_factura) }))
-  : v.fecha_inicio ? [{ numero: 1, fecha: v.fecha_inicio, monto: v.total || 0, pagada: null, facturada: Boolean(v.facturado), contado: true }] : [];
+  : v.fecha_inicio ? [{
+      numero: 1, fecha: v.fecha_inicio, monto: v.total || 0, facturada: Boolean(v.facturado), contado: true,
+      pagada: v.cobrado === undefined ? null : Boolean(v.cobrado), fecha_pago: v.fecha_pago || "", nro_factura: v.nro_factura || "",
+    }] : [];
 
 export const resumenMensual = (ventas, anio) => {
   const meses = Array.from({ length: 12 }, (_, i) => ({
@@ -41,7 +44,7 @@ export const resumenMensual = (ventas, anio) => {
       if (!f) continue;
       f.aCobrar += p.monto;
       if (p.facturada) f.facturado += p.monto;
-      if (p.contado) f.contado += p.monto;
+      if (p.pagada === null) f.contado += p.monto; // contado sin registrar
       else if (p.pagada) f.cobrado += p.monto;
       else f.pendiente += p.monto;
     }
@@ -59,11 +62,11 @@ export const TRAMOS = [
   { id: "t90mas", label: "Más de 90 días", hasta: Infinity },
 ];
 
-// Cuotas vencidas sin pagar, con su antigüedad
+// Cuotas y pagos al contado vencidos sin cobrar, con su antigüedad
 export const cuentasPorCobrar = (ventas, hoy = hoyISO()) =>
-  ventas.filter(v => v.estado !== "cancelada" && enCuotas(v))
-    .flatMap(v => cuotasDe(v)
-      .filter(c => !c.pagada && c.fecha && c.fecha < hoy)
+  ventas.filter(v => v.estado !== "cancelada")
+    .flatMap(v => pagosDe(v)
+      .filter(c => c.pagada === false && c.fecha && c.fecha < hoy)
       .map(c => {
         const dias = diasEntre(c.fecha, hoy);
         return { venta: v, cuota: c, dias, tramo: TRAMOS.find(t => dias <= t.hasta).id };

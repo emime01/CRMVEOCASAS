@@ -15,7 +15,7 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, cl
     tipo_pago:"contado", subtipo_contado:"transferencia",
     subtipo_cuotas:"contrato", num_cuotas:1,
     valor_mensual:0, subtotal:0,
-    productos_seleccionados:[], estado:"activa",
+    productos_seleccionados:[], estado:"activa", cobrado:false,
     solicitud_modificacion:false, modificacion_aprobada:false,
   };
   // un borrador desde un prospecto trae solo algunos campos: el resto sale de blank

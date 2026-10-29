@@ -25,7 +25,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
   const ventasContado = sales
     .filter(s => s.estado !== "cancelada" && (s.num_cuotas || 1) === 1)
     .filter(s => filterEjecutivo === "todos" || s.ejecutivo === filterEjecutivo)
-    .filter(s => filterEstado === "todas" || (filterEstado === "facturado" ? s.facturado : !s.facturado));
+    .filter(s => filterEstado === "todas" || (filterEstado === "facturado" ? s.facturado : filterEstado === "sin_cobrar" ? s.cobrado !== true : !s.facturado));
 
   // Cuotas del mes actual (para alerta)
   const cuotasMesActual = [];
@@ -285,7 +285,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
       {tabMain === "contado" && (
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-            {[{ k: "todas", l: "Todas" }, { k: "pendiente", l: "Pendiente facturar" }, { k: "facturado", l: "Facturadas" }].map(f => (
+            {[{ k: "todas", l: "Todas" }, { k: "pendiente", l: "Pendiente facturar" }, { k: "facturado", l: "Facturadas" }, { k: "sin_cobrar", l: "Sin cobrar" }].map(f => (
               <button key={f.k} onClick={() => setFilterEstado(f.k)}
                 style={{ padding: "5px 14px", borderRadius: 20, border: `1px solid ${filterEstado === f.k ? C.red : C.gray200}`, background: filterEstado === f.k ? C.redLight : C.white, color: filterEstado === f.k ? C.red : C.gray600, fontSize: 12, cursor: "pointer" }}>
                 {f.l}
@@ -296,7 +296,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: C.gray900 }}>
-                  {["Inmobiliaria", "Ejecutivo", "Método pago", "Total", "Nº Factura", "Facturado", isGerente ? "" : "Acción"].map((h, i) => (
+                  {["Inmobiliaria", "Ejecutivo", "Inicio", "Método pago", "Total", "Nº Factura", "Facturado", "Cobrado", isGerente ? "" : "Acción"].map((h, i) => (
                     <th key={i} style={{ padding: "10px 14px", textAlign: "left", color: C.gray300, fontWeight: 500, fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
@@ -308,11 +308,26 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
                     onMouseLeave={e => e.currentTarget.style.background = "white"}>
                     <td style={{ padding: "10px 14px", fontWeight: 600, color: C.gray900 }}>{s.inmobiliaria}</td>
                     <td style={{ padding: "10px 14px", color: C.gray600 }}>{getUser(s.ejecutivo)?.name}</td>
+                    <td style={{ padding: "10px 14px", color: C.gray600, whiteSpace: "nowrap" }}>{s.fecha_inicio || "—"}</td>
                     <td style={{ padding: "10px 14px", color: C.gray600 }}>{s.subtipo_contado || s.metodo_pago}</td>
                     <td style={{ padding: "10px 14px", fontWeight: 700, color: C.gray900 }}>{fmt(s.total)}</td>
                     <td style={{ padding: "10px 14px", color: C.red, fontWeight: 600 }}>{s.nro_factura || "—"}</td>
                     <td style={{ padding: "10px 14px" }}>
                       <Badge color={s.facturado ? "green" : "amber"}>{s.facturado ? "Sí" : "Pendiente"}</Badge>
+                    </td>
+                    <td style={{ padding: "8px 14px", whiteSpace: "nowrap" }}>
+                      {isGerente ? (
+                        <Badge color={s.cobrado ? "green" : s.cobrado === false ? "amber" : "gray"}>{s.cobrado ? `Sí${s.fecha_pago ? ` · ${s.fecha_pago}` : ""}` : s.cobrado === false ? "Pendiente" : "Sin registrar"}</Badge>
+                      ) : (
+                        // ventas viejas: sin dato hasta que administración lo marque
+                        <select value={s.cobrado ? "si" : s.cobrado === false ? "no" : ""}
+                          onChange={e => onUpdateSale(s.id, { cobrado: e.target.value === "si", fecha_pago: e.target.value === "si" ? hoyISO() : "" })}
+                          style={{ ...inp, width: "auto", padding: "4px 8px", fontSize: 11 }}>
+                          {s.cobrado === undefined && <option value="">Sin registrar</option>}
+                          <option value="no">Pendiente</option>
+                          <option value="si">{s.cobrado && s.fecha_pago ? `Cobrado ${s.fecha_pago}` : "Cobrado"}</option>
+                        </select>
+                      )}
                     </td>
                     {!isGerente && (
                       <td style={{ padding: "8px 14px" }}>
@@ -327,7 +342,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
                   </tr>
                 ))}
                 {!ventasContado.length && (
-                  <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: C.gray400 }}>Sin resultados</td></tr>
+                  <tr><td colSpan={9} style={{ padding: "2rem", textAlign: "center", color: C.gray400 }}>Sin resultados</td></tr>
                 )}
               </tbody>
             </table>

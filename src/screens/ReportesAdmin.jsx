@@ -41,11 +41,11 @@ export default function ReportesAdmin({ sales }) {
       const hoja = (filas, nombre) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), nombre);
       hoja(meses.map(m => ({
         Mes: nombreMes(m.mes), "Ingreso devengado (sin IVA)": m.devengado, "A cobrar (con IVA)": m.aCobrar,
-        "Cobrado (cuotas)": m.cobrado, "Pendiente (cuotas)": m.pendiente, "Contado (cobro no registrado)": m.contado, Facturado: m.facturado,
+        "Cobrado (cuotas)": m.cobrado, "Pendiente (cuotas)": m.pendiente, "Contado sin registrar": m.contado, Facturado: m.facturado,
       })), `Mensual ${anio}`);
       hoja(deudas.map(d => ({
         Inmobiliaria: d.venta.inmobiliaria, "Razón social": d.venta.razon_social || "", RUT: d.venta.rut || "",
-        Vendedor: getUser(d.venta.ejecutivo)?.name || d.venta.ejecutivo || "", Cuota: `${d.cuota.numero}/${d.venta.num_cuotas}`,
+        Vendedor: getUser(d.venta.ejecutivo)?.name || d.venta.ejecutivo || "", Cuota: d.cuota.contado ? "Contado" : `${d.cuota.numero}/${d.venta.num_cuotas}`,
         Vencimiento: d.cuota.fecha, "Días de atraso": d.dias, Monto: d.cuota.monto, "Nº factura": d.cuota.nro_factura,
       })), "Cuentas por cobrar");
       hoja(ventas.filter(v => v.estado !== "cancelada").flatMap(v => pagosDe(v)
@@ -54,7 +54,7 @@ export default function ReportesAdmin({ sales }) {
           Inmobiliaria: v.inmobiliaria, RUT: v.rut || "", Vendedor: getUser(v.ejecutivo)?.name || v.ejecutivo || "",
           Tipo: p.contado ? "Contado" : `Cuota ${p.numero}/${v.num_cuotas}`, Vencimiento: p.fecha, Monto: p.monto,
           "Nº factura": p.nro_factura || "", Facturada: p.facturada ? "Sí" : "No",
-          Cobrada: p.contado ? "Sin registro" : p.pagada ? "Sí" : "No", "Fecha de cobro": p.fecha_pago || "",
+          Cobrada: p.pagada === null ? "Sin registrar" : p.pagada ? "Sí" : "No", "Fecha de cobro": p.fecha_pago || "",
         }))), `Cobros ${anio}`);
       hoja(ventas.map(v => ({
         Inmobiliaria: v.inmobiliaria, "Razón social": v.razon_social || "", RUT: v.rut || "",
@@ -84,7 +84,7 @@ export default function ReportesAdmin({ sales }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(170px,100%),1fr))", gap: 12, marginBottom: 20 }}>
         <Stat label="Ingreso del mes (sin IVA)" value={fmt(esteMes?.devengado)} sub="devengado: ventas repartidas por mes" />
         <Stat label={`Ingreso ${anio} (sin IVA)`} value={fmt(totalAnio("devengado"))} />
-        <Stat label="Cuotas vencidas sin cobrar" value={fmt(totalDeuda)} sub={`${deudas.length} cuota${deudas.length !== 1 ? "s" : ""}`} color={totalDeuda ? C.red : C.green} />
+        <Stat label="Vencido sin cobrar" value={fmt(totalDeuda)} sub={`${deudas.length} pago${deudas.length !== 1 ? "s" : ""}`} color={totalDeuda ? C.red : C.green} />
         <Stat label="Más de 90 días" value={fmt(porTramo[3].monto)} color={porTramo[3].monto ? C.red : undefined} />
       </div>
 
@@ -95,14 +95,14 @@ export default function ReportesAdmin({ sales }) {
 
       <div style={{ fontWeight: 700, fontSize: 14, color: C.black, marginBottom: 6 }}>Mes a mes</div>
       <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>
-        Cuotas por mes de vencimiento, con IVA. Las ventas al contado figuran en su mes de inicio; el CRM no registra si se cobraron, solo si se facturaron.
+        Cuotas por mes de vencimiento, con IVA. Las ventas al contado cuentan en su mes de inicio; las viejas que todavía no tienen marcado si se cobraron van en “Contado sin registrar” (se marcan en Facturación → Contado).
         {sinFechas > 0 && <span style={{ color: C.amber }}> {sinFechas} venta{sinFechas !== 1 ? "s" : ""} sin fecha de inicio o fin no entran en el ingreso.</span>}
       </div>
       <div style={{ marginBottom: 24 }}>
         <Table
           cols={[
             { key: "mes", label: "Mes" }, { key: "dev", label: "Ingreso s/IVA" }, { key: "ac", label: "A cobrar" },
-            { key: "co", label: "Cobrado" }, { key: "pe", label: "Pendiente" }, { key: "ct", label: "Contado" }, { key: "fa", label: "Facturado" },
+            { key: "co", label: "Cobrado" }, { key: "pe", label: "Pendiente" }, { key: "ct", label: "Contado sin registrar" }, { key: "fa", label: "Facturado" },
           ]}
           rows={[...meses, { mes: "total", devengado: totalAnio("devengado"), aCobrar: totalAnio("aCobrar"), cobrado: totalAnio("cobrado"), pendiente: totalAnio("pendiente"), contado: totalAnio("contado"), facturado: totalAnio("facturado") }]
             .map(m => {
@@ -124,7 +124,7 @@ export default function ReportesAdmin({ sales }) {
       {!porVenta.length ? <EmptyState icon="✅" title="No hay cuotas vencidas sin cobrar" />
         : (
           <Table
-            cols={[{ key: "i", label: "Inmobiliaria" }, { key: "v", label: "Vendedor" }, { key: "c", label: "Cuotas vencidas" }, { key: "m", label: "Monto" }, { key: "d", label: "Atraso" }]}
+            cols={[{ key: "i", label: "Inmobiliaria" }, { key: "v", label: "Vendedor" }, { key: "c", label: "Pagos vencidos" }, { key: "m", label: "Monto" }, { key: "d", label: "Atraso" }]}
             rows={porVenta.map(x => ({
               i: <span style={{ fontWeight: 600 }}>{x.venta.inmobiliaria}</span>,
               v: getUser(x.venta.ejecutivo)?.name || x.venta.ejecutivo || "—",
