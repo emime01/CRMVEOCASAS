@@ -13,16 +13,7 @@ export const USERS = [
 export const SELLERS = ["sebastian","juanba","paty","stefano","lucas"];
 export const SELLERS_ACTIVE = ["sebastian","juanba","paty","stefano"];
 
-export const CREDENTIALS = [
-  { id:"mika",      username:"Mika",      password:"Veo#Mk9x2" },
-  { id:"sebastian", username:"Sebastian", password:"Veo#Sb4k7" },
-  { id:"juanba",    username:"Juanba",    password:"Veo#Jb3m5" },
-  { id:"paty",      username:"Paty",      password:"Veo#Pt8n1" },
-  { id:"stefano",   username:"Stefano",   password:"Veo#St6q4" },
-  { id:"mateo",     username:"Mateo",     password:"Veo#Mt2w8" },
-  { id:"admin",     username:"Admin",     password:"Veo#Ad5r9" },
-  { id:"gonzalo",   username:"Gonzalo",   password:"Veo#Gz7p3" },
-];
+// El login usa Firebase Auth: las cuentas se crean con scripts/crear-usuarios.mjs (sin contraseñas en el código).
 
 // ── PROSPECTOS (agente de prospección: veocasas-prospector/, colección prospeccion_leads) ──
 // La gerente asigna prospectos a vendedores; el agente nunca asigna por su cuenta.

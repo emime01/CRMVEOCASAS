@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { getAll, addItem, updateItem, deleteItem, upsertItem } from "./firebase";
-import { C, fmt, USERS, TABS, CREDENTIALS, daysUntil, getWeekDates } from "./constants";
+import { useState, useEffect } from "react";
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil } from "./firebase";
+import { C, fmt, USERS, TABS, daysUntil, getWeekDates } from "./constants";
+import CambiarClave from "./components/CambiarClave";
 import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
 import SaleForm from "./components/SaleForm";
@@ -101,6 +103,12 @@ const INIT_DISP = [
 export default function App() {
   // ── STATE ─────────────────────────────────────────────────
   const [user, setUser] = useState(null);
+  // sesión de Firebase Auth: mientras se revisa si hay una abierta no se muestra el login
+  const [authListo, setAuthListo] = useState(false);
+  const [loginForm, setLoginForm] = useState({usuario:"",clave:""});
+  const [loginError, setLoginError] = useState("");
+  const [entrando, setEntrando] = useState(false);
+  const [cambiandoClave, setCambiandoClave] = useState(false);
   const [tab, setTab] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [sales, setSales] = useState([]);
@@ -176,7 +184,37 @@ export default function App() {
     setLoading(false);
   };
 
+  // El perfil (id y rol) sale de usuarios/{uid}, el mismo documento que usan las reglas de Firestore
+  useEffect(()=>onAuthStateChanged(auth, async fb=>{
+    if(!fb){ setUser(null); setAuthListo(true); return; }
+    const perfil = await getPerfil(fb.uid).catch(()=>null);
+    const u = USERS.find(x=>x.id===perfil?.id);
+    if(!u||u.role==="inactivo"){
+      setLoginError("Tu usuario no tiene acceso al CRM. Pedíselo a la gerencia.");
+      await signOut(auth); setAuthListo(true); return;
+    }
+    setAuthListo(true);
+    login(u);
+  }),[]);
+
+  const entrar = async e => {
+    e.preventDefault();
+    setLoginError("");
+    const norm = s => String(s).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    const u = USERS.find(x=>norm(x.name)===norm(loginForm.usuario)||x.id===norm(loginForm.usuario));
+    if(!u||u.role==="inactivo") return setLoginError("Usuario o contraseña incorrectos.");
+    setEntrando(true);
+    try { await signInWithEmailAndPassword(auth, emailDeUsuario(u.id), loginForm.clave); setLoginForm({usuario:"",clave:""}); }
+    catch(err){
+      setLoginError(err.code==="auth/too-many-requests" ? "Demasiados intentos. Esperá unos minutos."
+        : err.code==="auth/network-request-failed" ? "Sin conexión. Revisá internet y probá de nuevo."
+        : "Usuario o contraseña incorrectos.");
+    }
+    setEntrando(false);
+  };
+
   const logout = () => {
+    signOut(auth);
     setUser(null); setSales([]); setAvailability([]); setKpis([]);
     setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); setRuns([]);
     setTickets([]); setTareas([]); setDocumentos([]); setPresentaciones([]);
@@ -285,35 +323,21 @@ export default function App() {
   };
 
   // ── LOGIN SCREEN ──────────────────────────────────────────
+  if(!authListo) return <Spinner/>;
   if(!user) return (
     <div style={{minHeight:"100vh",background:C.white,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
       <div style={{marginBottom:"2rem",textAlign:"center"}}>
         <div style={{fontSize:36,fontWeight:800,color:C.red,letterSpacing:"-0.5px",marginBottom:4}}>veocasas</div>
-        <div style={{color:C.gray500,fontSize:14,fontWeight:400}}>CRM Comercial · Modo prueba</div>
+        <div style={{color:C.gray500,fontSize:14,fontWeight:400}}>CRM Comercial</div>
       </div>
-      <div style={{background:C.white,borderRadius:16,padding:"2rem",width:"100%",maxWidth:480,border:`1px solid ${C.gray200}`}}>
-        <div style={{fontSize:16,fontWeight:700,color:C.black,marginBottom:16}}>Seleccioná tu perfil</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(190px,100%),1fr))",gap:10,marginBottom:16}}>
-          {USERS.filter(u=>u.role!=="inactivo").map(u=>(
-            <button key={u.id} onClick={()=>login(u)}
-              style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",border:`1px solid ${C.gray200}`,borderRadius:12,background:C.white,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.red;e.currentTarget.style.background=C.redLight;}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.gray200;e.currentTarget.style.background=C.white;}}>
-              <div style={{width:38,height:38,borderRadius:10,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontWeight:700,fontSize:12,flexShrink:0}}>{u.avatar}</div>
-              <div style={{textAlign:"left"}}>
-                <div style={{fontWeight:600,fontSize:13,color:C.gray900}}>{u.name}</div>
-                <div style={{fontSize:10,color:C.gray400,textTransform:"capitalize",marginTop:1}}>{u.role}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-        <div style={{padding:"12px 14px",background:C.gray50,borderRadius:10,fontSize:11,color:C.gray500,border:`1px solid ${C.gray200}`}}>
-          <div style={{fontWeight:600,color:C.gray700,marginBottom:6}}>Credenciales:</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(170px,100%),1fr))",gap:3}}>
-            {CREDENTIALS.map(c=><div key={c.id}><span style={{color:C.gray700,fontWeight:500}}>{c.username}:</span> {c.password}</div>)}
-          </div>
-        </div>
-      </div>
+      <form onSubmit={entrar} style={{background:C.white,borderRadius:16,padding:"2rem",width:"100%",maxWidth:380,border:`1px solid ${C.gray200}`,display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{fontSize:16,fontWeight:700,color:C.black}}>Ingresar</div>
+        <Field label="Usuario"><input value={loginForm.usuario} onChange={e=>setLoginForm(f=>({...f,usuario:e.target.value}))} style={inp} autoComplete="username" autoCapitalize="none" placeholder="Ej: Mika" autoFocus/></Field>
+        <Field label="Contraseña"><input type="password" value={loginForm.clave} onChange={e=>setLoginForm(f=>({...f,clave:e.target.value}))} style={inp} autoComplete="current-password"/></Field>
+        {loginError&&<div style={{fontSize:12,color:C.red}}>{loginError}</div>}
+        <Btn variant="primary" disabled={entrando||!loginForm.usuario||!loginForm.clave} style={{width:"100%",justifyContent:"center"}}>{entrando?"Ingresando…":"Ingresar"}</Btn>
+        <div style={{fontSize:11,color:C.gray500}}>¿Olvidaste la contraseña? Avisale al administrador del CRM.</div>
+      </form>
     </div>
   );
 
@@ -347,6 +371,10 @@ export default function App() {
           {alertas.length>0&&<div style={{width:7,height:7,borderRadius:"50%",background:C.red,flexShrink:0}}/>}
           <div style={{width:30,height:30,borderRadius:8,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700,flexShrink:0}}>{user.avatar}</div>
           <span id="user-name" style={{color:"rgba(255,255,255,0.8)",fontSize:12,fontWeight:500,whiteSpace:"nowrap"}}>{user.name}</span>
+          <button onClick={()=>setCambiandoClave(true)} title="Cambiar contraseña"
+            style={{padding:"5px 8px",borderRadius:7,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.6)",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"'Montserrat', sans-serif",whiteSpace:"nowrap"}}>
+            Contraseña
+          </button>
           <button onClick={logout}
             style={{padding:"5px 8px",borderRadius:7,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.6)",fontSize:11,fontWeight:500,cursor:"pointer",transition:"all 0.15s",fontFamily:"'Montserrat', sans-serif",whiteSpace:"nowrap"}}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,1)";e.currentTarget.style.color="rgba(255,255,255,1)";}}
@@ -1102,6 +1130,7 @@ export default function App() {
           }}/>
       )}
       {showRunForm&&<RunModal onClose={()=>{setShowRunForm(false);setEditRun(null);}}/>}
+      {cambiandoClave&&<CambiarClave onClose={()=>setCambiandoClave(false)}/>}
     </div>
   );
 }

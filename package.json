@@ -2,10 +2,12 @@
   "name": "veocasas-crm",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "crear-usuarios": "node scripts/crear-usuarios.mjs"
   },
   "dependencies": {
     "firebase": "^10.7.0",

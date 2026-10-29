@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCIkzYOgUsU_td-Qw69mbXyQV1zs7wQPOk",
@@ -12,6 +13,18 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+// Cuentas de Firebase Auth: el usuario escribe su nombre ("Mika") y entra con {id}@DOMINIO_USUARIOS.
+// El correo no se usa para enviar nada; solo identifica la cuenta.
+export const DOMINIO_USUARIOS = "crm.veocasas.com.uy";
+export const emailDeUsuario = id => `${id}@${DOMINIO_USUARIOS}`;
+
+// usuarios/{uid} = {id, nombre, rol}: lo leen las reglas de Firestore para dar acceso y permisos
+export const getPerfil = async uid => {
+  const s = await getDoc(doc(db, "usuarios", uid));
+  return s.exists() ? s.data() : null;
+};
 
 // Helper functions
 export const getAll = async (col, orderField = null) => {

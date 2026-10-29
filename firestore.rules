@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// Reglas de Firestore del CRM/ERP de Veocasas (proyecto crmveocasas-4fc8c).
+// Se publican en Firebase → Firestore Database → Reglas (copiar y pegar este archivo).
+//
+// - Solo entran las cuentas que tienen perfil en usuarios/{uid} (lo crea scripts/crear-usuarios.mjs).
+//   Una cuenta creada por fuera, sin perfil, no ve nada.
+// - El agente de prospección (veocasas-prospector) usa una cuenta de servicio: no pasa por estas reglas.
+// - Todo lo que no está listado acá queda cerrado.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    function activo() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && perfil().rol != 'inactivo';
+    }
+    function rol(roles) {
+      return activo() && perfil().rol in roles;
+    }
+
+    // Perfiles: cada uno lee el suyo. Se crean y cambian solo desde la consola de Firebase.
+    match /usuarios/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Ventas: no se borran nunca (se cancelan); así queda el historial para facturación y reportes.
+    match /ventas/{id} {
+      allow read, create, update: if activo();
+      allow delete: if false;
+    }
+
+    // Datos administrativos: los edita la gerencia y administración.
+    match /facturas/{id} {
+      allow read: if activo();
+      allow write: if rol(['gerente', 'gerente_general', 'admin']);
+    }
+    match /comisiones/{id} {
+      allow read: if rol(['gerente', 'gerente_general', 'admin']);
+      allow write: if rol(['gerente']);
+    }
+    match /objetivos/{id} {
+      allow read: if activo();
+      allow write: if rol(['gerente', 'gerente_general']);
+    }
+
+    // Prospectos del agente: el CRM los lee y actualiza (asignación, gestiones); los crea el agente.
+    match /prospeccion_leads/{id} {
+      allow read, update: if activo();
+      allow create, delete: if false;
+    }
+
+    // Resto de las pantallas del CRM
+    match /{col}/{id} {
+      allow read, write: if activo() && col in [
+        'disponibilidad', 'kpis', 'producciones', 'posts_social', 'runs', 'tickets',
+        'tareas', 'documentos', 'presentaciones', 'competencias', 'metricas_ads'
+      ];
+    }
+  }
+}
