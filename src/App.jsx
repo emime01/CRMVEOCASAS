@@ -5,6 +5,8 @@ import { C, fmt, USERS, TABS, daysUntil, getWeekDates } from "./constants";
 import CambiarClave from "./components/CambiarClave";
 import { cuotasDelMes, mesActual } from "./cuotas";
 import Clientes from "./screens/Clientes";
+import Renovaciones from "./screens/Renovaciones";
+import { borradorRenovacion, marcarRenovada } from "./renovaciones";
 import { asegurarCliente } from "./clientes";
 import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
@@ -263,6 +265,9 @@ export default function App() {
     const data=await addItem("ventas",form);
     if(data){
       setSales(prev=>[data,...prev]);
+      // venta de renovación: la venta vieja queda marcada como renovada
+      const vieja = form.renovacion_de && sales.find(s=>s.id===form.renovacion_de);
+      if(vieja){ const c=await marcarRenovada(vieja,data.id); setSales(prev=>prev.map(s=>s.id===vieja.id?{...s,...c}:s)); }
       if(parseInt(form.produccion_q)>0){
         const pd=await addItem("producciones",{cliente:form.inmobiliaria,ejecutivo:form.ejecutivo,produccion_q:parseInt(form.produccion_q),fecha:"",confirmado:false,venta_id:data.id});
         if(pd) setProductions(prev=>[pd,...prev]);
@@ -993,6 +998,7 @@ export default function App() {
     facturacion:<Facturacion sales={sales} invoices={invoices} isGerente={user.role==="gerente"} onUpdateSale={handleUpdateSale}
       onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}}
       onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}}/>,
+    renovaciones:<Renovaciones sales={sales} setSales={setSales} clientes={clientes} currentUser={user} onRenovar={v=>setSaleDraft(borradorRenovacion(v))}/>,
     clientes:<Clientes clientes={clientes} setClientes={setClientes} sales={sales} setSales={setSales} currentUser={user}/>,
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,

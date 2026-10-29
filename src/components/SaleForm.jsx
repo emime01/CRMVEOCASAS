@@ -36,7 +36,7 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, cl
 
   const subtotal = parseFloat(form.subtotal)||0;
   const total = Math.round(subtotal*1.22);
-  const isEdit = !!initialData;
+  const isEdit = !!initialData?.id;
 
   const handleSave = () => {
     const nc = form.tipo_pago==="contado" ? 1 : parseInt(form.num_cuotas)||1;

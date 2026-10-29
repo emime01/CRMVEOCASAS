@@ -48,6 +48,9 @@ export const CANALES_GESTION = ["WhatsApp","Llamada","Email","Visita","Instagram
 // EDITAR: primer mensaje de WhatsApp que se abre ya escrito ({nombre}, {vendedor})
 export const MENSAJE_WHATSAPP = "Hola, ¿cómo están? Soy {vendedor}, de Veocasas, el portal inmobiliario. Les escribo para invitar a {nombre} a publicar sus propiedades con nosotros. ¿Les puedo contar en 5 minutos cómo funciona?";
 
+// EDITAR: mensaje de WhatsApp para renovar ({nombre}, {vendedor}, {fecha} = fecha de vencimiento)
+export const MENSAJE_RENOVACION = "Hola, ¿cómo están? Soy {vendedor}, de Veocasas. Les escribo porque el plan de {nombre} en Veocasas vence el {fecha}. ¿Coordinamos la renovación para que sus propiedades sigan publicadas?";
+
 export const CRMS = ["Tera","NAI","Casasweb","Tokko","Xintel","2clics","Otro CRM","SIN CRM"];
 
 export const PRODUCTS = [
@@ -80,6 +83,7 @@ export const TABS = {
     {id:"dashboard",label:"Dashboard"},
     {id:"ventas",label:"Mis Ventas"},
     {id:"mis_prospectos",label:"Mis prospectos"},
+    {id:"renovaciones",label:"Renovaciones"},
     {id:"kpis",label:"KPIs"},
     {id:"cobros",label:"Cobros"},
     {id:"producciones",label:"Producciones"},
@@ -94,6 +98,7 @@ export const TABS = {
     {id:"ventas",label:"Ventas"},
     {id:"prospectos",label:"Prospectos"},
     {id:"clientes",label:"Clientes"},
+    {id:"renovaciones",label:"Renovaciones"},
     {id:"kpis",label:"KPIs"},
     {id:"facturacion",label:"Facturación"},
     // {id:"comisiones",label:"Comisiones"}, // en pausa hasta definir las reglas de comisión
