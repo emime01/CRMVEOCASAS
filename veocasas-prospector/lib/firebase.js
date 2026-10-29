@@ -35,5 +35,6 @@ function credenciales() {
 
 let _db;
 export function db() {
-  return (_db ||= new Firestore({ projectId: process.env.FIREBASE_PROJECT_ID, ...credenciales() }));
+  // ignoreUndefinedProperties: Places y Serper devuelven campos faltantes como undefined (p. ej. website)
+  return (_db ||= new Firestore({ projectId: process.env.FIREBASE_PROJECT_ID, ignoreUndefinedProperties: true, ...credenciales() }));
 }
