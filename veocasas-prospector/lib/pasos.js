@@ -186,10 +186,24 @@ async function frenarSiExcluido(doc, l) {
   return true;
 }
 
+// Nunca dos secuencias al mismo email: si otro registro con ese email ya fue contactado (o quedó cerrado),
+// este pasa a duplicado. Cubre las repetidas que la fusión no alcanzó a unir.
+const YA_CONTACTADOS = ['en_secuencia', 'conversando', 'derivado', 'sin_respuesta', 'no_interesado', 'rebotado', 'baja', 'cliente', 'manual'];
+async function frenarSiYaEscrito(doc, l) {
+  const otros = await db().collection(COL).where('keys', 'array-contains', `em:${l.email}`).get();
+  const previo = otros.docs.find(o => o.id !== doc.id && YA_CONTACTADOS.includes(o.data().estado));
+  if (!previo) return false;
+  await doc.ref.update({
+    estado: 'duplicado', duplicadoDe: previo.id, proximoEnvio: null, keys: [],
+    historial: evento('duplicado', { de: previo.id, motivo: 'mismo email ya contactado' }), actualizado: FieldValue.serverTimestamp(),
+  });
+  return true;
+}
+
 export async function enviar(vivo) {
   if (esFinDeSemana()) return { omitido: 'fin de semana' };
   const d = db();
-  const res = { seguimientos: 0, iniciales: 0, sinRespuesta: 0, excluidos: 0 };
+  const res = { seguimientos: 0, iniciales: 0, sinRespuesta: 0, excluidos: 0, duplicados: 0 };
   const totalPasos = CONFIG.secuenciaDias.length + 1;
 
   const vencidos = await d.collection(COL).where('estado', 'in', ['en_secuencia', 'conversando'])
@@ -230,6 +244,7 @@ export async function enviar(vivo) {
       if (!vivo()) break;
       const l = doc.data();
       if (await frenarSiExcluido(doc, l)) { res.excluidos++; continue; }
+      if (await frenarSiYaEscrito(doc, l)) { res.duplicados++; continue; }
       const v = vars(l, doc.id);
       const asunto = render(CONFIG.plantillas.inicial.asunto, v);
       const r = await enviarCorreo({ to: l.email, subject: asunto, text: conPie(CONFIG.plantillas.inicial.cuerpo, v), unsubscribeUrl: v.bajaUrl });

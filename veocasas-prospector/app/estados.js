@@ -8,7 +8,7 @@ export const FLUJO = [
 export const EVALUAR = ['sin_respuesta', 'Sin respuesta, a evaluar'];
 export const OTROS = [
   ['sin_email', 'Sin email'], ['manual', 'Contacto manual'], ['no_interesado', 'No interesadas'],
-  ['rebotado', 'Rebotadas'], ['baja', 'Pidieron la baja'], ['cliente', 'Ya son clientes'], ['descartado', 'Descartadas'],
+  ['rebotado', 'Rebotadas'], ['baja', 'Pidieron la baja'], ['cliente', 'Ya son clientes'], ['descartado', 'Descartadas'], ['duplicado', 'Repetidas (fusionadas)'],
 ];
 export const TODAS = ['todas', 'Todas las inmobiliarias'];
 export const ETIQUETA = Object.fromEntries([...FLUJO, EVALUAR, ...OTROS]);
@@ -20,5 +20,6 @@ export const AYUDA = {
   conversando: 'Hicieron una consulta general y el agente respondió. Si no vuelven a escribir en 7 días, pasan a evaluar.',
   derivado: 'Mostraron interés o quieren contratar. Su ejecutivo está en copia del hilo.',
   sin_respuesta: 'Terminaron la secuencia sin responder. Elegí qué hacer con cada una.',
+  duplicado: 'Registros repetidos de una misma inmobiliaria: sus datos se pasaron al registro principal y no se les escribe.',
   sin_email: 'No encontramos un correo. Agregalo a mano o contactalas por otro canal.',
 };

@@ -40,7 +40,7 @@ function Acciones({ lead, estado }) {
         {estado === 'sin_respuesta' && b('reactivar', 'Reiniciar secuencia', 'primario')}
         {['sin_respuesta', 'sin_email', 'en_secuencia', 'conversando'].includes(estado) && b('manual', 'Pasar a contacto manual')}
         {['derivado', 'manual', 'conversando'].includes(estado) && b('cliente', 'Marcar como cliente')}
-        {!['descartado', 'cliente', 'baja'].includes(estado) && b('descartar', 'Descartar', 'peligro')}
+        {!['descartado', 'cliente', 'baja', 'duplicado'].includes(estado) && b('descartar', 'Descartar', 'peligro')}
       </div>
       {error && <p className="error" role="alert">{error}</p>}
     </div>

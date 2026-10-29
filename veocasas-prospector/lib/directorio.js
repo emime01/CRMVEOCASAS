@@ -28,7 +28,7 @@ export async function leerDirectorio({ depto = '', canal = '' } = {}) {
     const l = { id: doc.id };
     for (const k of CAMPOS_DIRECTORIO) l[k] = ['proximoEnvio', 'actualizado', 'creado'].includes(k) ? toISO(x[k]) : x[k] ?? null;
     return l;
-  }).filter(l => l.estado !== 'descartado');
+  }).filter(l => !['descartado', 'duplicado'].includes(l.estado));
 
   const resumen = {
     total: todas.length,
