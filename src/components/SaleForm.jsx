@@ -5,7 +5,7 @@ import { armarDetalle } from "../cuotas";
 
 const SELLERS_FOR_FORM = USERS.filter(u=>["vendedor","inactivo","gerente"].includes(u.role));
 
-export default function SaleForm({ initialData, onSave, onClose, currentUser }) {
+export default function SaleForm({ initialData, onSave, onClose, currentUser, clientes = [] }) {
   const blank = {
     inmobiliaria:"", razon_social:"", rut:"", mail:"", telefono:"",
     direccion:"", crm:"SIN CRM", ejecutivo: currentUser?.id||"sebastian",
@@ -21,6 +21,17 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
   // un borrador desde un prospecto trae solo algunos campos: el resto sale de blank
   const [form, setForm] = useState(initialData ? { ...blank, ...initialData } : blank);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  // Al escribir el nombre de un cliente que ya tiene ficha, se completan sus datos y la venta queda vinculada.
+  // Si se cambia el nombre por otro, la venta deja de apuntar a esa ficha (al guardar se busca o se crea la que corresponda).
+  const setInmobiliaria = nombre => {
+    const c = clientes.find(x => (x.nombre||"").trim().toLowerCase() === nombre.trim().toLowerCase());
+    setForm(f => c ? {
+      ...f, inmobiliaria:nombre, cliente_id:c.id,
+      razon_social:c.razon_social||f.razon_social, rut:c.rut||f.rut, mail:c.email||f.mail,
+      telefono:c.telefono||f.telefono, direccion:c.direccion||f.direccion, crm:c.crm||f.crm,
+    } : { ...f, inmobiliaria:nombre, cliente_id: f.cliente_id && clientes.find(x=>x.id===f.cliente_id)?.nombre===nombre ? f.cliente_id : null });
+  };
+  const fichaVinculada = form.cliente_id && clientes.find(x=>x.id===form.cliente_id);
   const toggle = p => setForm(f=>({...f,productos_seleccionados:(f.productos_seleccionados||[]).includes(p)?(f.productos_seleccionados||[]).filter(x=>x!==p):[...(f.productos_seleccionados||[]),p]}));
 
   const subtotal = parseFloat(form.subtotal)||0;
@@ -48,7 +59,10 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
       <ModalBody>
         <Sec title="Datos de la Inmobiliaria">
           <Grid2>
-            <Field label="Nombre Inmobiliaria"><input value={form.inmobiliaria} onChange={e=>set("inmobiliaria",e.target.value)} style={inp} placeholder="Ej: García Propiedades"/></Field>
+            <Field label="Nombre Inmobiliaria" hint={fichaVinculada ? "Cliente con ficha: datos completados" : form.inmobiliaria ? "Cliente nuevo: se crea su ficha al guardar" : ""}>
+              <input value={form.inmobiliaria} onChange={e=>setInmobiliaria(e.target.value)} list="clientes-ficha" style={inp} placeholder="Ej: García Propiedades"/>
+              <datalist id="clientes-ficha">{clientes.map(c=><option key={c.id} value={c.nombre}/>)}</datalist>
+            </Field>
             <Field label="Razón Social"><input value={form.razon_social} onChange={e=>set("razon_social",e.target.value)} style={inp}/></Field>
             <Field label="RUT"><input value={form.rut} onChange={e=>set("rut",e.target.value)} style={inp} placeholder="XX.XXX.XXX-X"/></Field>
             <Field label="Mail"><input value={form.mail} onChange={e=>set("mail",e.target.value)} style={inp} type="email"/></Field>

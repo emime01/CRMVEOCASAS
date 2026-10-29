@@ -3,7 +3,9 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebas
 import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil } from "./firebase";
 import { C, fmt, USERS, TABS, daysUntil, getWeekDates } from "./constants";
 import CambiarClave from "./components/CambiarClave";
-import { cuotasDe, cuotasDelMes, mesActual } from "./cuotas";
+import { cuotasDelMes, mesActual } from "./cuotas";
+import Clientes from "./screens/Clientes";
+import { asegurarCliente } from "./clientes";
 import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
 import SaleForm from "./components/SaleForm";
@@ -143,8 +145,7 @@ export default function App() {
   const [competencias, setCompetencias] = useState([]);
   const [metricas, setMetricas] = useState([]);
   const [dispModal, setDispModal] = useState(null);
-  const [expandedClient, setExpandedClient] = useState(null);
-  const [expandedSale, setExpandedSale] = useState(null);
+  const [clientes, setClientes] = useState([]);
   const [editingProd, setEditingProd] = useState(new Set());
   // prospectos del agente: se cargan al abrir Prospectos / Mis prospectos (son miles; no frenan el login)
   const [prospectos, setProspectos] = useState(null);
@@ -169,13 +170,15 @@ export default function App() {
   // ── LOGIN / LOGOUT ────────────────────────────────────────
   const login = async (u) => {
     setUser(u); setTab(defaultTab(u.role)); setLoading(true);
-    const [s,av,k,pr,po,inv,obj,com,rn,tk,tar,doc,pres,comp,met] = await Promise.all([
+    const [s,av,k,pr,po,inv,obj,com,rn,tk,tar,doc,pres,comp,met,cli] = await Promise.all([
       getAll("ventas","created_at"), getAll("disponibilidad"), getAll("kpis"),
       getAll("producciones","created_at"), getAll("posts_social","fecha"),
       getAll("facturas","created_at"), getAll("objetivos"), getAll("comisiones"), getAll("runs"),
       getAll("tickets","created_at"), getAll("tareas","created_at"), getAll("documentos","created_at"),
       getAll("presentaciones","created_at"), getAll("competencias","fecha"), getAll("metricas_ads","created_at"),
+      getAll("clientes"),
     ]);
+    setClientes(cli||[]);
     setSales(s); setKpis(k); setProductions(pr); setPosts(po); setInvoices(inv);
     setObjetivos(obj); setRuns(rn||[]); setTickets(tk||[]); setTareas(tar||[]);
     setDocumentos(doc||[]); setPresentaciones(pres||[]); setCompetencias(comp||[]); setMetricas(met||[]);
@@ -219,7 +222,7 @@ export default function App() {
     setUser(null); setSales([]); setAvailability([]); setKpis([]);
     setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); setRuns([]);
     setTickets([]); setTareas([]); setDocumentos([]); setPresentaciones([]);
-    setCompetencias([]); setMetricas([]); setProspectos(null); setSaleDraft(null);
+    setCompetencias([]); setMetricas([]); setProspectos(null); setSaleDraft(null); setClientes([]);
   };
 
   // ── HELPERS ───────────────────────────────────────────────
@@ -248,8 +251,15 @@ export default function App() {
   const isRunVencido = (r) => new Date().toISOString().split("T")[0] > r.fecha_fin;
 
   // ── CRUD VENTAS ───────────────────────────────────────────
+  const vincularCliente = async (form) => {
+    const r = await asegurarCliente(clientes, form).catch(()=>({id:null}));
+    if(r.nueva) setClientes(prev=>[...prev, r.cliente]);
+    else if(r.id) setClientes(prev=>prev.map(c=>c.id===r.id?{...c,...r.cliente}:c));
+    return r.id ? {...form, cliente_id:r.id} : form;
+  };
   const saveSale = async (form) => {
     setSaving(true);
+    form = await vincularCliente(form);
     const data=await addItem("ventas",form);
     if(data){
       setSales(prev=>[data,...prev]);
@@ -970,7 +980,6 @@ export default function App() {
   );
 
   // ── SCREENS MAP ───────────────────────────────────────────
-  const clientList=[...new Map(sales.map(s=>[s.inmobiliaria,s])).values()];
   const screens = {
     dashboard:<DashboardVendedor/>,
     dashboard_gerente:<DashboardGerente/>,
@@ -984,82 +993,7 @@ export default function App() {
     facturacion:<Facturacion sales={sales} invoices={invoices} isGerente={user.role==="gerente"} onUpdateSale={handleUpdateSale}
       onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}}
       onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}}/>,
-    clientes:(
-      <div style={{padding:"1.5rem",maxWidth:900}}>
-        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Clientes ({clientList.length})</div>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {clientList.map(c=>{
-            const clientSales=sales.filter(s=>s.inmobiliaria===c.inmobiliaria);
-            const expanded=expandedClient===c.inmobiliaria;
-            const total=clientSales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
-            return (
-              <Card key={c.inmobiliaria}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,cursor:"pointer"}} onClick={()=>setExpandedClient(expanded?null:c.inmobiliaria)}>
-                  <div>
-                    <div style={{fontWeight:600,fontSize:13,color:C.black}}>{c.inmobiliaria}</div>
-                    <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{c.razon_social||""}{c.rut?` · RUT: ${c.rut}`:""} · {clientSales.length} venta{clientSales.length!==1?"s":""}</div>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:12}}>
-                    <span style={{fontWeight:700,color:C.red}}>{fmt(total)}</span>
-                    <span style={{fontSize:12,color:C.gray400,fontWeight:600}}>{expanded?"▲":"▼"}</span>
-                  </div>
-                </div>
-                {expanded&&(
-                  <div style={{marginTop:12,borderTop:`1px solid ${C.gray100}`,paddingTop:10}}>
-                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {clientSales.map(s=>{
-                        const hasCuotas=(s.num_cuotas||1)>1;
-                        const saleExpanded=expandedSale===s.id;
-                        return(
-                        <div key={s.id} style={{borderRadius:8,border:`1px solid ${C.gray200}`,overflow:"hidden"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"8px 10px",background:C.gray50,flexWrap:"wrap",gap:6,cursor:hasCuotas?"pointer":"default"}}
-                            onClick={()=>hasCuotas&&setExpandedSale(saleExpanded?null:s.id)}>
-                            <div>
-                              <div style={{fontWeight:600,fontSize:12,color:C.black}}>{s.plan} · {s.crm}</div>
-                              <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {s.fecha_inicio} → {s.fecha_fin}</div>
-                              {hasCuotas&&<div style={{fontSize:11,color:C.blue,marginTop:1}}>{s.num_cuotas} cuotas · haz click para ver detalle {saleExpanded?"▲":"▼"}</div>}
-                            </div>
-                            <div style={{textAlign:"right"}}>
-                              <div style={{fontWeight:700,fontSize:12,color:C.red}}>{fmt(s.total)}</div>
-                              <Badge color={s.estado==="activa"||!s.estado?"green":"gray"}>{s.estado||"activa"}</Badge>
-                            </div>
-                          </div>
-                          {saleExpanded&&hasCuotas&&(
-                            <div style={{background:C.white,padding:"8px 10px",borderTop:`1px solid ${C.gray200}`}}>
-                              <div style={{fontSize:11,fontWeight:700,color:C.gray500,marginBottom:6}}>DETALLE DE CUOTAS</div>
-                              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                                {cuotasDe(s).map((det,i)=>{
-                                  const {fecha,monto}=det;
-                                  return(
-                                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",borderRadius:6,background:det.pagada?C.greenLight:C.gray50,border:`1px solid ${det.pagada?C.green:C.gray200}`}}>
-                                      <div style={{fontSize:11,color:C.black}}>
-                                        <span style={{fontWeight:600}}>Cuota {i+1}/{s.num_cuotas}</span>
-                                        <span style={{color:C.gray400,marginLeft:8}}>{fecha}</span>
-                                        {det.nro_factura&&<span style={{color:C.gray400,marginLeft:8}}>Fact: {det.nro_factura}</span>}
-                                      </div>
-                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                        <span style={{fontWeight:700,fontSize:11,color:det.pagada?C.green:C.black}}>{fmt(monto)}</span>
-                                        <Badge color={det.pagada?"green":det.gestionado?"blue":"amber"}>{det.pagada?"Pagada":det.gestionado?"Gestionada":"Pendiente"}</Badge>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-          {!clientList.length&&<EmptyState icon="👥" title="Sin clientes" desc="Las inmobiliarias activas aparecerán aquí"/>}
-        </div>
-      </div>
-    ),
+    clientes:<Clientes clientes={clientes} setClientes={setClientes} sales={sales} setSales={setSales} currentUser={user}/>,
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
     correccion_fechas:<CorreccionFechas sales={sales} setSales={setSales}/>,
@@ -1090,10 +1024,10 @@ export default function App() {
           onReject={id=>{handleRejectMod(id);setDetailSale(null);}}/>
       )}
       {(showSaleForm||editSale||saleDraft)&&(
-        <SaleForm initialData={editSale||saleDraft} currentUser={user}
+        <SaleForm initialData={editSale||saleDraft} currentUser={user} clientes={clientes}
           onClose={()=>{setShowSaleForm(false);setEditSale(null);setSaleDraft(null);}}
           onSave={async form=>{
-            if(editSale){await handleUpdateSale(editSale.id,{...form,modificacion_aprobada:false,solicitud_modificacion:false});setEditSale(null);}
+            if(editSale){const f=await vincularCliente(form);await handleUpdateSale(editSale.id,{...f,modificacion_aprobada:false,solicitud_modificacion:false});setEditSale(null);}
             else {
               await saveSale(form);
               // venta creada desde un prospecto: la inmobiliaria pasa a cliente y el agente no le escribe más

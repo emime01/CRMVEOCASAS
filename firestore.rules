@@ -34,6 +34,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Fichas de cliente: se crean al cargar una venta (cualquier usuario); se editan desde Clientes; no se borran.
+    match /clientes/{id} {
+      allow read, create, update: if activo();
+      allow delete: if false;
+    }
+
     // Datos administrativos: los edita la gerencia y administración.
     match /facturas/{id} {
       allow read: if activo();

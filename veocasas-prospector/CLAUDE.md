@@ -103,9 +103,9 @@ Reglas importantes:
 
 ## Integración con el CRM/ERP (app en la raíz del repo)
 
-El CRM/ERP de Veocasas (React + Vite, raíz del repo) usa el mismo Firebase. No tiene colección de clientes:
-los clientes son las inmobiliarias con ventas (`ventas.inmobiliaria`, vendedor en `ventas.ejecutivo`; las ventas
-no guardan email). **La asignación de vendedores la decide la gerente comercial desde el CRM; el agente nunca asigna.**
+El CRM/ERP de Veocasas (React + Vite, raíz del repo) usa el mismo Firebase. Cada cliente tiene
+una ficha en `clientes` (RUT, email, teléfono, contactos, vendedor a cargo) y cada venta apunta a ella con
+`cliente_id`; las ventas viejas sin ficha se agrupan por nombre. **La asignación de vendedores la decide la gerente comercial desde el CRM; el agente nunca asigna.**
 
 - **Clientes** (`lib/crm.js`, `sincronizarClientesCRM`, diario en `frecuente` y paso del panel `crm`): cruza las
   ventas con la base por nombre (nm:), email y teléfono. Venta vigente → `cliente` (asignado a su vendedor);
@@ -222,7 +222,7 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 2. **URLs de directorios:** verificar las URLs exactas de los listados de inmobiliarias en InfoCasas, Casas y Más y Gallito, y de las listas de socios de las cámaras (CIU, ADIU), en `DIRECTORIOS.startUrls`.
 3. **Pruebas:** no hay tests todavía. Conviene cubrir `normalize.js`, el cálculo de fechas de la secuencia y la clasificación con un set de respuestas reales.
 4. **Respuestas fuera del hilo:** si una inmobiliaria responde en un hilo nuevo en lugar de contestar el original, hoy no se detecta. Habría que buscar por remitente contra `keys em:`.
-5. **CRM:** las ventas no guardan email ni hay colección de clientes; el cruce es por nombre y teléfono y puede fallar con nombres muy distintos. Conviene cargar el email en las ventas.
+5. **CRM:** el cruce usa las fichas de cliente (nombre, razón social, emails y teléfonos de la ficha y sus contactos). Mientras haya ventas sin ficha, esas se cruzan solo por nombre y teléfono.
 6. **Plan de Vercel:** en Hobby los crons corren una vez por día. En Pro, cambiar `/api/cron/frecuente` a cada hora para leer respuestas más rápido.
 7. **Crawler sin credenciales:** `.github/workflows/directorios.yml` usa `FIREBASE_PRIVATE_KEY`, que no se puede crear. Los directorios que se leen sin navegador ya están en `FUENTES.directorios`; el crawler solo haría falta para sitios que necesiten JavaScript.
 8. **Instagram oficial:** si Veocasas tiene cuenta de empresa, la API de Meta (business discovery) permite leer la bio y la web de otras cuentas de empresa, de forma legal.

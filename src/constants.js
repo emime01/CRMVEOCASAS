@@ -93,6 +93,7 @@ export const TABS = {
     {id:"dashboard_gerente",label:"Dashboard"},
     {id:"ventas",label:"Ventas"},
     {id:"prospectos",label:"Prospectos"},
+    {id:"clientes",label:"Clientes"},
     {id:"kpis",label:"KPIs"},
     {id:"facturacion",label:"Facturación"},
     // {id:"comisiones",label:"Comisiones"}, // en pausa hasta definir las reglas de comisión
@@ -128,6 +129,7 @@ export const TABS = {
   gerente_general:[
     {id:"dashboard_ggeneral",label:"Dashboard"},
     {id:"ventas_ggeneral",label:"Ventas"},
+    {id:"clientes",label:"Clientes"},
     {id:"facturacion",label:"Facturación"},
     {id:"reportes_ggeneral",label:"Reportes"},
     {id:"competencias",label:"Competencias"},
