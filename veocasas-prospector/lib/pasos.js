@@ -343,18 +343,22 @@ export async function revisarRespuestas(vivo) {
 }
 
 /* ---------- Orquestadores ---------- */
+// sin Gmail se puede probar igual la búsqueda, el deduplicado y el enriquecimiento
+const gmailListo = () => Boolean(process.env.GMAIL_REFRESH_TOKEN && CONFIG.remitente.email);
+const SIN_GMAIL = { omitido: 'Gmail sin configurar' };
+
 export async function cicloDiario(hasta) {
   return {
-    respuestas: await revisarRespuestas(hasta(70_000)),
+    respuestas: gmailListo() ? await revisarRespuestas(hasta(70_000)) : SIN_GMAIL,
     procesar: await procesarJobs(hasta(130_000)),
     enriquecer: await enriquecer(hasta(185_000)),
-    enviar: await enviar(hasta(285_000)),
+    enviar: gmailListo() ? await enviar(hasta(285_000)) : SIN_GMAIL,
   };
 }
 
 export async function cicloFrecuente(hasta) {
   return {
-    respuestas: await revisarRespuestas(hasta(90_000)),
+    respuestas: gmailListo() ? await revisarRespuestas(hasta(90_000)) : SIN_GMAIL,
     procesar: await procesarJobs(hasta(180_000)),
     enriquecer: await enriquecer(hasta(280_000)),
   };
