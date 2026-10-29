@@ -5,7 +5,7 @@ const GENERICOS = ['gmail.com', 'hotmail.com', 'hotmail.es', 'outlook.com', 'out
 const SOCIALES = ['instagram.com', 'facebook.com', 'fb.com', 'tiktok.com', 'wa.me', 'whatsapp.com',
   'linktr.ee', 'youtube.com', 'twitter.com', 'x.com', 'linkedin.com', 'beacons.ai'];
 const PORTALES = ['infocasas.com.uy', 'casasymas.com.uy', 'gallito.com.uy', 'mercadolibre.com.uy', 'veocasas.com.uy',
-  'veocasas.com', 'properati.com.uy', 'zonaprop.com.ar', 'google.com', 'goo.gl', 'g.page', 'cylex.com.uy',
+  'veocasas.com', 'properati.com.uy', 'zonaprop.com.ar', 'casashub.uy', 'gopunta.uy', 'todosnegocios.com', 'cybo.com', 'tuugo.uy', 'infoisinfo.com.uy', 'google.com', 'goo.gl', 'g.page', 'cylex.com.uy',
   'paginasamarillas.com.uy', 'guiamovil.com', 'tripadvisor.com', 'booking.com', 'airbnb.com'];
 
 export const RE_INMOBILIARIA = /inmobili|propiedades|real\s?estate|bienes\s?ra[ií]ces|negocios\s?inmob|corredor|rematador|realty|realtor/i;
@@ -35,6 +35,33 @@ export function cleanEmail(e) {
   if (/(noreply|no-reply|donotreply|sentry|wixpress|example\.|domain\.com|tusitio|tuemail|email\.com|@2x|mailer-daemon)/.test(em)) return null;
   if (enLista(dominioEmail(em), PORTALES)) return null;
   return em;
+}
+
+// Cloudflare reemplaza los emails por un hex XOR (data-cfemail o /cdn-cgi/l/email-protection#hex): el primer byte es la clave
+export function decodificarCloudflare(html) {
+  const dec = hex => {
+    const k = parseInt(hex.slice(0, 2), 16);
+    let out = '';
+    for (let i = 2; i < hex.length; i += 2) out += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16) ^ k);
+    return out;
+  };
+  return String(html || '')
+    .replace(/data-cfemail="([0-9a-f]+)"/gi, (_, h) => ` ${dec(h)} `)
+    .replace(/\/cdn-cgi\/l\/email-protection#([0-9a-f]+)/gi, (_, h) => ` ${dec(h)} `);
+}
+
+// número de WhatsApp de un link wa.me o api.whatsapp.com, con código de país (598 si viene local)
+export function extraerWhatsapp(html) {
+  const m = String(html || '').match(/(?:wa\.me\/|whatsapp\.com\/send\/?\?phone=)(?:%2B|\+)?([0-9 ]{8,16})/i);
+  if (!m) return null;
+  const n = m[1].replace(/\D/g, '').replace(/^0/, '');
+  return n.length === 8 ? `598${n}` : n.length >= 10 ? n : null;
+}
+
+// celular uruguayo escrito en texto (09X XXX XXX), por ejemplo en la bio de Instagram que muestra Google
+export function extraerCelular(texto) {
+  const m = String(texto || '').match(/(?:\+?598[\s.-]?)?\b0?(9[1-9])[\s.-]?(\d{3})[\s.-]?(\d{3})\b/);
+  return m ? `598${m[1]}${m[2]}${m[3]}` : null;
 }
 
 export function extractEmails(text) {

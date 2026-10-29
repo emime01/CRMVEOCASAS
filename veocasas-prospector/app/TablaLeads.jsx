@@ -1,9 +1,10 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ETIQUETA } from './estados';
 
 const fecha = iso => iso ? new Date(iso).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' }) : '-';
-const FUENTE = { maps: 'Google Maps', google: 'Google, redes y portales', directorios: 'Portales y cámaras' };
+const FUENTE = { maps: 'Google Maps', google: 'Google, redes y portales', directorios: 'Cámaras y portales' };
 
 function Acciones({ lead, estado }) {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function TablaLeads({ leads, estado }) {
         <thead>
           <tr>
             <th>Inmobiliaria</th><th>Contacto</th><th>Origen</th>
-            <th>{conIA ? 'Lo que respondieron' : 'Seguimiento'}</th><th>Acciones</th>
+            <th>{estado === 'todas' ? 'Estado' : conIA ? 'Lo que respondieron' : 'Seguimiento'}</th><th>Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -70,11 +71,14 @@ export default function TablaLeads({ leads, estado }) {
               <td>
                 <div>{l.email || '-'}</div>
                 {l.telefono && <div className="sub">{l.telefono}</div>}
+                {l.whatsapp && <a className="sub" href={`https://wa.me/${l.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp +{l.whatsapp}</a>}
                 {l.instagram && <a className="sub" href={`https://instagram.com/${l.instagram}`} target="_blank" rel="noreferrer">@{l.instagram}</a>}
               </td>
               <td className="sub">{(l.fuentes || []).map(f => FUENTE[f] || f).join(', ')}</td>
               <td>
-                {conIA ? (
+                {estado === 'todas' ? (
+                  <span className="etiqueta">{ETIQUETA[l.estado] || l.estado}</span>
+                ) : conIA ? (
                   <>
                     {l.etapa && <span className={`etiqueta ${l.etapa === 'cierre' ? 'cierre' : ''}`}>{l.etapa.replace('_', ' ')}</span>}{' '}
                     {l.score != null && <span className={`score ${l.score >= 60 ? 'alto' : ''}`}>{l.score}/100</span>}
@@ -88,7 +92,7 @@ export default function TablaLeads({ leads, estado }) {
                   </span>
                 )}
               </td>
-              <td><Acciones lead={l} estado={estado} /></td>
+              <td><Acciones lead={l} estado={estado === 'todas' ? l.estado : estado} /></td>
             </tr>
           ))}
         </tbody>

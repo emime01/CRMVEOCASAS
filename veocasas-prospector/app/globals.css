@@ -27,6 +27,18 @@ a { color: inherit; }
 .aviso p { margin: 0; }
 .aviso p + p { margin-top: 4px; }
 
+/* La base completa de inmobiliarias: el número principal del panel */
+.directorio { display: block; text-decoration: none; padding: 18px 20px; margin-bottom: 28px; border: 1px solid var(--linea); border-radius: 10px; background: var(--superficie); }
+.directorio .n { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; margin-right: 10px; }
+.directorio .l { font-size: 17px; font-weight: 600; }
+.directorio .det { display: block; margin-top: 8px; color: var(--tenue); font-size: 14px; }
+.directorio.actual { border-color: var(--verde); box-shadow: inset 4px 0 0 var(--verde); }
+.directorio:hover { border-color: var(--tinta); }
+.filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 0 0 16px; }
+.filtros label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--tenue); }
+.filtros select { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta); }
+.filtros .btn { text-decoration: none; }
+
 /* El flujo: etapas conectadas por una sola línea, ancho según volumen */
 .flujo { display: flex; gap: 0; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; }
 .etapa {

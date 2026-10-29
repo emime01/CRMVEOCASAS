@@ -44,7 +44,7 @@ Google Places API (Maps) + Google vía Serper (portales, Instagram, Facebook, Ti
 
 | Ruta | Cuándo | Qué hace |
 |---|---|---|
-| `/api/cron/prospectar` | día 1 de cada mes | busca en Places y Google |
+| `/api/cron/prospectar` | día 1 de enero, abril, julio y octubre | arranca la búsqueda (Places, Google, cámaras y portales); `frecuente` la continúa hasta terminar |
 | GitHub Actions `directorios.yml` | día 1 de cada mes | rastrea portales y cámaras |
 | `/api/cron/diario` | lunes a viernes 10:00 UY | respuestas → procesar → enriquecer → enviar |
 | `/api/cron/frecuente` | todos los días 18:00 UY | respuestas → procesar → enriquecer |

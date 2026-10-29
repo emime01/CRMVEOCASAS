@@ -49,6 +49,37 @@ export async function buscarPlaces(textQuery, paginas = 3) {
   return out;
 }
 
+// Directorios (cámaras, portales): devuelve ítems para la cola.
+// - Si la página trae los datos estructurados (Next.js de InfoCasas), van directo como { nombre, direccion }.
+// - Si no, el texto (con las URLs de los links, donde suelen estar las webs de los socios) en pedazos para Claude.
+export async function leerDirectorio(url) {
+  const r = await fetch(url, {
+    signal: AbortSignal.timeout(25000), redirect: 'follow',
+    headers: { 'user-agent': 'Mozilla/5.0 (compatible; VeocasasBot/1.0; +https://veocasas.com.uy)' },
+  });
+  if (!r.ok) throw new Error(`Directorio ${r.status}: ${url}`);
+  const html = await r.text();
+
+  const next = html.match(/<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/s);
+  if (next) {
+    try {
+      const estado = JSON.parse(next[1]).props?.pageProps?.apolloState || {};
+      const agentes = Object.entries(estado).filter(([k]) => k.startsWith('RealEstateAgent:')).map(([, v]) => v);
+      if (agentes.length) return agentes.map(a => ({ estructurado: true, nombre: a.name, direccion: a.address || null, url }));
+    } catch { /* sigue como texto */ }
+  }
+
+  const texto = html
+    .replace(/<(script|style|noscript|svg)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<a\s[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, ' $2 ($1) ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim();
+  const pedazos = [];
+  for (let i = 0; i < texto.length; i += 8000) pedazos.push({ url, texto: texto.slice(i, i + 8000) });
+  return pedazos;
+}
+
 // Serper.dev: resultados orgánicos de Google
 export async function buscarGoogle(q, paginas = 1) {
   const out = [];

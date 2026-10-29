@@ -13,7 +13,15 @@ export default function CorrerAhora() {
     const j = await r.json().catch(() => ({}));
     setOcupado(false);
     if (!r.ok) return setMsg(`Falló: ${j.error || r.status}`);
-    if (paso === 'prospectar') setMsg(`Búsqueda lista: ${j.encontrados?.maps ?? 0} lugares en Maps y ${j.encontrados?.google ?? 0} búsquedas en Google.${j.encontrados?.topePlaces ? ' Se llegó al tope mensual de Maps: el resto de Maps queda para el mes que viene.' : ''} Se procesan en el próximo ciclo.`);
+    if (paso === 'prospectar') {
+      const e = j.encontrados || {};
+      setMsg([
+        e.terminada ? 'Búsqueda terminada.' : `Búsqueda en curso: ${e.consultas} de ${e.total} consultas. Tocá "Buscar inmobiliarias" de nuevo para seguir.`,
+        `Hasta ahora: ${e.maps ?? 0} lugares en Maps, ${e.google ?? 0} búsquedas en Google y ${e.directorios ?? 0} registros de cámaras y portales.`,
+        e.topePlaces ? 'Se llegó al tope mensual de Maps: lo que falta de Maps queda para el mes que viene.' : '',
+        'Se procesan con "Correr ciclo de hoy".',
+      ].filter(Boolean).join(' '));
+    }
     else setMsg([
       `Listo: ${j.procesar?.leads ?? 0} inmobiliarias procesadas, ${j.enriquecer?.listos ?? 0} con email encontrado, ${j.enriquecer?.sinEmail ?? 0} sin email.`,
       j.enviar?.omitido ? 'Sin envíos ni lectura de respuestas (Gmail sin configurar).'

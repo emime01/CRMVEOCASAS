@@ -1,18 +1,18 @@
 import { db, FieldValue, COL, JOBS, META } from './firebase.js';
 import { CONFIG, FUENTES } from './config.js';
-import { buscarPlaces, buscarGoogle } from './fuentes.js';
+import { buscarPlaces, buscarGoogle, leerDirectorio } from './fuentes.js';
 import { mapear } from './extract.js';
 import { upsertLead, excluir, motivoExclusion, estadoExcluido } from './leads.js';
-import { tieneMX, buscarEmailEnWeb, buscarWebs } from './enrich.js';
+import { tieneMX, buscarContactoEnWeb, buscarContactosEnGoogle } from './enrich.js';
 import { enviarCorreo, leerHilo, hayRespuestaNueva, listarMensajes, destinatarioRebotado, esMio } from './gmail.js';
 import { clasificar } from './claude.js';
-import { cleanEmail, domainOf } from './normalize.js';
+import { cleanEmail, domainOf, esBloqueado } from './normalize.js';
 import { addDays, ajustarHabil, esFinDeSemana, inicioDiaUY, render, pool, sleep, bajaUrl } from './util.js';
 
 const ahora = () => new Date();
 const evento = (tipo, extra = {}) => FieldValue.arrayUnion({ tipo, fecha: new Date(), ...extra });
 
-/* ---------- 1. Prospección: busca en Places y Google y deja los resultados crudos en cola ---------- */
+/* ---------- 1. Prospección: Places, Google y directorios; los resultados crudos van a la cola ---------- */
 export async function guardarLote(fuente, items, tam = 20) {
   const d = db();
   for (let i = 0; i < items.length; i += tam) {
@@ -20,30 +20,50 @@ export async function guardarLote(fuente, items, tam = 20) {
   }
 }
 
+const tareasBusqueda = () => CONFIG.fuentesActivas.flatMap(fuente =>
+  FUENTES[fuente] ? FUENTES[fuente].consultas().map(c => ({ fuente, ...c })) : []);
+
+const refBusqueda = () => db().collection(META).doc('busqueda');
+export async function busquedaEnCurso() {
+  const s = (await refBusqueda().get()).data();
+  return Boolean(s && !s.terminada);
+}
+
+// La búsqueda completa (~220 consultas y directorios) no entra en una corrida de 300 s:
+// avanza tarea por tarea, guarda en meta/busqueda por dónde va y la próxima llamada sigue desde ahí.
+// Cuando termina, la llamada siguiente arranca una búsqueda nueva (lo repetido se fusiona al procesar).
 export async function prospectar(vivo = () => true) {
-  const res = {};
-  for (const fuente of CONFIG.fuentesActivas) {
-    const f = FUENTES[fuente];
-    if (!f) continue;
-    const items = [];
-    for (const q of f.consultas()) {
-      if (!vivo()) break;
-      try {
-        if (fuente === 'maps') {
-          const lugares = await buscarPlaces(q, f.paginas);
-          items.push(...lugares);
-          if (lugares.topeAlcanzado) { res.topePlaces = true; break; }
-        } else items.push({ consulta: q, resultados: await buscarGoogle(q, f.paginas) });
-      } catch (e) {
-        console.error(`[${fuente}]`, q, e.message);
-        if (e.code === 'TOPE_PLACES') { res.topePlaces = true; break; }
+  const ref = refBusqueda();
+  const lista = tareasBusqueda();
+  const previa = (await ref.get()).data();
+  let { idx = 0, sinMaps = false, totales = {} } = previa && !previa.terminada ? previa : {};
+  if (!previa || previa.terminada) await ref.set({ idx: 0, total: lista.length, iniciada: ahora(), terminada: null, sinMaps, totales });
+
+  for (; idx < lista.length && vivo(); idx++) {
+    const t = lista[idx];
+    if (t.fuente === 'maps' && sinMaps) continue;
+    try {
+      let items = [];
+      if (t.fuente === 'maps') {
+        const lugares = await buscarPlaces(t.q, FUENTES.maps.paginas);
+        items = lugares.map(l => ({ ...l, depto: t.depto }));
+        if (lugares.topeAlcanzado) sinMaps = true;
+      } else if (t.fuente === 'google') {
+        items = [{ consulta: t.q, depto: t.depto, resultados: await buscarGoogle(t.q, FUENTES.google.paginas) }];
+      } else if (t.fuente === 'directorios') {
+        items = (await leerDirectorio(t.q)).map(x => ({ ...x, depto: t.depto }));
       }
+      await guardarLote(t.fuente, items, t.fuente === 'directorios' ? 10 : 20);
+      totales[t.fuente] = (totales[t.fuente] || 0) + items.length;
+    } catch (e) {
+      console.error(`[${t.fuente}]`, t.q, e.message);
+      if (e.code === 'TOPE_PLACES') sinMaps = true;
     }
-    await guardarLote(fuente, items);
-    res[fuente] = items.length;
+    await ref.update({ idx: idx + 1, sinMaps, totales });
   }
-  await db().collection(META).doc('ultima_prospeccion').set({ fecha: ahora(), res });
-  return res;
+  const terminada = idx >= lista.length;
+  if (terminada) await ref.update({ terminada: ahora() });
+  return { ...totales, topePlaces: sinMaps, consultas: idx, total: lista.length, terminada };
 }
 
 /* ---------- 2. Procesar la cola: normalizar, deduplicar y guardar ---------- */
@@ -64,43 +84,67 @@ export async function procesarJobs(vivo) {
   return { leads };
 }
 
-/* ---------- 3. Enriquecer: conseguir y validar email ---------- */
+/* ---------- 3. Enriquecer: conseguir y validar email (y WhatsApp de paso) ---------- */
+// Pasada 1: email existente con MX, si no la web (incluye emails de Cloudflare y el WhatsApp).
+// Si no aparece: Google (por dominio, por perfil de Instagram o por nombre). Lo que traiga se valida en la pasada 2.
+// Solo pasa a sin_email después de probar web y Google.
 export async function enriquecer(vivo) {
   const snap = await db().collection(COL).where('estado', '==', 'nuevo').orderBy('creado').limit(150).get();
-  const buscarWeb = [];
+  const aGoogle = [];
   let listos = 0, sinEmail = 0;
 
   await pool(snap.docs, 8, async doc => {
     const l = doc.data();
+    const intentos = (l.intentosEnriquecer || 0) + 1;
+    const patch = { intentosEnriquecer: intentos, actualizado: FieldValue.serverTimestamp() };
     let email = l.email && (await tieneMX(l.email)) ? l.email : null;
-    if (!email && l.web) {
-      const e = await buscarEmailEnWeb(l.web);
-      if (e && (await tieneMX(e))) email = e;
+    const web = l.web && !esBloqueado(domainOf(l.web)) ? l.web : null;
+    if (!email && web && l.webRevisada !== web) {
+      const r = await buscarContactoEnWeb(web);
+      patch.webRevisada = web;
+      if (r.whatsapp && !l.whatsapp) patch.whatsapp = r.whatsapp;
+      if (r.email && (await tieneMX(r.email))) email = r.email;
     }
     if (email) {
-      await doc.ref.update({ email, estado: 'listo', keys: FieldValue.arrayUnion(`em:${email}`), actualizado: FieldValue.serverTimestamp() });
+      await doc.ref.update({ ...patch, email, estado: 'listo', keys: FieldValue.arrayUnion(`em:${email}`) });
       listos++; return;
     }
-    const intentos = (l.intentosEnriquecer || 0) + 1;
-    if (intentos === 1 && !l.web && l.nombre) buscarWeb.push(doc);
-    const patch = { intentosEnriquecer: intentos, actualizado: FieldValue.serverTimestamp() };
-    if (intentos >= 2) { patch.estado = 'sin_email'; sinEmail++; }
+    if (!l.googleBuscado) aGoogle.push({ doc, l: { ...l, id: doc.id } });
+    else if (intentos >= 2) { patch.estado = 'sin_email'; sinEmail++; }
     await doc.ref.update(patch);
   }, vivo);
 
-  if (buscarWeb.length && vivo()) {
-    const lote = buscarWeb.slice(0, 40);
-    const halla = await buscarWebs(lote.map(d => d.data().nombre)).catch(() => new Map());
-    for (const doc of lote) {
-      const h = halla.get(doc.data().nombre);
-      if (!h) continue;
-      const patch = {};
-      if (h.web) { patch.web = h.web; patch.keys = FieldValue.arrayUnion(`dom:${domainOf(h.web)}`); }
-      if (h.email && !doc.data().email) patch.email = h.email; // se valida con MX en la próxima pasada
-      await doc.ref.update(patch);
+  if (aGoogle.length && vivo()) {
+    const halla = await buscarContactosEnGoogle(aGoogle.map(x => x.l)).catch(e => { console.error('[google]', e.message); return null; });
+    if (halla) {
+      for (const { doc, l } of aGoogle) {
+        const h = halla.get(l.id) || {};
+        const patch = { googleBuscado: true };
+        if (h.web) { patch.web = h.web; patch.keys = FieldValue.arrayUnion(`dom:${domainOf(h.web)}`); }
+        if (h.email && !l.email) patch.email = h.email; // se valida con MX en la próxima pasada
+        if (h.whatsapp && !l.whatsapp) patch.whatsapp = h.whatsapp;
+        await doc.ref.update(patch);
+      }
     }
   }
   return { listos, sinEmail };
+}
+
+// Vuelve a buscar el email de las que quedaron sin email (después de mejorar la búsqueda)
+export async function reintentarSinEmail() {
+  const d = db();
+  const snap = await d.collection(COL).where('estado', '==', 'sin_email').get();
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const b = d.batch();
+    for (const doc of snap.docs.slice(i, i + 400)) {
+      b.update(doc.ref, {
+        estado: 'nuevo', intentosEnriquecer: 0, googleBuscado: false, webRevisada: FieldValue.delete(),
+        actualizado: FieldValue.serverTimestamp(), historial: evento('reintento_email'),
+      });
+    }
+    await b.commit();
+  }
+  return { reintentadas: snap.size };
 }
 
 /* ---------- 4. Envíos: seguimientos vencidos + primeros correos dentro del cupo ---------- */
@@ -356,10 +400,12 @@ export async function cicloDiario(hasta) {
   };
 }
 
+// También continúa la búsqueda trimestral: el cron que la arranca no alcanza a terminarla en una corrida
 export async function cicloFrecuente(hasta) {
   return {
-    respuestas: gmailListo() ? await revisarRespuestas(hasta(90_000)) : SIN_GMAIL,
-    procesar: await procesarJobs(hasta(180_000)),
-    enriquecer: await enriquecer(hasta(280_000)),
+    respuestas: gmailListo() ? await revisarRespuestas(hasta(60_000)) : SIN_GMAIL,
+    busqueda: (await busquedaEnCurso()) ? await prospectar(hasta(150_000)) : { omitido: 'sin búsqueda en curso' },
+    procesar: await procesarJobs(hasta(215_000)),
+    enriquecer: await enriquecer(hasta(285_000)),
   };
 }

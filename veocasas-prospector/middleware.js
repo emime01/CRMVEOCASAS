@@ -9,4 +9,4 @@ export function middleware(req) {
   return new NextResponse('Ingresá la clave del panel', { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="Veocasas"' } });
 }
 
-export const config = { matcher: ['/', '/api/leads/:path*', '/api/admin/:path*'] };
+export const config = { matcher: ['/', '/api/leads/:path*', '/api/admin/:path*', '/api/export'] };

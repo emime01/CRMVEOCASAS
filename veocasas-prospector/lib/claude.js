@@ -21,7 +21,8 @@ Reglas:
 - Si no hay ninguna, devolvé [].`;
 
 export async function extraerInmobiliarias(contenido) {
-  const out = parseJSON(await pedir(SYS_EXTRAER, contenido.slice(0, 24000), 3000));
+  // 8000 de salida: un pedazo de directorio puede traer ~60 inmobiliarias y un JSON cortado se pierde entero
+  const out = parseJSON(await pedir(SYS_EXTRAER, contenido.slice(0, 24000), 8000));
   return Array.isArray(out) ? out.filter(x => x?.nombre) : [];
 }
 

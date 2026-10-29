@@ -27,7 +27,7 @@ export const CONFIG = {
   agenteActivo: env('AGENTE_ACTIVO', 'false') === 'true',
 
   ejecutivos: (() => { try { return JSON.parse(env('EXECUTIVES_JSON', '[]')); } catch { return []; } })(),
-  fuentesActivas: env('FUENTES', 'maps,google').split(',').map(s => s.trim()),
+  fuentesActivas: env('FUENTES', 'maps,google,directorios').split(',').map(s => s.trim()),
 
   // EDITAR: lo único que el agente puede afirmar al responder solo. Lo que no esté acá, lo deriva a un ejecutivo.
   conocimiento: `
@@ -74,39 +74,85 @@ Si prefieren no recibir más correos de Veocasas, pueden darse de baja acá: {{b
   },
 };
 
-// Fuentes de prospección (sin Apify)
-const ZONAS_REDES = ['uruguay', 'montevideo', 'punta del este', 'canelones', 'colonia', 'salto', 'paysandú', 'rocha'];
+// Fuentes de prospección (sin Apify).
+// La búsqueda grande se hace una vez; después, una actualización chica cada 3 meses (cron prospectar).
 
+// Maps devuelve como máximo 60 lugares por consulta: por eso se busca por localidad y por barrio, no por departamento.
+export const LOCALIDADES = {
+  'Artigas': ['Artigas', 'Bella Unión'],
+  'Canelones': ['Canelones', 'Las Piedras', 'La Paz', 'Pando', 'Ciudad de la Costa', 'Solymar', 'Lagomar', 'El Pinar',
+    'Atlántida', 'Parque del Plata', 'La Floresta', 'Santa Lucía', 'Progreso', 'Sauce', 'Toledo', 'Barros Blancos',
+    'Salinas', 'San Ramón', 'Tala', 'Santa Rosa'],
+  'Cerro Largo': ['Melo', 'Río Branco'],
+  'Colonia': ['Colonia del Sacramento', 'Carmelo', 'Nueva Helvecia', 'Juan Lacaze', 'Rosario', 'Nueva Palmira', 'Tarariras'],
+  'Durazno': ['Durazno', 'Sarandí del Yí'],
+  'Flores': ['Trinidad'],
+  'Florida': ['Florida', 'Sarandí Grande'],
+  'Lavalleja': ['Minas', 'José Pedro Varela'],
+  'Maldonado': ['Maldonado', 'Punta del Este', 'San Carlos', 'Piriápolis', 'La Barra', 'José Ignacio', 'Pan de Azúcar',
+    'Punta Ballena', 'Manantiales', 'Aiguá'],
+  'Montevideo': ['Centro', 'Cordón', 'Pocitos', 'Punta Carretas', 'Carrasco', 'Malvín', 'Buceo', 'Parque Rodó',
+    'Ciudad Vieja', 'Prado', 'Punta Gorda', 'Unión', 'Tres Cruces', 'La Blanqueada', 'Parque Batlle', 'Sayago', 'Cerro',
+    'Colón', 'Piedras Blancas', 'Maroñas', 'Aguada', 'Palermo', 'Malvín Norte', 'Belvedere', 'Paso Molino', 'Atahualpa',
+    'Peñarol'],
+  'Paysandú': ['Paysandú', 'Guichón'],
+  'Río Negro': ['Fray Bentos', 'Young'],
+  'Rivera': ['Rivera', 'Tranqueras'],
+  'Rocha': ['Rocha', 'La Paloma', 'Chuy', 'Castillos', 'Punta del Diablo', 'Lascano', 'La Pedrera'],
+  'Salto': ['Salto'],
+  'San José': ['San José de Mayo', 'Ciudad del Plata', 'Libertad'],
+  'Soriano': ['Mercedes', 'Dolores', 'Cardona'],
+  'Tacuarembó': ['Tacuarembó', 'Paso de los Toros'],
+  'Treinta y Tres': ['Treinta y Tres', 'Vergara'],
+};
+
+// zonas para buscar perfiles en redes vía Google (no se scrapea Instagram ni Facebook directo)
+const ZONAS_REDES = [...DEPARTAMENTOS, 'Punta del Este', 'Ciudad de la Costa', 'Piriápolis', 'Atlántida', 'Las Piedras',
+  'Pando', 'Colonia del Sacramento', 'Carmelo', 'La Paloma'];
+
+// Cada consulta lleva { q, depto? }: depto ayuda a ubicar las inmobiliarias cuya dirección no lo dice.
 export const FUENTES = {
-  // Google Places API: una búsqueda de hasta 3 páginas (60 lugares) por consulta
+  // Google Places API: hasta 3 páginas (60 lugares) por consulta; los pueblos chicos devuelven una sola
   maps: {
-    consultas: () => DEPARTAMENTOS.flatMap(d => [`inmobiliaria en ${d}, Uruguay`, `negocios inmobiliarios en ${d}, Uruguay`]),
-    paginas: 3,
-  },
-  // Google vía Serper: portales de la competencia, redes, cámaras y guías
-  google: {
     consultas: () => [
-      ...DEPARTAMENTOS.map(d => `inmobiliaria ${d} contacto`),
-      ...ZONAS_REDES.flatMap(z => [`site:instagram.com inmobiliaria ${z}`, `site:facebook.com inmobiliaria ${z}`, `site:tiktok.com inmobiliaria ${z}`]),
-      'site:infocasas.com.uy inmobiliaria', 'site:casasymas.com.uy inmobiliaria', 'site:gallito.com.uy inmobiliaria',
-      'site:mercadolibre.com.uy inmobiliaria tienda oficial',
-      'cámara inmobiliaria uruguaya socios', 'asociación de inmobiliarias del uruguay socios',
-      'guía de inmobiliarias uruguay', 'rematadores y corredores inmobiliarios uruguay',
+      ...Object.entries(LOCALIDADES).flatMap(([depto, locs]) =>
+        locs.map(l => ({ q: `inmobiliaria en ${l}, ${depto === 'Montevideo' ? 'Montevideo, ' : depto === l ? '' : depto + ', '}Uruguay`, depto }))),
+      ...DEPARTAMENTOS.map(depto => ({ q: `negocios inmobiliarios en ${depto}, Uruguay`, depto })),
     ],
     paginas: 3,
   },
+  // Google vía Serper: redes por zona, portales, cámaras y guías
+  google: {
+    consultas: () => [
+      ...DEPARTAMENTOS.map(depto => ({ q: `inmobiliaria ${depto} contacto`, depto })),
+      ...ZONAS_REDES.flatMap(z => [
+        { q: `site:instagram.com inmobiliaria ${z}` },
+        { q: `site:facebook.com inmobiliaria ${z}` },
+      ]),
+      ...DEPARTAMENTOS.map(depto => ({ q: `site:instagram.com "negocios inmobiliarios" ${depto}`, depto })),
+      { q: 'site:tiktok.com inmobiliaria uruguay' },
+      { q: 'site:casasymas.com.uy inmobiliaria' }, { q: 'site:gallito.com.uy inmobiliaria' },
+      { q: 'site:mercadolibre.com.uy inmobiliaria tienda oficial' },
+      { q: 'guía de inmobiliarias uruguay' }, { q: 'rematadores y corredores inmobiliarios uruguay' },
+    ],
+    paginas: 2,
+  },
+  // Listados de socios de cámaras y directorios de portales, leídos directo desde el agente (verificados 2026-10-29)
+  directorios: {
+    consultas: () => [
+      { q: 'https://www.infocasas.com.uy/inmobiliarias' }, // 756 inmobiliarias en los datos de la página (nombre y dirección)
+      { q: 'https://adiu.uy/asociados.aspx' },             // ADIU: nombre y teléfonos
+      { q: 'https://cipem.org.uy/socios/nomina/', depto: 'Maldonado' }, // Cámara Inmobiliaria Punta del Este-Maldonado
+      { q: 'https://cican.com.uy/', depto: 'Canelones' },               // Cámara Inmobiliaria de Canelones: webs de socios
+      { q: 'https://ciu.org.uy/nuestros-socios/' },                     // Cámara Inmobiliaria Uruguaya
+    ],
+  },
 };
 
-// Rastreo de portales y cámaras (scripts/crawler.mjs, corre en GitHub Actions)
-// EDITAR: verificar y afinar las URLs exactas de directorios de inmobiliarias / listas de socios.
+// Rastreo con navegador real (scripts/crawler.mjs, GitHub Actions). Hoy no tiene credenciales de Firestore;
+// los directorios que se pueden leer sin navegador están en FUENTES.directorios.
 export const DIRECTORIOS = {
-  startUrls: [
-    'https://www.infocasas.com.uy/inmobiliarias',
-    'https://www.casasymas.com.uy',
-    'https://www.gallito.com.uy',
-    'https://www.ciu.org.uy',
-    'https://www.adiu.org.uy',
-  ],
+  startUrls: FUENTES.directorios.consultas().map(c => c.q),
   profundidad: 2,
   maxPaginasPorSitio: 120,
   // solo sigue links cuyo texto o URL sugiera un listado de inmobiliarias

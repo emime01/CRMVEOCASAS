@@ -33,11 +33,14 @@ El código vive en `veocasas-prospector/` dentro del repo del CRM y se despliega
 ## Flujo completo
 
 ```
-BÚSQUEDA (mensual)
-  Places API  → 38 consultas ("inmobiliaria en {departamento}, Uruguay" ×19 deptos ×2 variantes), 3 páginas c/u
-  Serper      → ~51 consultas: por departamento + site:instagram/facebook/tiktok por zona
+BÚSQUEDA (una grande al principio; después una chica cada 3 meses)
+  Places API  → 118 consultas: por localidad y barrio (LOCALIDADES) + "negocios inmobiliarios" por depto, hasta 3 páginas
+                (Maps corta en 60 resultados por consulta: por departamento se perdían inmobiliarias)
+  Serper      → 100 consultas: por depto + site:instagram/facebook en los 19 deptos y ciudades + portales y guías
+  Directorios → InfoCasas /inmobiliarias (datos estructurados, ~756), ADIU, CIPEM, CICAN, CIU: leídos desde el agente
+  Reanudable  → meta/busqueda guarda por dónde va; cada corrida (300 s) sigue donde quedó la anterior
                 + site:infocasas / casasymas / gallito / mercadolibre + cámaras y guías
-  Crawler     → GitHub Actions + Playwright sobre URLs de directorios (portales, CIU, ADIU)
+  Crawler     → GitHub Actions + Playwright (hoy sin credenciales de Firestore; ver pendiente 7)
         ↓ resultados crudos en cola (prospeccion_jobs)
 PROCESAMIENTO
   Maps        → filtro por type real_estate_agency o regex
@@ -45,9 +48,10 @@ PROCESAMIENTO
   → normalización + deduplicado por claves → prospeccion_leads (estado: nuevo)
 ENRIQUECIMIENTO
   email existente → verificar MX
-  si no hay → buscarlo en la web (/, /contacto, /contact, /nosotros…)
-  si no hay web → buscar la web o un email por Serper
-  → listo (tiene email válido) | sin_email (2 intentos fallidos)
+  si no hay → buscarlo en la web (/, /contacto, /contact, /nosotros…), decodificando los emails de Cloudflare
+              y guardando el WhatsApp (wa.me) si aparece
+  si no aparece → Google (Serper): "@dominio" si tiene web, el perfil si tiene Instagram, si no por nombre
+  → listo (tiene email válido) | sin_email (solo después de probar web y Google)
 SECUENCIA (días hábiles, hora UY)
   día 0  correo inicial   (cupo diario, DAILY_NEW_LIMIT)
   día 3  seguimiento 1    (mismo hilo)
@@ -73,7 +77,7 @@ DERIVACIÓN
 | `conversando` | Hizo una pregunta general y el agente respondió. A los 7 días sin respuesta pasa a `sin_respuesta` |
 | `derivado` | Lo tiene un ejecutivo |
 | `sin_respuesta` | Terminó la secuencia sin responder. Acciones en el panel: reiniciar, contacto manual o descartar |
-| `sin_email` | No se encontró correo. Se puede cargar a mano desde el panel |
+| `sin_email` | No se encontró correo en la web ni en Google. Se puede cargar a mano o trabajar por WhatsApp/teléfono |
 | `no_interesado`, `rebotado`, `baja`, `cliente`, `descartado`, `manual` | Estados finales o fuera del flujo |
 
 ## Etapas de clasificación (Claude)
@@ -132,7 +136,7 @@ Se configuran en `EXECUTIVES_JSON`, con este formato:
 **Otras colecciones:**
 - **`prospeccion_jobs`**: cola de resultados crudos `{fuente, items[], offset, done}`, en lotes de 10 a 20 ítems.
 - **`prospeccion_excluidos`**: `{keys[], motivo}`. Guarda clientes actuales y bajas; nunca se les escribe. Los clientes se cargan con `npm run importar-clientes -- clientes.csv`.
-- **`prospeccion_meta`**: contadores de round-robin y datos de la última prospección.
+- **`prospeccion_meta`**: contadores de round-robin, `busqueda` (progreso de la búsqueda reanudable) y `places_{AAAA-MM}` (tope de Places).
 
 Índices compuestos en `firestore.indexes.json`:
 - `estado + proximoEnvio`
@@ -146,17 +150,19 @@ Se configuran en `EXECUTIVES_JSON`, con este formato:
 
 ```
 lib/config.js      configuración central: plantillas, conocimiento, cupos, consultas de búsqueda, URLs de directorios
-lib/fuentes.js     clientes de Places API y Serper
+lib/fuentes.js     clientes de Places API y Serper, lectura de directorios
 lib/extract.js     ítem crudo → candidatos (Claude para texto libre)
 lib/normalize.js   emails, dominios, handles, slugs, detección de departamento, listas de bloqueo
 lib/leads.js       upsert con deduplicado, exclusiones
-lib/enrich.js      verificación MX, búsqueda de email en web, búsqueda de web por nombre
+lib/enrich.js      verificación MX, email y WhatsApp en la web, segundo intento en Google (dominio, Instagram, nombre)
+lib/directorio.js  base completa de inmobiliarias para la vista "Todas" y la descarga CSV
 lib/gmail.js       envío MIME (threading, List-Unsubscribe), lectura de hilos, rebotes
 lib/claude.js      prompts de extracción y clasificación
 lib/pasos.js       prospectar, procesarJobs, enriquecer, enviar, revisarRespuestas, derivar, ciclos
 lib/util.js        fechas en hora UY (UTC-3), días hábiles, presupuesto de tiempo, firma HMAC de bajas
-app/page.js        panel: flujo de etapas con conteos + tabla por estado + acciones
-app/api/cron/*     prospectar (mensual), diario (L–V 10:00 UY), frecuente (diario 18:00 UY)
+app/page.js        panel: "Todas las inmobiliarias" (vista principal, filtros, descarga) + etapas del correo + acciones
+app/api/export     descarga CSV (; y BOM para Excel) con los mismos filtros
+app/api/cron/*     prospectar (cada 3 meses, la continúa frecuente), diario (L–V 10:00 UY), frecuente (diario 18:00 UY)
 app/api/admin/run  disparar ciclos desde el panel
 app/api/leads/[id] acciones manuales (reactivar, email, manual, descartar, cliente)
 app/api/baja       link de baja (GET) y one-click unsubscribe (POST)
@@ -201,4 +207,5 @@ scripts/           crawler.mjs (Playwright), gmail-token.mjs, importar-clientes.
 4. **Respuestas fuera del hilo:** si una inmobiliaria responde en un hilo nuevo en lugar de contestar el original, hoy no se detecta. Habría que buscar por remitente contra `keys em:`.
 5. **Conexión con el CRM:** al marcar un lead como `cliente`, podría crearse automáticamente en el CRM de ventas existente.
 6. **Plan de Vercel:** en Hobby los crons corren una vez por día. En Pro, cambiar `/api/cron/frecuente` a cada hora para leer respuestas más rápido.
-7. **Crawler sin credenciales:** `.github/workflows/directorios.yml` usa `FIREBASE_PRIVATE_KEY`, que no se puede crear. Hay que pasarlo a federación con GitHub (`google-github-actions/auth`) o hacer que mande las páginas al deploy de Vercel.
+7. **Crawler sin credenciales:** `.github/workflows/directorios.yml` usa `FIREBASE_PRIVATE_KEY`, que no se puede crear. Los directorios que se leen sin navegador ya están en `FUENTES.directorios`; el crawler solo haría falta para sitios que necesiten JavaScript.
+8. **Instagram oficial:** si Veocasas tiene cuenta de empresa, la API de Meta (business discovery) permite leer la bio y la web de otras cuentas de empresa, de forma legal.
