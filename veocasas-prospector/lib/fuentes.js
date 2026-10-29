@@ -2,6 +2,7 @@ import { db, META } from './firebase.js';
 import { CONFIG } from './config.js';
 import { sleep, mesUY } from './util.js';
 import { adivinarDepto } from './normalize.js';
+import { GALLITO } from '../data/gallito.js';
 
 // Google no deja bajar la cuota diaria de Text Search: el tope mensual lo lleva el agente en Firestore.
 // Cada llamada se cuenta antes de hacerla, aunque después falle.
@@ -58,6 +59,9 @@ const celularUY = c => { const n = String(c || '').replace(/\D/g, '').replace(/^
 // - Si la página trae los datos estructurados (Next.js de InfoCasas), van directo como { nombre, direccion }.
 // - Si no, el texto (con las URLs de los links, donde suelen estar las webs de los socios) en pedazos para Claude.
 export async function leerDirectorio(url) {
+  // listas guardadas a mano de sitios que bloquean el acceso automático (data/)
+  if (url === 'archivo:gallito') return GALLITO.map(g => ({ estructurado: true, url, nombre: g.nombre }));
+
   const r = await fetch(url, {
     signal: AbortSignal.timeout(25000), redirect: 'follow',
     headers: { 'user-agent': 'Mozilla/5.0 (compatible; VeocasasBot/1.0; +https://veocasas.com.uy)' },

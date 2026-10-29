@@ -66,10 +66,11 @@ export async function prospectar(vivo = () => true) {
   return { ...totales, topePlaces: sinMaps, consultas: idx, total: lista.length, terminada };
 }
 
-// Solo cámaras y portales, sin tocar la búsqueda de Maps y Google (para sumar directorios nuevos)
-export async function buscarDirectorios(vivo = () => true) {
+// Solo cámaras y portales, sin tocar la búsqueda de Maps y Google (para sumar directorios nuevos).
+// solo: parte de la URL para leer uno puntual (ej. 'gallito')
+export async function buscarDirectorios(vivo = () => true, solo = '') {
   let registros = 0;
-  for (const t of FUENTES.directorios.consultas()) {
+  for (const t of FUENTES.directorios.consultas().filter(c => !solo || c.q.includes(solo))) {
     if (!vivo()) break;
     try {
       const items = (await leerDirectorio(t.q)).map(x => ({ ...x, depto: t.depto }));

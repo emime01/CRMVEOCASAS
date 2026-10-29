@@ -149,6 +149,7 @@ export const FUENTES = {
       { q: 'https://ciu.org.uy/nuestros-socios/' },                     // Cámara Inmobiliaria Uruguaya
       { q: 'https://turismo.gub.uy/Operadores/inmobiliariasJSON.php' }, // registro del Ministerio de Turismo: ~874, con email y web
       { q: 'https://www.casasymas.com.uy/inmobiliarias' },              // ~258, logo (nombre en el alt) + link a su web
+      { q: 'archivo:gallito' },                                         // 119 de Gallito, guardadas a mano (data/gallito.js)
       { q: 'https://cic.com.uy/', depto: 'Colonia' },                   // Cámara Inmobiliaria de Colonia
       { q: 'https://www.camarainmobiliariaderocha.com/socios.html', depto: 'Rocha' },
       { q: 'https://www.cuir.com.uy/socios' },                          // inmobiliarias rurales

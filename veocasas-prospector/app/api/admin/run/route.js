@@ -8,7 +8,7 @@ export async function POST(req) {
   const paso = new URL(req.url).searchParams.get('paso');
   try {
     if (paso === 'prospectar') return Response.json({ encontrados: await prospectar(reloj()(280_000)) });
-    if (paso === 'directorios') return Response.json(await buscarDirectorios(reloj()(280_000)));
+    if (paso === 'directorios') return Response.json(await buscarDirectorios(reloj()(280_000), new URL(req.url).searchParams.get('solo') || ''));
     if (paso === 'reintentar_sin_email') return Response.json(await reintentarSinEmail());
     if (paso === 'frecuente') return Response.json(await cicloFrecuente(reloj()));
     return Response.json(await cicloDiario(reloj()));
