@@ -130,10 +130,11 @@ export async function enriquecer(vivo) {
   }, vivo);
 
   if (aGoogle.length && vivo()) {
-    const halla = await buscarContactosEnGoogle(aGoogle.map(x => x.l)).catch(e => { console.error('[google]', e.message); return null; });
+    const halla = await buscarContactosEnGoogle(aGoogle.map(x => x.l), vivo).catch(e => { console.error('[google]', e.message); return null; });
     if (halla) {
       for (const { doc, l } of aGoogle) {
-        const h = halla.get(l.id) || {};
+        if (!halla.has(l.id)) continue; // no llegó a buscarse: queda para la próxima corrida
+        const h = halla.get(l.id);
         const patch = { googleBuscado: true };
         if (h.web) { patch.web = h.web; patch.keys = FieldValue.arrayUnion(`dom:${domainOf(h.web)}`); }
         if (h.email && !l.email) patch.email = h.email; // se valida con MX en la próxima pasada
@@ -409,8 +410,8 @@ const SIN_GMAIL = { omitido: 'Gmail sin configurar' };
 export async function cicloDiario(hasta) {
   return {
     respuestas: gmailListo() ? await revisarRespuestas(hasta(70_000)) : SIN_GMAIL,
-    procesar: await procesarJobs(hasta(130_000)),
-    enriquecer: await enriquecer(hasta(185_000)),
+    procesar: await procesarJobs(hasta(120_000)),
+    enriquecer: await enriquecer(hasta(175_000)),
     enviar: gmailListo() ? await enviar(hasta(285_000)) : SIN_GMAIL,
   };
 }
@@ -420,7 +421,8 @@ export async function cicloFrecuente(hasta) {
   return {
     respuestas: gmailListo() ? await revisarRespuestas(hasta(60_000)) : SIN_GMAIL,
     busqueda: (await busquedaEnCurso()) ? await prospectar(hasta(150_000)) : { omitido: 'sin búsqueda en curso' },
-    procesar: await procesarJobs(hasta(215_000)),
-    enriquecer: await enriquecer(hasta(285_000)),
+    // margen: un pedido a Claude o a una web en curso puede seguir ~60 s después del presupuesto
+    procesar: await procesarJobs(hasta(180_000)),
+    enriquecer: await enriquecer(hasta(240_000)),
   };
 }

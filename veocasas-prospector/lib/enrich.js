@@ -49,7 +49,8 @@ function consultaGoogle(l) {
   return { q: `"${l.nombre}" inmobiliaria Uruguay` };
 }
 
-export async function buscarContactosEnGoogle(leads) {
+// vivo: deja de buscar cuando se acaba el tiempo de la corrida; solo vuelven en el Map las que se buscaron
+export async function buscarContactosEnGoogle(leads, vivo = () => true) {
   const out = new Map();
   await pool(leads, 5, async l => {
     const { q, dom, ig } = consultaGoogle(l);
@@ -68,7 +69,7 @@ export async function buscarContactosEnGoogle(leads) {
       return esGenerico(d) && pareceSuyo(e.split('@')[0], [...tokens, ...(ig ? [ig.replace(/[^a-z0-9]/g, '')] : [])]);
     });
     const r = { web, email: mejorEmail(emails, domPropio), whatsapp: extraerWhatsapp(texto) || (ig ? extraerCelular(texto) : null) };
-    if (r.web || r.email || r.whatsapp) out.set(l.id, r);
-  });
+    out.set(l.id, r);
+  }, vivo);
   return out;
 }
