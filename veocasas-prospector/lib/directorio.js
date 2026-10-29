@@ -21,7 +21,9 @@ const tiene = {
   ninguno: l => !l.email && !l.telefono && !l.whatsapp && !l.instagram,
 };
 
-export async function leerDirectorio({ depto = '', canal = '' } = {}) {
+const plano = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+export async function leerDirectorio({ depto = '', canal = '', q = '' } = {}) {
   const snap = await db().collection(COL).select(...CAMPOS_DIRECTORIO).get();
   const todas = snap.docs.map(doc => {
     const x = doc.data();
@@ -41,6 +43,7 @@ export async function leerDirectorio({ depto = '', canal = '' } = {}) {
   const filtradas = todas
     .filter(l => !depto || (depto === 'sin' ? !DEPARTAMENTOS.includes(l.departamento) : l.departamento === depto))
     .filter(l => !canal || tiene[canal]?.(l))
+    .filter(l => !q || [l.nombre, l.email, l.web, l.instagram].some(v => plano(v).includes(plano(q))))
     .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
   return { resumen, filtradas };
 }
@@ -54,7 +57,7 @@ const celda = v => {
 export function aCSV(leads, etiquetaEstado = e => e) {
   const cols = [['nombre', 'Inmobiliaria'], ['departamento', 'Departamento'], ['email', 'Email'], ['telefono', 'Teléfono'],
     ['whatsapp', 'WhatsApp'], ['instagram', 'Instagram'], ['facebook', 'Facebook'], ['web', 'Web'], ['estado', 'Estado'],
-    ['fuentes', 'Origen']];
+    ['fuentes', 'Origen'], ['id', 'ID']];
   const filas = leads.map(l => cols.map(([k]) => celda(k === 'estado' ? etiquetaEstado(l.estado) : k === 'instagram' && l.instagram ? `@${l.instagram}` : l[k])).join(';'));
   return '﻿' + [cols.map(([, t]) => t).join(';'), ...filas].join('\r\n');
 }

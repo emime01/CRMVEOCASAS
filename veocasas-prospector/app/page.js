@@ -18,10 +18,11 @@ export default async function Panel({ searchParams }) {
   const estado = todos.some(([e]) => e === searchParams?.estado) ? searchParams.estado : 'todas';
   const depto = searchParams?.depto || '';
   const canal = CANALES.some(([c]) => c === searchParams?.canal) ? searchParams.canal : '';
+  const q = String(searchParams?.q || '').trim().slice(0, 80);
 
   const [conteos, dir, snap] = await Promise.all([
     Promise.all(todos.map(([e]) => d.collection(COL).where('estado', '==', e).count().get().then(r => [e, r.data().count]))),
-    leerDirectorio(estado === 'todas' ? { depto, canal } : {}),
+    leerDirectorio(estado === 'todas' ? { depto, canal, q } : {}),
     estado === 'todas' ? null : d.collection(COL).where('estado', '==', estado).orderBy('actualizado', 'desc').limit(200).get(),
   ]);
   const n = Object.fromEntries(conteos);
@@ -33,7 +34,7 @@ export default async function Panel({ searchParams }) {
   }) : dir.filtradas.slice(0, 300);
   const titulo = estado === 'todas' ? TODAS[1] : todos.find(([e]) => e === estado)[1];
   const r = dir.resumen;
-  const filtros = new URLSearchParams({ ...(depto && { depto }), ...(canal && { canal }) }).toString();
+  const filtros = new URLSearchParams({ ...(depto && { depto }), ...(canal && { canal }), ...(q && { q }) }).toString();
 
   return (
     <main className="wrap">
@@ -82,6 +83,9 @@ export default async function Panel({ searchParams }) {
         {AYUDA[estado] && <p className="ayuda">{AYUDA[estado]}</p>}
         {estado === 'todas' && (
           <form className="filtros" method="get" action="/">
+            <label>Buscar
+              <input type="search" name="q" defaultValue={q} placeholder="Nombre, email, web o Instagram" />
+            </label>
             <label>Departamento
               <select name="depto" defaultValue={depto}>
                 <option value="">Todos</option>
