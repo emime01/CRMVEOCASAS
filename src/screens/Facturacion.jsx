@@ -244,7 +244,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
                                   type="checkbox"
                                   checked={c.pagada || false}
                                   disabled={isSaving}
-                                  onChange={e => updateCuota(venta.id, idx, { pagada: e.target.checked })}
+                                  onChange={e => updateCuota(venta.id, idx, { pagada: e.target.checked, fecha_pago: e.target.checked ? hoyISO() : "" })}
                                   style={{ width: 16, height: 16, cursor: "pointer", accentColor: C.green }}
                                 />
                               )}
@@ -376,7 +376,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
                           <span>{c.pagada ? "✅" : "⬜"}</span>
                         ) : (
                           <input type="checkbox" checked={c.pagada || false}
-                            onChange={e => updateCuota(c.venta.id, idx, { pagada: e.target.checked })}
+                            onChange={e => updateCuota(c.venta.id, idx, { pagada: e.target.checked, fecha_pago: e.target.checked ? hoyISO() : "" })}
                             style={{ width: 16, height: 16, cursor: "pointer", accentColor: C.green }} />
                         )}
                       </td>

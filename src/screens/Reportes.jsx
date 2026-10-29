@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, fmt, USERS, pct } from "../constants";
 import { Card, Btn, Badge, BarChart, Table } from "../components/UI";
 import { inp } from "../components/UI";
+import ReportesAdmin from "./ReportesAdmin";
 
 const SELLERS_ALL = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -12,7 +13,8 @@ function qRange(q,anio=currentAnio){
   return [new Date(anio,(q-1)*3,1).toISOString().split("T")[0], new Date(anio,q*3,0).toISOString().split("T")[0]];
 }
 
-export default function Reportes({ sales }) {
+export default function Reportes({ sales, vistaInicial = "comercial" }) {
+  const [vista, setVista] = useState(vistaInicial);
   const [anio, setAnio] = useState(currentAnio);
   const [lastExport, setLastExport] = useState(null);
 
@@ -97,14 +99,20 @@ export default function Reportes({ sales }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
           <div style={{fontSize:20,fontWeight:800,color:C.black}}>Reportes</div>
-          {lastExport && <div style={{fontSize:11,color:C.gray500,marginTop:2}}>Último export: {lastExport}</div>}
-          <div style={{fontSize:12,color:C.gray500,marginTop:4}}>Para sync automático con Drive, configurar Google Apps Script.</div>
+          {lastExport && vista==="comercial" && <div style={{fontSize:11,color:C.gray500,marginTop:2}}>Último export: {lastExport}</div>}
         </div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {vista==="comercial"&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <Btn onClick={exportCSV}>📄 Exportar CSV</Btn>
           <Btn variant="primary" onClick={exportAll}>📊 Exportar Excel completo</Btn>
-        </div>
+        </div>}
       </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        {[["comercial","Comercial"],["administracion","Administración"]].map(([k,l])=>(
+          <Btn key={k} size="sm" variant={vista===k?"primary":"outline"} onClick={()=>setVista(k)}>{l}</Btn>
+        ))}
+      </div>
+      {vista==="administracion" ? <ReportesAdmin sales={sales}/> : <>
 
       {/* Q chart */}
       <Card style={{marginBottom:20}}>
@@ -158,6 +166,7 @@ export default function Reportes({ sales }) {
           />
         </div>
       )}
+      </>}
     </div>
   );
 }

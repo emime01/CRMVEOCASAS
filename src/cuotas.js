@@ -41,6 +41,7 @@ export const cuotasDe = venta => {
       pagada: d.pagada ?? i < (venta.cuotas_pagadas || 0),
       gestionado: Boolean(d.gestionado),
       nro_factura: d.nro_factura || "",
+      fecha_pago: d.fecha_pago || "",
     };
   });
 };
@@ -67,6 +68,7 @@ export const armarDetalle = (venta, total, nc) => {
       pagada: prev.pagada || false,
       gestionado: prev.gestionado || false,
       nro_factura: prev.nro_factura || "",
+      fecha_pago: prev.fecha_pago || "",
     };
   });
 };

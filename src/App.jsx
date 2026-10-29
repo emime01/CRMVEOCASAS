@@ -1003,7 +1003,7 @@ export default function App() {
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
     correccion_fechas:<CorreccionFechas sales={sales} setSales={setSales}/>,
-    reportes:<Reportes sales={sales}/>,
+    reportes:<Reportes sales={sales} vistaInicial={user.role==="admin"?"administracion":"comercial"}/>,
     reportes_ggeneral:<Reportes sales={sales}/>,
     competencias:<Competencias competencias={competencias} setCompetencias={setCompetencias} currentUser={user}/>,
     tickets:<Tickets tickets={tickets} setTickets={setTickets} currentUser={user}/>,
