@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { C, fmt, daysUntil, USERS } from "../constants";
 import { Stat, Card, Btn, Badge, Field, inp, Modal, ModalHeader, ModalBody, ModalFooter, EmptyState } from "../components/UI";
+import { cuotasDe, conCambioEnCuota, mesClave, hoyISO } from "../cuotas";
 
 const getUser = id => USERS.find(u => u.id === id);
 
@@ -29,43 +30,20 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
   // Cuotas del mes actual (para alerta)
   const cuotasMesActual = [];
   ventasConCuotas.forEach(s => {
-    (s.cuotas_detalle || []).forEach(c => {
-      if (c.fecha && c.fecha.slice(0, 7) === `${anio}-${String(mes).padStart(2, "0")}`) {
-        cuotasMesActual.push({ ...c, venta: s });
-      }
+    cuotasDe(s).forEach(c => {
+      if (c.fecha.slice(0, 7) === mesClave(mes, anio)) cuotasMesActual.push({ ...c, venta: s });
     });
   });
 
   const pendientesCobro = cuotasMesActual.filter(c => !c.pagada).length;
   const totalPendiente = sales.filter(s => !s.facturado && s.estado !== "cancelada").reduce((a, s) => a + (s.total || 0), 0);
 
-  // Build default cuotas_detalle for a sale (fallback for legacy data)
-  const buildDefaultCuotas = (venta) => {
-    const nc = parseInt(venta.num_cuotas) || 1;
-    return Array.from({ length: nc }, (_, i) => {
-      let fecha = "";
-      if (venta.fecha_inicio) {
-        const f = new Date(venta.fecha_inicio);
-        f.setMonth(f.getMonth() + i);
-        fecha = f.toISOString().split("T")[0];
-      }
-      return {
-        numero: i + 1, fecha,
-        monto: Math.round((venta.total || 0) / nc),
-        pagada: false, gestionado: false, nro_factura: "",
-      };
-    });
-  };
-
   // ── Guardar cambio en cuota ────────────────────────────
   const updateCuota = async (ventaId, cuotaIdx, changes) => {
     setSaving(`${ventaId}_${cuotaIdx}`);
     const venta = sales.find(s => s.id === ventaId);
     if (!venta) { setSaving(null); return; }
-    const base = venta.cuotas_detalle?.length ? venta.cuotas_detalle : buildDefaultCuotas(venta);
-    const nuevasCuotas = base.map((c, i) =>
-      i === cuotaIdx ? { ...c, ...changes } : c
-    );
+    const nuevasCuotas = conCambioEnCuota(venta, cuotaIdx, changes);
     await onUpdateSale(ventaId, { cuotas_detalle: nuevasCuotas });
     setSaving(null);
   };
@@ -85,7 +63,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
       const XLSX = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs");
       const rows = [];
       ventasConCuotas.forEach(s => {
-        (s.cuotas_detalle || []).forEach(c => {
+        cuotasDe(s).forEach(c => {
           rows.push({
             Inmobiliaria: s.inmobiliaria,
             Ejecutivo: getUser(s.ejecutivo)?.name,
@@ -129,7 +107,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
       doc.text(`Generado: ${now.toLocaleDateString("es-CL")}`, 14, 22);
       const rows = [];
       ventasConCuotas.forEach(s => {
-        (s.cuotas_detalle || []).forEach(c => {
+        cuotasDe(s).forEach(c => {
           rows.push([s.inmobiliaria, getUser(s.ejecutivo)?.name || "", `${c.numero}/${s.num_cuotas}`, c.fecha, fmt(c.monto), c.nro_factura || "—", c.pagada ? "✓" : "—"]);
         });
       });
@@ -192,7 +170,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
         <div>
           {ventasConCuotas.length === 0 && <EmptyState icon="📋" title="Sin contratos en cuotas" />}
           {ventasConCuotas.map(venta => {
-            const cuotas = venta.cuotas_detalle?.length ? venta.cuotas_detalle : buildDefaultCuotas(venta);
+            const cuotas = cuotasDe(venta);
             const pagadas = cuotas.filter(c => c.pagada).length;
             return (
               <div key={venta.id} style={{ marginBottom: 24 }}>
@@ -225,7 +203,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
                     <tbody>
                       {cuotas.map((c, idx) => {
                         const esMesActual = c.fecha && c.fecha.slice(0, 7) === `${anio}-${String(mes).padStart(2, "0")}`;
-                        const esPasada = c.fecha && c.fecha < now.toISOString().split("T")[0];
+                        const esPasada = c.fecha && c.fecha < hoyISO();
                         const isSaving = saving === `${venta.id}_${idx}`;
                         return (
                           <tr key={idx}
@@ -375,7 +353,7 @@ export default function Facturacion({ sales, invoices, onUpdateInvoice, onAddInv
               </thead>
               <tbody>
                 {cuotasMesActual.map((c, i) => {
-                  const idx = (c.venta.cuotas_detalle || []).findIndex(x => x.numero === c.numero);
+                  const idx = c.numero - 1;
                   return (
                     <tr key={i} style={{ borderBottom: `1px solid ${C.gray100}`, background: c.pagada ? "#f0fdf4" : "white" }}
                       onMouseEnter={e => e.currentTarget.style.background = c.pagada ? "#dcfce7" : C.gray50}

@@ -3,6 +3,7 @@ import { C, fmt, USERS, CRMS, PLANES } from "../constants";
 import { Card, Btn, Badge, Field, Table, EmptyState, inp } from "../components/UI";
 import { SaleDetailModal } from "../components/SaleCard";
 import { updateItem, deleteItem } from "../firebase";
+import { cuotasDe } from "../cuotas";
 
 const SELLERS_ALL = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -48,11 +49,11 @@ export default function VentasGeneral({ sales, setSales, invoices, initialFilter
         Plan:s.plan, CRM:s.crm, "Fecha inicio":s.fecha_inicio, "Fecha fin":s.fecha_fin,
         "Subtotal s/IVA":s.subtotal, "Total c/IVA":s.total, Estado:s.estado,
         "Método de pago":s.metodo_pago, Cuotas:s.num_cuotas,
-        "Cuotas pagadas":s.cuotas_pagadas||0,
+        "Cuotas pagadas":cuotasDe(s).filter(c=>c.pagada).length,
       }));
       const ws=XLSX.utils.json_to_sheet(rows);
       const wb=XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb,"Ventas",ws);
+      XLSX.utils.book_append_sheet(wb,ws,"Ventas");
       XLSX.writeFile(wb,`ventas-${new Date().toISOString().slice(0,10)}.xlsx`);
     }catch(e){alert("Error exportando: "+e.message);}
   };

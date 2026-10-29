@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebas
 import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil } from "./firebase";
 import { C, fmt, USERS, TABS, daysUntil, getWeekDates } from "./constants";
 import CambiarClave from "./components/CambiarClave";
+import { cuotasDe, cuotasDelMes, mesActual } from "./cuotas";
 import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
 import SaleForm from "./components/SaleForm";
@@ -495,16 +496,7 @@ export default function App() {
   // ── SCREENS ───────────────────────────────────────────────
   const DashboardVendedor = () => {
     const lastKpi=myKpi(user.id,0);
-    const hoy=new Date(); const mes=hoy.getMonth()+1; const anio=hoy.getFullYear();
     const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
-    const comPct=comisiones?.vendedores?.[user.id]||0;
-    const getCuotaMes=(v)=>{
-      if(!v.fecha_inicio) return v.total;
-      const nc=v.num_cuotas||1,mc=v.total/nc;
-      for(let i=0;i<nc;i++){const f=new Date(v.fecha_inicio);f.setMonth(f.getMonth()+i);if(f.getMonth()+1===mes&&f.getFullYear()===anio)return mc;}
-      return 0;
-    };
-    const comisionMes=Math.round(mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+getCuotaMes(s)*(comPct/100),0));
     const qAsignados=getObjetivosVendedor(user.id).filter(o=>o.q<=currentQ);
     const runsDelVendedor=myRuns(user.id);
     const weeklyData=[-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&s.created_at>=wd.inicio).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
@@ -577,32 +569,20 @@ export default function App() {
         )}
 
         {(()=>{
-          const now2=new Date(); const mesNum=now2.getMonth()+1; const anioNum=now2.getFullYear();
-          const cobros=mySales.filter(s=>{
-            if(s.estado==="cancelada") return false;
-            const nc=parseInt(s.num_cuotas)||1;
-            if(nc<=1||!s.fecha_inicio) return false;
-            const pagadas=s.cuotas_pagadas||0;
-            if(pagadas>=nc) return false;
-            const fi=new Date(s.fecha_inicio);
-            const monthsDiff=(anioNum-fi.getFullYear())*12+(mesNum-(fi.getMonth()+1));
-            return monthsDiff>=0&&monthsDiff<nc&&monthsDiff>=pagadas;
-          });
+          const cobros=mySales.filter(s=>s.estado!=="cancelada")
+            .flatMap(s=>cuotasDelMes(s,mesActual()).filter(c=>!c.pagada).map(c=>({s,c})));
           if(!cobros.length) return null;
           return (
             <div style={{marginBottom:20}}>
               <div style={{fontWeight:600,fontSize:14,color:C.amber,marginBottom:10}}>⚠️ Cobros pendientes este mes ({cobros.length})</div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                {cobros.map(s=>{
-                  const nc=parseInt(s.num_cuotas)||1;
-                  const pagadas=s.cuotas_pagadas||0;
-                  const montoCuota=Math.round(s.total/nc);
+                {cobros.map(({s,c})=>{
                   return (
-                    <Card key={s.id} style={{border:`1px solid ${C.amber}`,background:C.amberLight}}>
+                    <Card key={`${s.id}_${c.numero}`} style={{border:`1px solid ${C.amber}`,background:C.amberLight}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                         <div>
                           <div style={{fontWeight:600,fontSize:13,color:C.black}}>{s.inmobiliaria}</div>
-                          <div style={{fontSize:11,color:C.gray500,marginTop:2}}>Cuota {pagadas+1}/{nc} · {fmt(montoCuota)}</div>
+                          <div style={{fontSize:11,color:C.gray500,marginTop:2}}>Cuota {c.numero}/{s.num_cuotas} · {c.fecha} · {fmt(c.monto)}</div>
                         </div>
                         <Badge color="amber">Cobrar</Badge>
                       </div>
@@ -1048,12 +1028,8 @@ export default function App() {
                             <div style={{background:C.white,padding:"8px 10px",borderTop:`1px solid ${C.gray200}`}}>
                               <div style={{fontSize:11,fontWeight:700,color:C.gray500,marginBottom:6}}>DETALLE DE CUOTAS</div>
                               <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                                {Array.from({length:parseInt(s.num_cuotas)||1},(_,i)=>{
-                                  const det=(s.cuotas_detalle||[])[i]||{};
-                                  const fi=new Date(s.fecha_inicio);
-                                  const fc=new Date(fi);fc.setMonth(fi.getMonth()+i);
-                                  const fecha=fc.toISOString().split("T")[0];
-                                  const monto=det.monto||Math.round(s.total/(parseInt(s.num_cuotas)||1));
+                                {cuotasDe(s).map((det,i)=>{
+                                  const {fecha,monto}=det;
                                   return(
                                     <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",borderRadius:6,background:det.pagada?C.greenLight:C.gray50,border:`1px solid ${det.pagada?C.green:C.gray200}`}}>
                                       <div style={{fontSize:11,color:C.black}}>

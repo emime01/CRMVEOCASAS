@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, fmt, USERS } from "../constants";
 import { Btn, inp } from "../components/UI";
 import { updateItem } from "../firebase";
+import { sumarMeses } from "../cuotas";
 
 const getUser = id => USERS.find(u => u.id === id);
 
@@ -33,12 +34,7 @@ export default function CorreccionFechas({ sales, setSales }) {
 
     // Recalculate cuota dates when fecha_inicio changes
     if ((s.num_cuotas || 1) > 1 && d.fecha_inicio && (s.cuotas_detalle || []).length > 0) {
-      const fi = new Date(d.fecha_inicio);
-      changes.cuotas_detalle = s.cuotas_detalle.map((c, i) => {
-        const fc = new Date(fi);
-        fc.setMonth(fi.getMonth() + i);
-        return { ...c, fecha: fc.toISOString().split("T")[0] };
-      });
+      changes.cuotas_detalle = s.cuotas_detalle.map((c, i) => ({ ...c, fecha: sumarMeses(d.fecha_inicio, i) }));
     }
     return changes;
   };

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { C, fmt, daysUntil, USERS, calcCuotas } from "../constants";
+import { C, fmt, daysUntil, USERS } from "../constants";
+import { cuotasDe } from "../cuotas";
 import { Badge, Btn, Modal, ModalHeader, ModalBody, ModalFooter, Card } from "./UI";
 
 const getUser = id => USERS.find(u=>u.id===id);
@@ -59,7 +60,7 @@ export function SaleCard({ sale, onClick, showActions, onRequestEdit, onDelete }
 
 export function SaleDetailModal({ sale, onClose, canEdit, canDelete, onEdit, onDelete, onApprove, onReject, isGerente, isAdmin }) {
   const [tab, setTab] = useState("info");
-  const cuotas = calcCuotas(sale);
+  const cuotas = cuotasDe(sale);
   const seller = getUser(sale.ejecutivo);
 
   const tabs = [

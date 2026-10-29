@@ -160,23 +160,7 @@ export const getISOWeek = (offset=0) => {
   return `${d.getFullYear()}-W${String(weekNum).padStart(2,"0")}`;
 };
 
-// Calcular cuotas de una venta
-export const calcCuotas = (venta) => {
-  if(!venta.fecha_inicio || !venta.num_cuotas || venta.num_cuotas<=1) return [];
-  const cuotas = [];
-  const montoCuota = Math.round(venta.total / venta.num_cuotas);
-  for(let i=0;i<venta.num_cuotas;i++){
-    const fecha = new Date(venta.fecha_inicio);
-    fecha.setMonth(fecha.getMonth()+i);
-    cuotas.push({
-      numero: i+1,
-      fecha: fecha.toISOString().split("T")[0],
-      monto: montoCuota,
-      pagada: i < (venta.cuotas_pagadas||0),
-    });
-  }
-  return cuotas;
-};
+// Cuotas de una venta: src/cuotas.js (único cálculo para todas las pantallas)
 
 // Calcular comisión mensual de un vendedor para una venta
 export const calcComisionMensual = (venta, porcentaje) => {

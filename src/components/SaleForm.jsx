@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CRMS, PRODUCTS, PLANS, USERS, C } from "../constants";
 import { Field, Grid2, Sec, Modal, ModalHeader, ModalBody, ModalFooter, Btn, inp } from "./UI";
+import { armarDetalle } from "../cuotas";
 
 const SELLERS_FOR_FORM = USERS.filter(u=>["vendedor","inactivo","gerente"].includes(u.role));
 
@@ -28,31 +29,7 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser }) 
 
   const handleSave = () => {
     const nc = form.tipo_pago==="contado" ? 1 : parseInt(form.num_cuotas)||1;
-    const existing = form.cuotas_detalle || [];
-    let cuotas_detalle = existing;
-    if (nc > 1) {
-      const montoCuota = Math.round(total / nc);
-      cuotas_detalle = Array.from({length: nc}, (_, i) => {
-        const prev = existing[i] || {};
-        const locked = prev.pagada || prev.gestionado || prev.nro_factura;
-        let fecha = prev.fecha || "";
-        if ((!locked || !fecha) && form.fecha_inicio) {
-          const f = new Date(form.fecha_inicio);
-          f.setMonth(f.getMonth() + i);
-          fecha = f.toISOString().split("T")[0];
-        }
-        return {
-          numero: i + 1,
-          fecha,
-          monto: locked ? (prev.monto || montoCuota) : montoCuota,
-          pagada: prev.pagada || false,
-          gestionado: prev.gestionado || false,
-          nro_factura: prev.nro_factura || "",
-        };
-      });
-    } else {
-      cuotas_detalle = [];
-    }
+    const cuotas_detalle = armarDetalle(form, total, nc);
     onSave({ ...form, total, subtotal, cuotas_detalle,
       metodo_pago: form.tipo_pago==="contado"
         ? form.subtipo_contado

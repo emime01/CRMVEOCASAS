@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, fmt, USERS } from "../constants";
 import { Card, Btn, Badge, EmptyState, inp } from "../components/UI";
 import { updateItem, addItem } from "../firebase";
+import { cuotasDe, conCambioEnCuota, enCuotas, mesClave } from "../cuotas";
 
 const getUser = id => USERS.find(u => u.id === id);
 
@@ -14,41 +15,13 @@ export default function Cobros({ sales, setSales, setTickets, currentUser }) {
   const mesLabel = (m, a) => new Date(a, m - 1, 1).toLocaleString("es-UY", { month: "long", year: "numeric" });
 
   // Build cuotas list for this vendedor
-  const mySales = sales.filter(s =>
-    s.ejecutivo === currentUser.id &&
-    s.estado !== "cancelada" &&
-    (s.num_cuotas || 1) > 1 &&
-    s.fecha_inicio
-  );
+  const mySales = sales.filter(s => s.ejecutivo === currentUser.id && s.estado !== "cancelada" && enCuotas(s));
 
-  const allCuotas = [];
-  mySales.forEach(s => {
-    const nc = parseInt(s.num_cuotas) || 1;
-    const fi = new Date(s.fecha_inicio);
-    for (let i = 0; i < nc; i++) {
-      const cuotaFecha = new Date(fi);
-      cuotaFecha.setMonth(fi.getMonth() + i);
-      const cuotaMes = cuotaFecha.getMonth() + 1;
-      const cuotaAnio = cuotaFecha.getFullYear();
-      const cuotaDetalle = (s.cuotas_detalle || [])[i] || {};
-      allCuotas.push({
-        saleId: s.id,
-        saleInm: s.inmobiliaria,
-        idx: i,
-        numero: i + 1,
-        total: nc,
-        monto: cuotaDetalle.monto || Math.round(s.total / nc),
-        fecha: cuotaFecha.toISOString().split("T")[0],
-        mes: cuotaMes,
-        anio: cuotaAnio,
-        pagada: cuotaDetalle.pagada || false,
-        gestionado: cuotaDetalle.gestionado || false,
-        nro_factura: cuotaDetalle.nro_factura || "",
-      });
-    }
-  });
+  const allCuotas = mySales.flatMap(s => cuotasDe(s).map((c, i) => ({
+    ...c, saleId: s.id, saleInm: s.inmobiliaria, idx: i, total: cuotasDe(s).length,
+  })));
 
-  const filtered = allCuotas.filter(c => c.mes === filterMes && c.anio === filterAnio);
+  const filtered = allCuotas.filter(c => c.fecha.slice(0, 7) === mesClave(filterMes, filterAnio));
   filtered.sort((a, b) => a.fecha.localeCompare(b.fecha));
 
   const pending = filtered.filter(c => !c.pagada);
@@ -60,26 +33,7 @@ export default function Cobros({ sales, setSales, setTickets, currentUser }) {
     const sale = sales.find(s => s.id === cuota.saleId);
     if (!sale) { setSaving(null); return; }
 
-    // Update cuota gestionado flag (build default array if legacy sale has none)
-    const nc = parseInt(sale.num_cuotas) || 1;
-    const buildDefault = () => Array.from({ length: nc }, (_, i) => {
-      let fecha = "";
-      if (sale.fecha_inicio) {
-        const f = new Date(sale.fecha_inicio);
-        f.setMonth(f.getMonth() + i);
-        fecha = f.toISOString().split("T")[0];
-      }
-      return {
-        numero: i + 1,
-        fecha,
-        monto: Math.round(sale.total / nc),
-        pagada: false,
-        gestionado: false,
-        nro_factura: "",
-      };
-    });
-    const nuevasCuotas = (sale.cuotas_detalle?.length ? sale.cuotas_detalle : buildDefault())
-      .map((c, i) => i === cuota.idx ? { ...c, gestionado: true } : c);
+    const nuevasCuotas = conCambioEnCuota(sale, cuota.idx, { gestionado: true });
 
     await updateItem("ventas", cuota.saleId, { cuotas_detalle: nuevasCuotas });
     setSales(prev => prev.map(s => s.id === cuota.saleId ? { ...s, cuotas_detalle: nuevasCuotas } : s));
