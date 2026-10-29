@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { C, ESTADOS_PROSPECTO, RESULTADOS_GESTION, CANALES_GESTION } from "../constants";
 import { Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, EmptyState, inp } from "../components/UI";
 import { fechaCorta, hoyISO, linkWhatsapp, registrarGestion } from "../prospectos";
@@ -27,6 +27,12 @@ export default function MisProspectos({ currentUser, prospectos, setProspectos, 
 
   const mios = useMemo(()=>(prospectos||[]).filter(l=>l.asignadoA===currentUser.id),[prospectos,currentUser.id]);
   const conteos = useMemo(()=>Object.fromEntries(SECCIONES.map(s=>[s.id,mios.filter(s.f).length])),[mios]);
+  const elegida = useRef(false);
+  useEffect(()=>{
+    if(!prospectos||elegida.current) return;
+    elegida.current = true;
+    if(!conteos[seccion]){ const p=SECCIONES.find(x=>conteos[x.id]>0); if(p) setSeccion(p.id); }
+  },[prospectos]);
   const s = SECCIONES.find(x=>x.id===seccion);
   const hoy = hoyISO();
   const lista = useMemo(()=>mios.filter(s.f).sort((a,b)=>{
@@ -45,7 +51,7 @@ export default function MisProspectos({ currentUser, prospectos, setProspectos, 
   if(cargando||!prospectos) return <Spinner/>;
 
   return (
-    <div>
+    <div style={{padding:"1.5rem",maxWidth:1100}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:12,marginBottom:16}}>
         <div>
           <div style={{fontSize:20,fontWeight:800,color:C.black}}>Mis prospectos</div>

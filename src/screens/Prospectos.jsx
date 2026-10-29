@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { C, ESTADOS_PROSPECTO, ASIGNABLES } from "../constants";
 import { Card, Btn, Badge, Stat, Spinner, EmptyState, inp } from "../components/UI";
 import { asignar, fechaCorta, linkWhatsapp, nombreUsuario } from "../prospectos";
@@ -42,6 +42,13 @@ export default function Prospectos({ currentUser, prospectos, setProspectos, car
   const lista = prospectos||[];
   const conteos = useMemo(()=>Object.fromEntries(GRUPOS.map(g=>[g.id,lista.filter(g.f).length])),[lista]);
   const deptos = useMemo(()=>[...new Set(lista.map(l=>l.departamento).filter(Boolean))].sort(),[lista]);
+  // al cargar, abre en el primer grupo con algo para decidir (una sola vez: después manda la gerente)
+  const elegido = useRef(false);
+  useEffect(()=>{
+    if(!prospectos||elegido.current) return;
+    elegido.current = true;
+    if(!conteos[grupo]){ const p=GRUPOS.find(x=>x.id!=="todas"&&conteos[x.id]>0); if(p) setGrupo(p.id); }
+  },[prospectos]);
   const g = GRUPOS.find(x=>x.id===grupo);
   const plano = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
   const filtradas = useMemo(()=>lista.filter(g.f)
@@ -70,7 +77,7 @@ export default function Prospectos({ currentUser, prospectos, setProspectos, car
   if(!lista.length) return <EmptyState icon="🔎" title="Sin prospectos" desc="Cuando el agente de prospección encuentre inmobiliarias, aparecen acá."/>;
 
   return (
-    <div>
+    <div style={{padding:"1.5rem",maxWidth:1200}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:12,marginBottom:16}}>
         <div>
           <div style={{fontSize:20,fontWeight:800,color:C.black}}>Prospectos</div>
