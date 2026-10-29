@@ -104,7 +104,7 @@ export const TABS = {
     {id:"prospectos",label:"Prospectos"},
     {id:"kpis",label:"KPIs"},
     {id:"facturacion",label:"Facturación"},
-    {id:"comisiones",label:"Comisiones"},
+    // {id:"comisiones",label:"Comisiones"}, // en pausa hasta definir las reglas de comisión
     {id:"disponibilidad",label:"Disponibilidad"},
     {id:"producciones",label:"Producciones"},
     {id:"modificaciones",label:"Modificaciones"},
@@ -128,7 +128,7 @@ export const TABS = {
   admin:[
     {id:"facturacion",label:"Facturación"},
     {id:"contratos",label:"Contratos"},
-    {id:"comisiones",label:"Comisiones"},
+    // {id:"comisiones",label:"Comisiones"}, // en pausa hasta definir las reglas de comisión
     {id:"clientes",label:"Clientes"},
     {id:"reportes",label:"Reportes"},
     {id:"alertas_admin",label:"Alertas"},
