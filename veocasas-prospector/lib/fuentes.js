@@ -1,6 +1,7 @@
 import { db, META } from './firebase.js';
 import { CONFIG } from './config.js';
 import { sleep, mesUY } from './util.js';
+import { adivinarDepto } from './normalize.js';
 
 // Google no deja bajar la cuota diaria de Text Search: el tope mensual lo lleva el agente en Firestore.
 // Cada llamada se cuenta antes de hacerla, aunque después falle.
@@ -49,6 +50,10 @@ export async function buscarPlaces(textQuery, paginas = 3) {
   return out;
 }
 
+// "MALDONADO", "RIO NEGRO", "CARMELO" → nombre del departamento como en DEPARTAMENTOS
+const deptoDeTexto = t => (t && t !== 'SIN ESPECIFICAR' ? adivinarDepto(t) : null);
+const celularUY = c => { const n = String(c || '').replace(/\D/g, '').replace(/^0/, ''); return /^9\d{7}$/.test(n) ? `598${n}` : null; };
+
 // Directorios (cámaras, portales): devuelve ítems para la cola.
 // - Si la página trae los datos estructurados (Next.js de InfoCasas), van directo como { nombre, direccion }.
 // - Si no, el texto (con las URLs de los links, donde suelen estar las webs de los socios) en pedazos para Claude.
@@ -59,6 +64,21 @@ export async function leerDirectorio(url) {
   });
   if (!r.ok) throw new Error(`Directorio ${r.status}: ${url}`);
   const html = await r.text();
+
+  // Registro de inmobiliarias del Ministerio de Turismo (JSON de DataTables): filas con email, web y teléfonos
+  if (url.includes('turismo.gub.uy')) {
+    const filas = JSON.parse(html).data || [];
+    return filas.map(f => ({
+      estructurado: true, url, nombre: f[1], direccion: [f[3], f[7]].filter(Boolean).join(', '),
+      departamento: deptoDeTexto(f[8]) || deptoDeTexto(f[7]),
+      telefono: f[9] || f[12] || null, whatsapp: celularUY(f[12]), email: f[13] || null, web: f[14] || null,
+    })).filter(x => x.nombre);
+  }
+
+  // Listas de logos con link a la web (Casas y Más): <a href="web"><img alt="Logo inmobiliaria Nombre"></a>.
+  // Se sacan directo: con listas largas la IA se saltea entradas.
+  const logos = [...html.matchAll(/<a\s[^>]*href="(https?:\/\/[^"]+)"[^>]*>\s*<img\s[^>]*alt="Logo inmobiliaria ([^"]+)"/gi)];
+  if (logos.length >= 10) return logos.map(([, web, nombre]) => ({ estructurado: true, url, nombre: nombre.trim(), web }));
 
   const next = html.match(/<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/s);
   if (next) {
@@ -71,6 +91,7 @@ export async function leerDirectorio(url) {
 
   const texto = html
     .replace(/<(script|style|noscript|svg)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<img\s[^>]*alt="([^"]+)"[^>]*>/gi, ' $1 ') // listas de logos (Casas y Más): el nombre está en el alt
     .replace(/<a\s[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, ' $2 ($1) ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')

@@ -28,6 +28,7 @@ export async function upsertLead(c, fuente) {
     nombre, web,
     email: cleanEmail(c.email),
     telefono: c.telefono ? String(c.telefono).slice(0, 40) : null,
+    whatsapp: c.whatsapp || null,
     instagram, facebook: facebook || null,
     tiktok: c.tiktok ? String(c.tiktok).toLowerCase() : null,
     departamento: c.departamento || adivinarDepto(`${nombre || ''} ${c.direccion || ''}`),

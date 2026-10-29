@@ -20,7 +20,10 @@ export async function mapear(fuente, it) {
       return res ? conDepto(await extraerInmobiliarias(`Resultados de Google para "${it.consulta}":\n${res}`), it.depto) : [];
     }
     case 'directorios': {
-      if (it.estructurado) return [{ nombre: it.nombre, direccion: it.direccion, departamento: adivinarDepto(it.direccion) || it.depto || null }];
+      if (it.estructurado) {
+        const { estructurado, url, depto, ...datos } = it; // InfoCasas: nombre y dirección; Turismo y Casas y Más traen más
+        return [{ ...datos, departamento: datos.departamento || adivinarDepto(datos.direccion) || depto || null }];
+      }
       const t = it.texto || '';
       return t.length < 200 ? [] : conDepto(await extraerInmobiliarias(`Página: ${it.url}\n\n${t}`), it.depto);
     }

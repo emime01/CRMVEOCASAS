@@ -7,6 +7,8 @@ export const DEPARTAMENTOS = [
 ];
 
 const env = (k, d) => process.env[k] ?? d;
+// copia local: normalize.js importa este archivo, así que no se puede importar de ahí
+const sinTildesCfg = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 export const CONFIG = {
   remitente: { nombre: env('SENDER_NAME', 'Equipo Veocasas'), email: env('SENDER_EMAIL', '') },
@@ -145,6 +147,15 @@ export const FUENTES = {
       { q: 'https://cipem.org.uy/socios/nomina/', depto: 'Maldonado' }, // Cámara Inmobiliaria Punta del Este-Maldonado
       { q: 'https://cican.com.uy/', depto: 'Canelones' },               // Cámara Inmobiliaria de Canelones: webs de socios
       { q: 'https://ciu.org.uy/nuestros-socios/' },                     // Cámara Inmobiliaria Uruguaya
+      { q: 'https://turismo.gub.uy/Operadores/inmobiliariasJSON.php' }, // registro del Ministerio de Turismo: ~874, con email y web
+      { q: 'https://www.casasymas.com.uy/inmobiliarias' },              // ~258, logo (nombre en el alt) + link a su web
+      { q: 'https://cic.com.uy/', depto: 'Colonia' },                   // Cámara Inmobiliaria de Colonia
+      { q: 'https://www.camarainmobiliariaderocha.com/socios.html', depto: 'Rocha' },
+      { q: 'https://www.cuir.com.uy/socios' },                          // inmobiliarias rurales
+      // red de portales regionales "propiedadesen{depto}.com" (iddepto en orden alfabético; Florida y Montevideo no tienen)
+      ...DEPARTAMENTOS.map((depto, i) => ({ depto, i: i + 1, slug: sinTildesCfg(depto).toLowerCase().replace(/\s+/g, '') }))
+        .filter(d => !['florida', 'montevideo'].includes(d.slug))
+        .map(d => ({ q: `https://www.propiedadesen${d.slug}.com/index.php?pag=inmobiliarias&iddepto=${d.i}&idciudad=0`, depto: d.depto })),
     ],
   },
 };

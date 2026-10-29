@@ -37,7 +37,9 @@ BÚSQUEDA (una grande al principio; después una chica cada 3 meses)
   Places API  → 118 consultas: por localidad y barrio (LOCALIDADES) + "negocios inmobiliarios" por depto, hasta 3 páginas
                 (Maps corta en 60 resultados por consulta: por departamento se perdían inmobiliarias)
   Serper      → 100 consultas: por depto + site:instagram/facebook en los 19 deptos y ciudades + portales y guías
-  Directorios → InfoCasas /inmobiliarias (datos estructurados, ~756), ADIU, CIPEM, CICAN, CIU: leídos desde el agente
+  Directorios → registro de inmobiliarias del Ministerio de Turismo (JSON, ~874 con email/web), InfoCasas (~756),
+                Casas y Más (~227 logos+web), ADIU, CIPEM, CICAN, CIU, cámaras de Colonia y Rocha y la red de portales
+                propiedadesen{depto}.com (17 deptos). Paso del panel 'directorios' para leer solo estos.
   Reanudable  → meta/busqueda guarda por dónde va; cada corrida (300 s) sigue donde quedó la anterior
                 + site:infocasas / casasymas / gallito / mercadolibre + cámaras y guías
   Crawler     → GitHub Actions + Playwright (hoy sin credenciales de Firestore; ver pendiente 7)

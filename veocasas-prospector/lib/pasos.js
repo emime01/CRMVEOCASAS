@@ -66,6 +66,20 @@ export async function prospectar(vivo = () => true) {
   return { ...totales, topePlaces: sinMaps, consultas: idx, total: lista.length, terminada };
 }
 
+// Solo cámaras y portales, sin tocar la búsqueda de Maps y Google (para sumar directorios nuevos)
+export async function buscarDirectorios(vivo = () => true) {
+  let registros = 0;
+  for (const t of FUENTES.directorios.consultas()) {
+    if (!vivo()) break;
+    try {
+      const items = (await leerDirectorio(t.q)).map(x => ({ ...x, depto: t.depto }));
+      await guardarLote('directorios', items, 10);
+      registros += items.length;
+    } catch (e) { console.error('[directorios]', t.q, e.message); }
+  }
+  return { directorios: registros };
+}
+
 /* ---------- 2. Procesar la cola: normalizar, deduplicar y guardar ---------- */
 export async function procesarJobs(vivo) {
   const jobs = await db().collection(JOBS).where('done', '==', false).orderBy('creado').limit(30).get();
