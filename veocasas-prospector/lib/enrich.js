@@ -54,7 +54,9 @@ export async function buscarContactosEnGoogle(leads, vivo = () => true) {
   const out = new Map();
   await pool(leads, 5, async l => {
     const { q, dom, ig } = consultaGoogle(l);
-    let res = await buscarGoogle(q);
+    let res;
+    // sin créditos o caída de Serper: se marca como intentado para no trabar la fila (se reintenta con "reintentar_sin_email")
+    try { res = await buscarGoogle(q); } catch (err) { out.set(l.id, { error: err.message }); return; }
     if (ig) res = res.filter(r => r.url.toLowerCase().includes(`instagram.com/${ig}`)); // solo el perfil, no posts de otros
     const texto = res.map(r => `${r.title} ${r.description}`).join(' ');
     const tokens = tokensNombre(l.nombre);

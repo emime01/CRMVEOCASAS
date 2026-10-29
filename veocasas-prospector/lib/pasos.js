@@ -135,7 +135,7 @@ export async function enriquecer(vivo) {
       for (const { doc, l } of aGoogle) {
         if (!halla.has(l.id)) continue; // no llegó a buscarse: queda para la próxima corrida
         const h = halla.get(l.id);
-        const patch = { googleBuscado: true };
+        const patch = { googleBuscado: true, googleError: h.error || null };
         if (h.web) { patch.web = h.web; patch.keys = FieldValue.arrayUnion(`dom:${domainOf(h.web)}`); }
         if (h.email && !l.email) patch.email = h.email; // se valida con MX en la próxima pasada
         if (h.whatsapp && !l.whatsapp) patch.whatsapp = h.whatsapp;
