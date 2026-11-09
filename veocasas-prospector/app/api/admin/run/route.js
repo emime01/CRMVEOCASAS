@@ -2,6 +2,7 @@ import { cicloDiario, cicloFrecuente, prospectar, reintentarSinEmail, buscarDire
 import { reloj } from '@/lib/util';
 import { fusionarRepetidas } from '@/lib/fusion';
 import { sincronizarClientesCRM } from '@/lib/crm';
+import { importarBaseOficial } from '@/lib/baseOficial';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
@@ -11,6 +12,11 @@ export async function POST(req) {
   try {
     if (paso === 'prospectar') return Response.json({ encontrados: await prospectar(reloj()(280_000)) });
     if (paso === 'crm') return Response.json(await sincronizarClientesCRM());
+    // base oficial (planilla de los vendedores), ya cruzada: body {filas:[...]}; ?aplicar=1 para escribir
+    if (paso === 'base_oficial') {
+      const { filas } = await req.json();
+      return Response.json(await importarBaseOficial(filas || [], { aplicar: new URL(req.url).searchParams.get('aplicar') === '1' }));
+    }
     // fusionar: ?aplicar=1 para escribir; sin eso muestra qué haría
     if (paso === 'fusionar') return Response.json(await fusionarRepetidas({ aplicar: new URL(req.url).searchParams.get('aplicar') === '1' }));
     if (paso === 'directorios') return Response.json(await buscarDirectorios(reloj()(280_000), new URL(req.url).searchParams.get('solo') || ''));

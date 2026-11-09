@@ -112,6 +112,11 @@ una ficha en `clientes` (RUT, email, teléfono, contactos, vendedor a cargo) y c
   ventas vencidas/canceladas → `ex_cliente` (no se le escribe en frío; `asignadoSugerido` = su último vendedor).
   Los clientes que no estaban en la base se agregan (fuente `crm`) y se escriben en `prospeccion_excluidos`
   (`crm_{slug}`), así ninguna búsqueda ni envío futuro les escribe. Una secuencia en curso a un cliente se frena.
+- **Base oficial** (`lib/baseOficial.js`, paso del panel `base_oficial`): la planilla de inmobiliarias repartida
+  entre los vendedores, cruzada por nombre (sus emails y teléfonos no son confiables: a veces están en la fila de
+  otra). "Esta en Veocasas: Si" → `cliente` + excluido; asignada → `asignadoA` y `manual`; Lucas o sin asignar →
+  `asignadoSugerido`. Las que solo estaban en la planilla se crean como `base_{fila}`, con `emailBase`/`webBase`
+  guardados aparte (nunca se usan para escribir). Cada lead cruzado guarda `baseOficial` (fila, asignado, tipo).
 - **Asignación** (CRM → pestaña Prospectos, rol gerente): escribe `asignadoA`, `asignadoPor`, `asignadoEn` en
   `prospeccion_leads`. Las que el agente no estaba contactando pasan a `manual` (con `estadoPrevio`); el agente
   no envía correos a leads asignados.
