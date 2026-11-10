@@ -21,6 +21,18 @@ const CAMPOS = ['web', 'email', 'telefono', 'whatsapp', 'instagram', 'facebook',
 const DOMINIOS_COMPARTIDOS = ['remax.com.uy', 'century21.com.uy', 'engelvoelkers.com', 'kw.com', 'sites.google.com', 'business.site'];
 const MAX_POR_CLAVE = 3; // una clave en más registros suele ser una franquicia o un email de grupo: no se une
 
+// vendedores que hoy trabajan (Lucas ya no está): ante dos vendedores distintos, gana uno de estos
+const VENDEDORES_ACTIVOS = ['paty', 'sebastian', 'stefano', 'juanba', 'mika'];
+// núcleo del nombre, sin las palabras de rubro: dos registros del mismo grupo tienen que tener nombres parecidos
+const RUBRO = /\b(inmobiliarias?|negocios inmobiliarios|propiedades|bienes raices|real estate|asesores inmobiliarios|desarrollos inmobiliarios|s\.?r\.?l\.?|s\.?a\.?s?\.?|ltda)\b/g;
+const nucleo = n => String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(RUBRO, ' ').replace(/[^a-z0-9]/g, '');
+const parecidos = (a, b) => {
+  const x = nucleo(a), y = nucleo(b);
+  if (!x || !y) return false;
+  const [c, l] = x.length <= y.length ? [x, y] : [y, x];
+  return (c.length >= 4 && l.includes(c)) || x.slice(0, 6) === y.slice(0, 6);
+};
+
 const datos = d => d.data();
 const llenos = x => CAMPOS.filter(k => x[k]).length;
 const orden = (a, b) => {
@@ -55,7 +67,7 @@ export async function fusionarRepetidas({ aplicar = false } = {}) {
   const grupos = new Map();
   for (const x of docs) { const r = raiz(x.id); grupos.set(r, [...(grupos.get(r) || []), x]); }
 
-  const res = { grupos: 0, fusionados: 0, omitidos: 0, vendedoresDistintos: 0, ejemplos: [], conflictos: [] };
+  const res = { grupos: 0, fusionados: 0, omitidos: 0, vendedoresDistintos: 0, ejemplos: [], conflictos: [], omitidosEjemplos: [] };
   const ops = [];
   for (const g of grupos.values()) {
     if (g.length < 2) continue;
@@ -63,18 +75,27 @@ export async function fusionarRepetidas({ aplicar = false } = {}) {
     g.sort(orden);
     const [principal, ...otros] = g;
     const p = datos(principal);
+    // un email o una web compartida puede encadenar inmobiliarias distintas: si algún nombre no se parece, no se une
+    if (otros.some(o => !parecidos(p.nombre, datos(o).nombre))) {
+      res.omitidos++;
+      if (res.omitidosEjemplos.length < 15) res.omitidosEjemplos.push(`${p.nombre} / ${otros.map(o => datos(o).nombre).join(' / ')}`);
+      continue;
+    }
     const patch = { actualizado: FieldValue.serverTimestamp() };
     for (const o of otros.map(datos)) for (const k of CAMPOS) if (!p[k] && !patch[k] && o[k]) patch[k] = o[k];
     // si alguno es cliente, el principal también; el vendedor asignado y la fila de la base oficial se heredan
     if (otros.some(o => datos(o).estado === 'cliente') && p.estado !== 'cliente' && !EN_CONVERSACION.includes(p.estado)) Object.assign(patch, { estado: 'cliente', proximoEnvio: null });
     const vendedores = [...new Set(g.map(x => datos(x).asignadoA).filter(Boolean))];
-    if (vendedores.length > 1) { res.vendedoresDistintos++; if (res.conflictos.length < 30) res.conflictos.push(`${p.nombre}: ${vendedores.join(' / ')} (queda ${p.asignadoA || vendedores[0]})`); }
-    const conVendedor = otros.map(datos).find(o => o.asignadoA);
-    if (!p.asignadoA && conVendedor) {
+    // se queda el vendedor del principal si está activo; si no, el primero activo de los otros
+    const activo = VENDEDORES_ACTIVOS.includes(p.asignadoA) ? null : otros.map(datos).find(o => VENDEDORES_ACTIVOS.includes(o.asignadoA));
+    const conVendedor = activo || (!p.asignadoA && otros.map(datos).find(o => o.asignadoA));
+    if (conVendedor) {
       Object.assign(patch, { asignadoA: conVendedor.asignadoA, asignadoPor: conVendedor.asignadoPor || null, asignadoEn: conVendedor.asignadoEn || null });
+      if (p.asignadoA && p.asignadoA !== conVendedor.asignadoA) patch.asignadoSugerido = p.asignadoA;
       if (!patch.estado && A_MANUAL.includes(p.estado)) Object.assign(patch, { estado: 'manual', estadoPrevio: p.estado, proximoEnvio: null });
     }
-    for (const k of ['asignadoSugerido', 'baseOficial']) { const o = otros.map(datos).find(x => x[k]); if (!p[k] && o) patch[k] = o[k]; }
+    if (vendedores.length > 1) { res.vendedoresDistintos++; if (res.conflictos.length < 40) res.conflictos.push(`${p.nombre}: ${vendedores.join(' / ')} (queda ${patch.asignadoA || p.asignadoA})`); }
+    for (const k of ['asignadoSugerido', 'baseOficial']) { const o = otros.map(datos).find(x => x[k]); if (!p[k] && !patch[k] && o) patch[k] = o[k]; }
     // email heredado: si venía validado (listo) se queda listo; si no, se valida en la próxima pasada
     if (patch.email && !patch.estado && ['nuevo', 'sin_email'].includes(p.estado)) {
       const deListo = otros.some(o => datos(o).estado === 'listo' && datos(o).email === patch.email);
