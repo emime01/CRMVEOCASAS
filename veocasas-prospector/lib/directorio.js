@@ -5,7 +5,8 @@ import { toISO } from './util.js';
 // La base completa de inmobiliarias (todas menos las descartadas), para la vista "Todas" y la descarga.
 // Son pocos miles de documentos: se leen enteros y se filtran en memoria, sin índices nuevos.
 export const CAMPOS_DIRECTORIO = ['nombre', 'departamento', 'email', 'telefono', 'whatsapp', 'instagram', 'facebook', 'web',
-  'estado', 'fuentes', 'paso', 'etapa', 'score', 'resumenIA', 'ejecutivo', 'proximoEnvio', 'actualizado', 'creado'];
+  'estado', 'fuentes', 'paso', 'etapa', 'score', 'resumenIA', 'ejecutivo', 'proximoEnvio', 'actualizado', 'creado',
+  'asignadoA', 'asignadoSugerido', 'baseOficial', 'barrio'];
 
 export const CANALES = [
   ['', 'Cualquier contacto'], ['email', 'Con email'], ['sin_email', 'Sin email'], ['whatsapp', 'Con WhatsApp'],
@@ -29,6 +30,8 @@ export async function leerDirectorio({ depto = '', canal = '', q = '' } = {}) {
     const x = doc.data();
     const l = { id: doc.id };
     for (const k of CAMPOS_DIRECTORIO) l[k] = ['proximoEnvio', 'actualizado', 'creado'].includes(k) ? toISO(x[k]) : x[k] ?? null;
+    // la página pasa esto a componentes de cliente: solo datos planos (baseOficial trae una fecha de Firestore)
+    l.baseOficial = x.baseOficial ? { fila: x.baseOficial.fila ?? null, enVeocasas: Boolean(x.baseOficial.enVeocasas) } : null;
     return l;
   }).filter(l => !['descartado', 'duplicado'].includes(l.estado));
 
@@ -57,7 +60,7 @@ const celda = v => {
 export function aCSV(leads, etiquetaEstado = e => e) {
   const cols = [['nombre', 'Inmobiliaria'], ['departamento', 'Departamento'], ['email', 'Email'], ['telefono', 'Teléfono'],
     ['whatsapp', 'WhatsApp'], ['instagram', 'Instagram'], ['facebook', 'Facebook'], ['web', 'Web'], ['estado', 'Estado'],
-    ['fuentes', 'Origen'], ['id', 'ID']];
-  const filas = leads.map(l => cols.map(([k]) => celda(k === 'estado' ? etiquetaEstado(l.estado) : k === 'instagram' && l.instagram ? `@${l.instagram}` : l[k])).join(';'));
+    ['asignadoA', 'Vendedor'], ['asignadoSugerido', 'Vendedor anterior'], ['fila', 'Fila en base oficial'], ['fuentes', 'Origen'], ['id', 'ID']];
+  const filas = leads.map(l => cols.map(([k]) => celda(k === 'estado' ? etiquetaEstado(l.estado) : k === 'fila' ? l.baseOficial?.fila : k === 'instagram' && l.instagram ? `@${l.instagram}` : l[k])).join(';'));
   return '﻿' + [cols.map(([, t]) => t).join(';'), ...filas].join('\r\n');
 }
