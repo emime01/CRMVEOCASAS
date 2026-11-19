@@ -3,6 +3,7 @@ import { reloj } from '@/lib/util';
 import { fusionarRepetidas } from '@/lib/fusion';
 import { sincronizarClientesCRM } from '@/lib/crm';
 import { importarBaseOficial } from '@/lib/baseOficial';
+import { importarVentasPlanilla } from '@/lib/ventasPlanilla';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
@@ -13,6 +14,11 @@ export async function POST(req) {
     if (paso === 'prospectar') return Response.json({ encontrados: await prospectar(reloj()(280_000)) });
     if (paso === 'crm') return Response.json(await sincronizarClientesCRM());
     // base oficial (planilla de los vendedores), ya cruzada: body {filas:[...]}; ?aplicar=1 para escribir
+    // ventas de la planilla del equipo comercial, ya en formato del CRM: body {ventas:[...]}; ?aplicar=1 para escribir
+    if (paso === 'ventas_planilla') {
+      const { ventas } = await req.json();
+      return Response.json(await importarVentasPlanilla(ventas || [], { aplicar: new URL(req.url).searchParams.get('aplicar') === '1' }));
+    }
     if (paso === 'base_oficial') {
       const { filas } = await req.json();
       return Response.json(await importarBaseOficial(filas || [], { aplicar: new URL(req.url).searchParams.get('aplicar') === '1' }));
