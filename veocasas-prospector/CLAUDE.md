@@ -103,9 +103,14 @@ Reglas importantes:
 
 ## Integración con el CRM/ERP (app en la raíz del repo)
 
-El CRM/ERP de Veocasas (React + Vite, raíz del repo) usa el mismo Firebase. Cada cliente tiene
-una ficha en `clientes` (RUT, email, teléfono, contactos, vendedor a cargo) y cada venta apunta a ella con
-`cliente_id`; las ventas viejas sin ficha se agrupan por nombre. **La asignación de vendedores la decide la gerente comercial desde el CRM; el agente nunca asigna.**
+El CRM/ERP de Veocasas (React + Vite, raíz del repo) usa el mismo Firebase. **Desde noviembre de 2026 el equipo
+no usa los correos automáticos:** todas las inmobiliarias se trabajan a mano, asignadas a un vendedor. El CRM usa
+`prospeccion_leads` como base única de inmobiliarias (pantalla Inmobiliarias): la ficha (razón social, RUT,
+contactos, notas, gestiones) es el mismo registro, y cada venta apunta a él con `lead_id`.
+
+- **Planilla de ventas** (`lib/ventasPlanilla.js`, paso del panel `ventas_planilla`): carga las ventas de la
+  planilla del equipo (ya convertidas al formato del CRM: cuotas, comisión del CRM, factura y cobro). Actualiza la
+  venta si ya existe (misma inmobiliaria y fecha de inicio) o la crea, y la vincula a su inmobiliaria. **La asignación de vendedores la decide la gerente comercial desde el CRM; el agente nunca asigna.**
 
 - **Clientes** (`lib/crm.js`, `sincronizarClientesCRM`, diario en `frecuente` y paso del panel `crm`): cruza las
   ventas con la base por nombre (nm:), email y teléfono. Venta vigente → `cliente` (asignado a su vendedor);

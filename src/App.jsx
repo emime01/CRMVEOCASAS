@@ -27,7 +27,6 @@ import Competencias from "./screens/Competencias";
 import Metricas from "./screens/Metricas";
 import KPIs, { kpisDe } from "./screens/KPIs";
 import Producciones from "./screens/Producciones";
-import CorreccionFechas from "./screens/CorreccionFechas";
 import { COL_PROSPECTOS, marcarCliente } from "./prospectos";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
@@ -895,7 +894,6 @@ export default function App() {
     inmobiliarias:<Inmobiliarias currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos} sales={sales} onCrearVenta={crearVentaDesde}/>,
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
-    correccion_fechas:<CorreccionFechas sales={sales} setSales={setSales}/>,
     reportes:<Reportes sales={sales} vistaInicial={user.role==="admin"?"administracion":"comercial"}/>,
     reportes_ggeneral:<Reportes sales={sales}/>,
     competencias:<Competencias competencias={competencias} setCompetencias={setCompetencias} currentUser={user}/>,
