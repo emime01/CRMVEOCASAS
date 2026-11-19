@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { enPesos, fmtMoneda } from "../moneda";
 import { C, fmt, USERS, pct } from "../constants";
 import { Stat, Card, Btn, Badge, Field, BarChart, PieChart, Table, EmptyState } from "../components/UI";
 import { inp } from "../components/UI";
@@ -36,26 +37,26 @@ export default function DashboardGeneral({ sales, invoices, objetivos, onNavigat
     return true;
   });
 
-  const totalFac = filtered.reduce((a,s)=>a+(s.total||0),0);
+  const totalFac = filtered.reduce((a,s)=>a+enPesos(s.total,s),0);
   const now = new Date();
   const mesFac = filtered.filter(s=>{
     if (!s.fecha_inicio) return false;
     const d = new Date(s.fecha_inicio);
     return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
-  }).reduce((a,s)=>a+(s.total||0),0);
+  }).reduce((a,s)=>a+enPesos(s.total,s),0);
   const ticketProm = filtered.length ? Math.round(totalFac/filtered.length) : 0;
 
   // Facturación por Q (all 4 quarters current year)
   const qData = [1,2,3,4].map(q=>{
     const [qs,qe]=qRange(q);
-    const v=active.filter(s=>s.fecha_inicio>=qs&&s.fecha_inicio<=qe).reduce((a,s)=>a+(s.total||0),0);
+    const v=active.filter(s=>s.fecha_inicio>=qs&&s.fecha_inicio<=qe).reduce((a,s)=>a+enPesos(s.total,s),0);
     return {label:`Q${q}`,value:v,highlight:q===currentQ};
   });
 
   // Ventas por vendedor
   const vendedorData = SELLERS_ALL.map(s=>{
     const sv=filtered.filter(v=>v.ejecutivo===s.id);
-    const total=sv.reduce((a,v)=>a+(v.total||0),0);
+    const total=sv.reduce((a,v)=>a+enPesos(v.total,v),0);
     const obj=objetivos.find(o=>o.ejecutivo===s.id&&o.q===currentQ&&o.anio===currentAnio)?.objetivo||0;
     return {s,sv,total,obj};
   }).filter(d=>d.sv.length>0);
@@ -174,7 +175,7 @@ export default function DashboardGeneral({ sales, invoices, objetivos, onNavigat
           inm:<span style={{fontWeight:500}}>{s.inmobiliaria}</span>,
           ven:getUser(s.ejecutivo)?.name||s.ejecutivo,
           plan:s.plan,
-          total:<span style={{fontWeight:700,color:C.red}}>{fmt(s.total)}</span>,
+          total:<span style={{fontWeight:700,color:C.red}}>{fmtMoneda(s.total,s.moneda)}</span>,
           fecha:s.fecha_inicio,
           est:<Badge color={s.estado==="activa"?"green":"gray"}>{s.estado||"activa"}</Badge>,
         }))}

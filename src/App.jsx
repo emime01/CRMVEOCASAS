@@ -1,34 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { enPesos, fmtMoneda } from "./moneda";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil, DEMO } from "./firebase";
 import { C, fmt, USERS, TABS, daysUntil, getWeekDates } from "./constants";
 import CambiarClave from "./components/CambiarClave";
 import Layout from "./components/Layout";
 import { cuotasDelMes, mesActual } from "./cuotas";
-import Clientes from "./screens/Clientes";
+import Inmobiliarias from "./screens/Inmobiliarias";
 import Renovaciones from "./screens/Renovaciones";
 import { borradorRenovacion, marcarRenovada } from "./renovaciones";
-import { asegurarCliente } from "./clientes";
+import { buscarInmobiliaria, crearInmobiliaria } from "./inmobiliarias";
 import { Stat, Card, Btn, Badge, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, PieChart, BarChart, ProgressBar, Table, Spinner, EmptyState, inp } from "./components/UI";
 import { SaleCard, SaleDetailModal } from "./components/SaleCard";
 import SaleForm from "./components/SaleForm";
-import Facturacion from "./screens/Facturacion";
+import CobrosFacturacion from "./screens/CobrosFacturacion";
+import ComisionesCRM from "./screens/ComisionesCRM";
 import Comisiones from "./screens/Comisiones";
 import Tickets from "./screens/Tickets";
 import Tareas from "./screens/Tareas";
 import Documentos from "./screens/Documentos";
 import Presentaciones from "./screens/Presentaciones";
 import DashboardGeneral from "./screens/DashboardGeneral";
-import VentasGeneral from "./screens/VentasGeneral";
+import Ventas from "./screens/Ventas";
 import Reportes from "./screens/Reportes";
 import Competencias from "./screens/Competencias";
 import Metricas from "./screens/Metricas";
-import Cobros from "./screens/Cobros";
-import KPIs from "./screens/KPIs";
+import KPIs, { kpisDe } from "./screens/KPIs";
 import Producciones from "./screens/Producciones";
 import CorreccionFechas from "./screens/CorreccionFechas";
-import Prospectos from "./screens/Prospectos";
-import MisProspectos from "./screens/MisProspectos";
 import { COL_PROSPECTOS, marcarCliente } from "./prospectos";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
@@ -148,7 +147,6 @@ export default function App() {
   const [competencias, setCompetencias] = useState([]);
   const [metricas, setMetricas] = useState([]);
   const [dispModal, setDispModal] = useState(null);
-  const [clientes, setClientes] = useState([]);
   const [editingProd, setEditingProd] = useState(new Set());
   // prospectos del agente: se cargan al abrir Prospectos / Mis prospectos (son miles; no frenan el login)
   const [prospectos, setProspectos] = useState(null);
@@ -157,13 +155,20 @@ export default function App() {
   const cargarProspectos = async () => {
     setCargandoProspectos(true);
     const p = await getAll(COL_PROSPECTOS);
-    setProspectos(p.filter(l=>!["descartado","duplicado"].includes(l.estado)));
+    const lista = p.filter(l=>!["descartado","duplicado"].includes(l.estado));
+    setProspectos(lista);
     setCargandoProspectos(false);
+    return lista;
   };
   const crearVentaDesde = l => setSaleDraft({
     inmobiliaria:l.nombre||"", mail:l.email||"", telefono:l.telefono||(l.whatsapp?`+${l.whatsapp}`:""),
-    ejecutivo:user.id, lead_id:l.id,
+    razon_social:l.razon_social||"", rut:l.rut||"", direccion:l.direccion||"", ...(l.crm_usa?{crm:l.crm_usa}:{}),
+    ejecutivo:user.role==="vendedor"?user.id:(l.asignadoA||user.id), lead_id:l.id,
   });
+  // el formulario de venta sugiere inmobiliarias de la base: se carga al abrirlo si todavía no estaba
+  useEffect(()=>{ if((showSaleForm||saleDraft||editSale)&&!prospectos&&!cargandoProspectos) cargarProspectos(); },[showSaleForm,saleDraft,editSale]);
+  // los dashboards muestran los KPIs de la semana, que salen de las gestiones de las inmobiliarias
+  useEffect(()=>{ if(["dashboard","dashboard_gerente"].includes(tab)&&user&&!prospectos&&!cargandoProspectos) cargarProspectos(); },[tab,user]);
 
   // ── CONSTANTS ─────────────────────────────────────────────
   const currentQ = Math.ceil((new Date().getMonth()+1)/3);
@@ -173,15 +178,13 @@ export default function App() {
   // ── LOGIN / LOGOUT ────────────────────────────────────────
   const login = async (u) => {
     setUser(u); setTab(defaultTab(u.role)); setLoading(true);
-    const [s,av,k,pr,po,inv,obj,com,rn,tk,tar,doc,pres,comp,met,cli] = await Promise.all([
+    const [s,av,k,pr,po,inv,obj,com,rn,tk,tar,doc,pres,comp,met] = await Promise.all([
       getAll("ventas","created_at"), getAll("disponibilidad"), getAll("kpis"),
       getAll("producciones","created_at"), getAll("posts_social","fecha"),
       getAll("facturas","created_at"), getAll("objetivos"), getAll("comisiones"), getAll("runs"),
       getAll("tickets","created_at"), getAll("tareas","created_at"), getAll("documentos","created_at"),
       getAll("presentaciones","created_at"), getAll("competencias","fecha"), getAll("metricas_ads","created_at"),
-      getAll("clientes"),
     ]);
-    setClientes(cli||[]);
     setSales(s); setKpis(k); setProductions(pr); setPosts(po); setInvoices(inv);
     setObjetivos(obj); setRuns(rn||[]); setTickets(tk||[]); setTareas(tar||[]);
     setDocumentos(doc||[]); setPresentaciones(pres||[]); setCompetencias(comp||[]); setMetricas(met||[]);
@@ -228,7 +231,7 @@ export default function App() {
     setUser(null); setSales([]); setAvailability([]); setKpis([]);
     setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); setRuns([]);
     setTickets([]); setTareas([]); setDocumentos([]); setPresentaciones([]);
-    setCompetencias([]); setMetricas([]); setProspectos(null); setSaleDraft(null); setClientes([]);
+    setCompetencias([]); setMetricas([]); setProspectos(null); setSaleDraft(null);
   };
 
   // ── HELPERS ───────────────────────────────────────────────
@@ -245,32 +248,50 @@ export default function App() {
     const qEnd=new Date(anio,q*3,0).toISOString().split("T")[0];
     return sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_inicio>=qStart&&s.fecha_inicio<=qEnd);
   };
-  const totalDeQ = (uid,q,anio=currentAnio) => ventasDeQ(uid,q,anio).reduce((a,s)=>a+(s.total||0),0);
+  const totalDeQ = (uid,q,anio=currentAnio) => ventasDeQ(uid,q,anio).reduce((a,s)=>a+enPesos(s.total,s),0);
   const totalVentasQ = (uid) => totalDeQ(uid,currentQ);
   const getObjetivosVendedor = (uid) => objetivos.filter(o=>o.ejecutivo===uid&&o.anio===currentAnio).sort((a,b)=>a.q-b.q);
   const myObjetivo = (uid) => objetivos.find(o=>o.ejecutivo===uid&&o.q===currentQ&&o.anio===currentAnio)?.objetivo||0;
-  const myKpi = (uid,week) => kpis.find(k=>k.ejecutivo===uid&&k.semana===week)||{};
+  // KPIs automáticos (src/screens/KPIs.jsx): salen de las gestiones de las inmobiliarias y de las ventas
+  const gestionesTodas = useMemo(()=>(prospectos||[]).flatMap(l=>(l.gestiones||[]).map(g=>({...g,leadId:l.id}))),[prospectos]);
+  const myKpi = (uid,week) => {
+    const k = kpisDe(uid,getWeekDates(week),gestionesTodas,sales);
+    return { contactados:k.contactadas, contactados_efectivos:k.efectivas, reuniones_agendadas:k.agendadas, reuniones_efectivas:k.realizadas,
+      concrecion:k.concrecion, ticket_promedio:k.ticket, vendido:k.monto };
+  };
 
   // Run helpers
   const ventasEnPeriodo = (uid,fi,ff) => sales.filter(s=>s.ejecutivo===uid&&s.estado!=="cancelada"&&s.fecha_inicio>=fi&&s.fecha_inicio<=ff);
-  const totalEnPeriodo = (uid,fi,ff) => ventasEnPeriodo(uid,fi,ff).reduce((a,s)=>a+(s.total||0),0);
+  const totalEnPeriodo = (uid,fi,ff) => ventasEnPeriodo(uid,fi,ff).reduce((a,s)=>a+enPesos(s.total,s),0);
   const myRuns = (uid) => runs.filter(r=>r.activo&&r.participantes?.some(p=>p.ejecutivo===uid));
   const isRunActivo = (r) => { const h=new Date().toISOString().split("T")[0]; return r.activo&&r.fecha_inicio<=h&&r.fecha_fin>=h; };
   const isRunVencido = (r) => new Date().toISOString().split("T")[0] > r.fecha_fin;
 
   // ── CRUD VENTAS ───────────────────────────────────────────
-  const vincularCliente = async (form) => {
-    const r = await asegurarCliente(clientes, form).catch(()=>({id:null}));
-    if(r.nueva) setClientes(prev=>[...prev, r.cliente]);
-    else if(r.id) setClientes(prev=>prev.map(c=>c.id===r.id?{...c,...r.cliente}:c));
-    return r.id ? {...form, cliente_id:r.id} : form;
+  // Cada venta apunta a su inmobiliaria de la base (lead_id). Si no estaba en la base, se agrega.
+  const vincularInmobiliaria = async (form) => {
+    if(form.lead_id) return form;
+    const leads = prospectos || await cargarProspectos();
+    const l = buscarInmobiliaria(leads||[], form);
+    if(l) return {...form, lead_id:l.id};
+    const nueva = await crearInmobiliaria({
+      nombre:form.inmobiliaria, razon_social:form.razon_social||"", rut:form.rut||"", email:form.mail||"",
+      telefono:form.telefono||"", direccion:form.direccion||"", crm_usa:form.crm||"",
+    }, { asignadoA:form.ejecutivo, porId:user.id, estado:"cliente" }).catch(()=>null);
+    if(nueva){ setProspectos(prev=>prev?[...prev,nueva]:prev); return {...form, lead_id:nueva.id}; }
+    return form;
   };
   const saveSale = async (form) => {
     setSaving(true);
-    form = await vincularCliente(form);
+    form = await vincularInmobiliaria(form);
     const data=await addItem("ventas",form);
     if(data){
       setSales(prev=>[data,...prev]);
+      // la inmobiliaria pasa a cliente, a cargo del vendedor que la vendió
+      if(form.lead_id){
+        const cambios = await marcarCliente(form.lead_id,form).catch(()=>null);
+        if(cambios) setProspectos(prev=>prev&&prev.map(l=>l.id===form.lead_id?{...l,...cambios}:l));
+      }
       // venta de renovación: la venta vieja queda marcada como renovada
       const vieja = form.renovacion_de && sales.find(s=>s.id===form.renovacion_de);
       if(vieja){ const c=await marcarRenovada(vieja,data.id); setSales(prev=>prev.map(s=>s.id===vieja.id?{...s,...c}:s)); }
@@ -287,7 +308,13 @@ export default function App() {
     await handleUpdateSale(sale.id,{estado:"cancelada",modificacion_aprobada:false,solicitud_modificacion:false});
     setDetailSale(null);
   };
-  const handleApproveMod = (id) => handleUpdateSale(id,{modificacion_aprobada:true});
+  const handleApproveMod = (id) => handleUpdateSale(id,{modificacion_aprobada:true,aprobada_por:user.id,aprobada_en:new Date().toISOString()});
+  // el vendedor pide el cambio con un motivo; lo aprueba o rechaza Mika (gerente comercial) desde Ventas
+  const pedirCambio = (v) => {
+    const motivo = window.prompt("¿Qué hay que cambiar en esta venta? Se lo enviamos a Mika para que lo apruebe.");
+    if(motivo===null) return;
+    handleUpdateSale(v.id,{solicitud_modificacion:true,solicitud_motivo:motivo.trim(),solicitud_en:new Date().toISOString(),solicitud_por:user.id});
+  };
   const handleRejectMod  = (id) => handleUpdateSale(id,{solicitud_modificacion:false,modificacion_aprobada:false});
 
   // ── CRUD KPIs ─────────────────────────────────────────────
@@ -478,10 +505,10 @@ export default function App() {
   // ── SCREENS ───────────────────────────────────────────────
   const DashboardVendedor = () => {
     const lastKpi=myKpi(user.id,0);
-    const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+(s.total||0),0);
+    const totalVentas=mySales.filter(s=>s.estado!=="cancelada").reduce((a,s)=>a+enPesos(s.total,s),0);
     const qAsignados=getObjetivosVendedor(user.id).filter(o=>o.q<=currentQ);
     const runsDelVendedor=myRuns(user.id);
-    const weeklyData=[-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&enSemana(s,wd)).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
+    const weeklyData=[-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:mySales.filter(s=>s.estado!=="cancelada"&&enSemana(s,wd)).reduce((a,s)=>a+enPesos(s.total,s),0),highlight:w===0};});
     return (
       <div style={{padding:"1.5rem",maxWidth:960}}>
         <div style={{marginBottom:20}}>
@@ -580,7 +607,7 @@ export default function App() {
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Ventas — últimas 4 semanas</div><BarChart data={weeklyData} height={90}/></Card>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>KPIs esta semana</div>
-            {[["Contactados",lastKpi.contactados||0],["C. efectivos",lastKpi.contactados_efectivos||0],["R. agendadas",lastKpi.reuniones_agendadas||0],["R. efectivas",lastKpi.reuniones_efectivas||0],["Ticket promedio",fmt(lastKpi.ticket_promedio||0)],["Posible concreción",fmt(lastKpi.posible_concrecion||0)]].map(([k,v])=>(
+            {[["Contactados",lastKpi.contactados||0],["C. efectivos",lastKpi.contactados_efectivos||0],["R. agendadas",lastKpi.reuniones_agendadas||0],["R. efectivas",lastKpi.reuniones_efectivas||0],["Ticket promedio",fmt(lastKpi.ticket_promedio||0)],["Vendido",fmt(lastKpi.vendido||0)]].map(([k,v])=>(
               <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${C.gray100}`,fontSize:13}}>
                 <span style={{color:C.gray400}}>{k}</span><span style={{fontWeight:600,color:C.gray900}}>{v}</span>
               </div>
@@ -600,8 +627,8 @@ export default function App() {
   };
 
   const DashboardGerente = () => {
-    const total=activeSales.reduce((a,s)=>a+(s.total||0),0);
-    const weeklyTeam=[-4,-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:activeSales.filter(s=>enSemana(s,wd)).reduce((a,s)=>a+(s.total||0),0),highlight:w===0};});
+    const total=activeSales.reduce((a,s)=>a+enPesos(s.total,s),0);
+    const weeklyTeam=[-4,-3,-2,-1,0].map(w=>{const wd=getWeekDates(w);return{label:wd.label,value:activeSales.filter(s=>enSemana(s,wd)).reduce((a,s)=>a+enPesos(s.total,s),0),highlight:w===0};});
     const pending=sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
     const qsConObjetivo=[...new Set(objetivos.filter(o=>o.anio===currentAnio).map(o=>o.q))].sort((a,b)=>a-b);
     const qsAMostrar=qsConObjetivo.length>0?qsConObjetivo:[currentQ];
@@ -728,49 +755,15 @@ export default function App() {
 
         <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>KPIs detallados — esta semana</div>
         <Table
-          cols={[{key:"v",label:"Vendedor"},{key:"c",label:"Contactados"},{key:"ce",label:"C. efectivos"},{key:"pp",label:"%"},{key:"ra",label:"R. agendadas"},{key:"re",label:"R. efectivas"},{key:"con",label:"Concreción"},{key:"tk",label:"Ticket"},{key:"pc",label:"Pos. concreción"}]}
+          cols={[{key:"v",label:"Vendedor"},{key:"c",label:"Contactados"},{key:"ce",label:"C. efectivos"},{key:"pp",label:"%"},{key:"ra",label:"R. agendadas"},{key:"re",label:"R. efectivas"},{key:"con",label:"Concreción"},{key:"tk",label:"Ticket"},{key:"pc",label:"Vendido"}]}
           rows={SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{const k=myKpi(s.id,0);return{
             v:<div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:6,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:9,fontWeight:700}}>{s.avatar}</div><span style={{fontWeight:500,fontSize:13}}>{s.name}</span></div>,
             c:k.contactados||0,ce:k.contactados_efectivos||0,
             pp:<Badge color={(k.contactados_efectivos||0)>0?"green":"gray"}>{pct(k.contactados_efectivos||0,k.contactados||0)}%</Badge>,
             ra:k.reuniones_agendadas||0,re:k.reuniones_efectivas||0,con:`${k.concrecion||0}%`,
-            tk:fmt(k.ticket_promedio||0),pc:<span style={{color:C.green,fontWeight:600}}>{fmt(k.posible_concrecion||0)}</span>
+            tk:fmt(k.ticket_promedio||0),pc:<span style={{color:C.green,fontWeight:600}}>{fmt(k.vendido||0)}</span>
           };})}
         />
-      </div>
-    );
-  };
-
-  const Ventas = () => {
-    const list=(user.role==="gerente"?(filterVendedor==="todos"?sales:sales.filter(s=>s.ejecutivo===filterVendedor)):mySales);
-    const active=list.filter(s=>s.estado!=="cancelada");
-    return (
-      <div style={{padding:"1.5rem",maxWidth:960}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-          <div style={{fontSize:20,fontWeight:800,color:C.black}}>Ventas {user.role==="gerente"?"— Equipo":"— Mis Ventas"}</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {user.role==="gerente"&&(
-              <select value={filterVendedor} onChange={e=>setFilterVendedor(e.target.value)} style={{...inp,width:"auto",padding:"7px 12px",fontSize:12}}>
-                <option value="todos">Todos los vendedores</option>
-                {SELLERS_OBJ.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            )}
-            {user.role==="gerente"&&<Btn onClick={()=>exportVentasExcel(list)}>📊 Exportar Excel</Btn>}
-            {user.role==="vendedor"&&<Btn variant="primary" onClick={()=>setShowSaleForm(true)}>+ Nueva Venta</Btn>}
-          </div>
-        </div>
-        {user.role==="gerente"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:12,marginBottom:16}}>
-            <Stat label="Ventas activas" value={active.length} color={C.red}/>
-            <Stat label="Facturación" value={fmt(active.reduce((a,s)=>a+(s.total||0),0))}/>
-            <Stat label="Ticket promedio" value={active.length?fmt(Math.round(active.reduce((a,s)=>a+(s.total||0),0)/active.length)):"-"}/>
-            <Stat label="Vendedores" value={[...new Set(active.map(s=>s.ejecutivo))].length}/>
-          </div>
-        )}
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {list.map(s=><SaleCard key={s.id} sale={s} onClick={setDetailSale} showActions={user.role==="vendedor"} onRequestEdit={id=>handleUpdateSale(id,{solicitud_modificacion:true})}/>)}
-          {!list.length&&<EmptyState icon="📋" title="Sin ventas" desc="Aquí aparecerán las ventas registradas"/>}
-        </div>
       </div>
     );
   };
@@ -797,7 +790,7 @@ export default function App() {
                             <div style={{fontWeight:600,fontSize:13,color:C.black}}>{s.inmobiliaria}</div>
                             <div style={{fontSize:11,color:C.gray500,marginTop:2}}>{getUser(s.ejecutivo)?.name} · Vence: {s.fecha_fin}</div>
                           </div>
-                          <span style={{fontWeight:700,color:C.red,fontSize:13}}>{fmt(s.total)}</span>
+                          <span style={{fontWeight:700,color:C.red,fontSize:13}}>{fmtMoneda(s.total,s.moneda)}</span>
                         </div>
                       </div>
                     ))}
@@ -839,72 +832,6 @@ export default function App() {
               </Card>
             );
           })}
-        </div>
-      </div>
-    );
-  };
-
-  const Modificaciones = () => {
-    const pending=sales.filter(s=>s.solicitud_modificacion&&!s.modificacion_aprobada);
-    const approved=sales.filter(s=>s.modificacion_aprobada);
-    return (
-      <div style={{padding:"1.5rem",maxWidth:800}}>
-        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Solicitudes de modificación</div>
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:13,fontWeight:600,color:C.amber,marginBottom:10,display:"flex",alignItems:"center",gap:6}}><Badge color="amber">Pendientes</Badge>{pending.length}</div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {pending.map(s=>(
-              <Card key={s.id} style={{border:`1px solid ${C.amber}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                  <div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)}</div></div>
-                  <div style={{display:"flex",gap:8}}><Btn size="sm" variant="success" onClick={()=>handleApproveMod(s.id)}>Aprobar</Btn><Btn size="sm" variant="danger" onClick={()=>handleRejectMod(s.id)}>Rechazar</Btn></div>
-                </div>
-              </Card>
-            ))}
-            {!pending.length&&<div style={{color:C.gray400,fontSize:13,padding:"1rem",textAlign:"center"}}>No hay solicitudes pendientes</div>}
-          </div>
-        </div>
-        <div>
-          <div style={{fontSize:13,fontWeight:600,color:C.green,marginBottom:10,display:"flex",alignItems:"center",gap:6}}><Badge color="green">Aprobadas</Badge>{approved.length}</div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {approved.map(s=>(
-              <Card key={s.id} style={{border:`1px solid ${C.green}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)}</div></div>
-                  <Badge color="green">Editando</Badge>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const Alertas = () => {
-    const vencidas=activeSales.filter(s=>{const d=daysUntil(s.fecha_fin);return d!==null&&d<0;});
-    return (
-      <div style={{padding:"1.5rem",maxWidth:800}}>
-        <div style={{fontSize:20,fontWeight:800,color:C.black,marginBottom:20}}>Alertas de Contratos</div>
-        {vencidas.length>0&&(
-          <div style={{marginBottom:20}}>
-            <div style={{fontSize:13,fontWeight:600,color:C.gray500,marginBottom:10}}>Vencidos ({vencidas.length})</div>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {vencidas.map(s=><Card key={s.id} style={{opacity:0.7}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400}}>{getUser(s.ejecutivo)?.name} · Venció: {s.fecha_fin}</div></div><Badge color="gray">Vencido</Badge></div></Card>)}
-            </div>
-          </div>
-        )}
-        <div style={{fontSize:13,fontWeight:600,color:C.red,marginBottom:10}}>Por vencer en 30 días ({alertas.length})</div>
-        {!alertas.length&&<EmptyState icon="✅" title="Todo en orden" desc="No hay contratos próximos a vencer"/>}
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {alertas.sort((a,b)=>daysUntil(a.fecha_fin)-daysUntil(b.fecha_fin)).map(s=>{const dias=daysUntil(s.fecha_fin);return(
-            <Card key={s.id} style={{border:`1px solid ${dias<=7?C.red:C.amber}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                <div><div style={{fontWeight:600,fontSize:13}}>{s.inmobiliaria}</div><div style={{fontSize:11,color:C.gray400,marginTop:2}}>{getUser(s.ejecutivo)?.name} · {fmt(s.total)} · Vence: {s.fecha_fin}</div></div>
-                <Badge color={dias<=7?"red":"amber"}>{dias}d restantes</Badge>
-              </div>
-            </Card>
-          );})}
         </div>
       </div>
     );
@@ -956,17 +883,16 @@ export default function App() {
     dashboard:<DashboardVendedor/>,
     dashboard_gerente:<DashboardGerente/>,
     dashboard_ggeneral:<DashboardGeneral sales={sales} invoices={invoices} objetivos={objetivos} onNavigate={setTab}/>,
-    ventas:<Ventas/>, kpis:<KPIs currentUser={user} kpis={kpis} kpiForm={kpiForm} setKpiForm={setKpiForm} kpiWeekOffset={kpiWeekOffset} setKpiWeekOffset={setKpiWeekOffset} onSave={saveKPI}/>, disponibilidad:<Disponibilidad/>,
-    ventas_ggeneral:<VentasGeneral sales={sales} setSales={setSales} invoices={invoices}/>,
-    cobros:<Cobros sales={sales} setSales={setSales} setTickets={setTickets} currentUser={user}/>,
+    ventas:<Ventas sales={sales} currentUser={user} onOpen={setDetailSale} onNueva={()=>setShowSaleForm(true)}
+      onPedirCambio={pedirCambio} onAprobar={handleApproveMod} onRechazar={handleRejectMod}/>, kpis:<KPIs currentUser={user} kpiWeekOffset={kpiWeekOffset} setKpiWeekOffset={setKpiWeekOffset} prospectos={prospectos} cargar={cargarProspectos} cargando={cargandoProspectos} sales={sales}/>, disponibilidad:<Disponibilidad/>,
+    ventas_ggeneral:<Ventas sales={sales} currentUser={user} onOpen={setDetailSale}/>,
+    cobros:<CobrosFacturacion sales={sales} currentUser={user} onUpdateSale={handleUpdateSale}/>,
+    comisiones_crm:<ComisionesCRM sales={sales} currentUser={user} onUpdateSale={handleUpdateSale}/>,
     producciones:<Producciones currentUser={user} productions={productions} setProductions={setProductions} editingProd={editingProd} setEditingProd={setEditingProd}/>, social:<Social/>,
-    modificaciones:<Modificaciones/>, alertas:<Alertas/>, alertas_admin:<Alertas/>, contratos:<Alertas/>,
     comisiones:<Comisiones sales={sales} comisiones={comisiones} onUpdateComision={updateComision} currentUser={user}/>,
-    facturacion:<Facturacion sales={sales} invoices={invoices} isGerente={user.role==="gerente"} onUpdateSale={handleUpdateSale}
-      onUpdateInvoice={async(id,ch)=>{await updateItem("facturas",id,ch);setInvoices(prev=>prev.map(x=>x.id===id?{...x,...ch}:x));}}
-      onAddInvoice={async(f)=>{const d=await addItem("facturas",f);if(d)setInvoices(prev=>[d,...prev]);}}/>,
-    renovaciones:<Renovaciones sales={sales} setSales={setSales} clientes={clientes} currentUser={user} onRenovar={v=>setSaleDraft(borradorRenovacion(v))}/>,
-    clientes:<Clientes clientes={clientes} setClientes={setClientes} sales={sales} setSales={setSales} currentUser={user}/>,
+    facturacion:<CobrosFacturacion sales={sales} currentUser={user} onUpdateSale={handleUpdateSale}/>,
+    renovaciones:<Renovaciones sales={sales} setSales={setSales} inmobiliarias={prospectos} cargarInmobiliarias={cargarProspectos} currentUser={user} onRenovar={v=>setSaleDraft(borradorRenovacion(v))}/>,
+    inmobiliarias:<Inmobiliarias currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos} sales={sales} onCrearVenta={crearVentaDesde}/>,
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
     correccion_fechas:<CorreccionFechas sales={sales} setSales={setSales}/>,
@@ -975,8 +901,6 @@ export default function App() {
     competencias:<Competencias competencias={competencias} setCompetencias={setCompetencias} currentUser={user}/>,
     tickets:<Tickets tickets={tickets} setTickets={setTickets} currentUser={user}/>,
     tareas:<Tareas tareas={tareas} setTareas={setTareas} currentUser={user}/>,
-    prospectos:<Prospectos currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos}/>,
-    mis_prospectos:<MisProspectos currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos} onCrearVenta={crearVentaDesde}/>,
     documentos:<Documentos documentos={documentos} setDocumentos={setDocumentos} currentUser={user}/>,
     presentaciones:<Presentaciones presentaciones={presentaciones} setPresentaciones={setPresentaciones} currentUser={user}/>,
   };
@@ -988,7 +912,7 @@ export default function App() {
       </Layout>
       {detailSale&&(
         <SaleDetailModal sale={detailSale} onClose={()=>setDetailSale(null)}
-          canEdit={detailSale.modificacion_aprobada&&user.role==="vendedor"}
+          canEdit={user.role==="gerente"||(detailSale.modificacion_aprobada&&user.role==="vendedor")}
           isGerente={user.role==="gerente"} isAdmin={user.role==="admin"}
           onEdit={s=>{setEditSale(s);setDetailSale(null);}}
           onDelete={handleCancelSale}
@@ -996,17 +920,12 @@ export default function App() {
           onReject={id=>{handleRejectMod(id);setDetailSale(null);}}/>
       )}
       {(showSaleForm||editSale||saleDraft)&&(
-        <SaleForm initialData={editSale||saleDraft} currentUser={user} clientes={clientes}
+        <SaleForm initialData={editSale||saleDraft} currentUser={user} inmobiliarias={prospectos||[]}
           onClose={()=>{setShowSaleForm(false);setEditSale(null);setSaleDraft(null);}}
           onSave={async form=>{
-            if(editSale){const f=await vincularCliente(form);await handleUpdateSale(editSale.id,{...f,modificacion_aprobada:false,solicitud_modificacion:false});setEditSale(null);}
+            if(editSale){const f=await vincularInmobiliaria(form);await handleUpdateSale(editSale.id,{...f,modificacion_aprobada:false,solicitud_modificacion:false,solicitud_motivo:"",ultima_modificacion:{fecha:new Date().toISOString(),por:user.id}});setEditSale(null);}
             else {
               await saveSale(form);
-              // venta creada desde un prospecto: la inmobiliaria pasa a cliente y el agente no le escribe más
-              if(form.lead_id){
-                const cambios = await marcarCliente(form.lead_id,form).catch(()=>null);
-                if(cambios) setProspectos(prev=>prev&&prev.map(l=>l.id===form.lead_id?{...l,...cambios}:l));
-              }
               setSaleDraft(null);
             }
           }}/>

@@ -1,6 +1,6 @@
 import { updateItem } from "./firebase";
 import { hoyISO, sumarMeses } from "./cuotas";
-import { claveNombre } from "./clientes";
+import { slugNombre } from "./inmobiliarias";
 
 // Renovaciones: ventas que vencen en los próximos 60 días o vencieron hace menos de 90 y no se renovaron.
 // El seguimiento se guarda en la misma venta: venta.renovacion = {estado, gestiones[], ultimaGestion, motivo,
@@ -27,7 +27,7 @@ export const MOTIVOS_NO_RENUEVA = ["Precio", "No le dio resultado", "Se pasa a o
 const utc = iso => { const [a, m, d] = iso.slice(0, 10).split("-").map(Number); return Date.UTC(a, m - 1, d); };
 export const diasHasta = (iso, hoy = hoyISO()) => Math.round((utc(iso) - utc(hoy)) / 86400000);
 const sumarDias = (iso, n) => new Date(utc(iso) + n * 86400000).toISOString().slice(0, 10);
-const clienteDe = v => (v.cliente_id ? `id:${v.cliente_id}` : claveNombre(v.inmobiliaria) || String(v.inmobiliaria || "").trim());
+const clienteDe = v => (v.lead_id ? `id:${v.lead_id}` : slugNombre(v.inmobiliaria) || String(v.inmobiliaria || "").trim());
 
 export const renovaciones = (ventas, hoy = hoyISO()) => {
   const validas = ventas.filter(v => v.estado !== "cancelada" && v.fecha_fin);
@@ -74,7 +74,8 @@ export const marcarRenovada = async (ventaVieja, ventaNuevaId) => {
 // Borrador de la venta de renovación: mismos productos y condiciones, y el período siguiente de igual duración
 const COPIAR = ["inmobiliaria", "razon_social", "rut", "mail", "telefono", "direccion", "crm", "plan", "detalle",
   "propiedades", "destacadas_q", "superdestacadas_q", "produccion_q", "indice", "destacadas_home", "productos_seleccionados",
-  "tipo_pago", "subtipo_contado", "subtipo_cuotas", "num_cuotas", "valor_mensual", "subtotal", "ejecutivo", "cliente_id"];
+  "tipo_pago", "subtipo_contado", "subtipo_cuotas", "num_cuotas", "valor_mensual", "subtotal", "ejecutivo", "lead_id",
+  "moneda", "tipo_cambio", "comision_crm", "comision_crm_pct"];
 export const borradorRenovacion = v => {
   // duración en meses: del inicio al día siguiente del fin (1/1 → 31/12 son 12 meses)
   const inicio = sumarDias(v.fecha_fin, 1);

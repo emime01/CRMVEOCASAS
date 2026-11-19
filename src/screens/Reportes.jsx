@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { enPesos, fmtMoneda } from "../moneda";
 import { C, fmt, USERS, pct } from "../constants";
 import { Card, Btn, Badge, BarChart, Table } from "../components/UI";
 import { inp } from "../components/UI";
@@ -26,8 +27,8 @@ export default function Reportes({ sales, vistaInicial = "comercial" }) {
     return {
       name:s.name, avatar:s.avatar,
       ventas:sv.length,
-      total:sv.reduce((a,v)=>a+(v.total||0),0),
-      prom:sv.length?Math.round(sv.reduce((a,v)=>a+(v.total||0),0)/sv.length):0,
+      total:sv.reduce((a,v)=>a+enPesos(v.total,v),0),
+      prom:sv.length?Math.round(sv.reduce((a,v)=>a+enPesos(v.total,v),0)/sv.length):0,
     };
   }).filter(d=>d.ventas>0).sort((a,b)=>b.total-a.total);
 
@@ -35,7 +36,7 @@ export default function Reportes({ sales, vistaInicial = "comercial" }) {
   const byQ = [1,2,3,4].map(q=>{
     const [qs,qe]=qRange(q,anio);
     const sv=active.filter(s=>s.fecha_inicio>=qs&&s.fecha_inicio<=qe);
-    return {q,ventas:sv.length,total:sv.reduce((a,s)=>a+(s.total||0),0)};
+    return {q,ventas:sv.length,total:sv.reduce((a,s)=>a+enPesos(s.total,s),0)};
   });
 
   // By product

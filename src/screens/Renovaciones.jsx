@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { C, fmt, USERS, CANALES_GESTION, MENSAJE_RENOVACION } from "../constants";
 import { Card, Btn, Badge, Field, Grid2, Stat, Modal, ModalHeader, ModalBody, ModalFooter, EmptyState, inp } from "../components/UI";
 import { numeroWhatsapp, nombreUsuario, fechaCorta } from "../prospectos";
@@ -22,15 +22,17 @@ const linkWhatsapp = (v, vendedorId) => {
   return `https://wa.me/${n}?text=${encodeURIComponent(texto)}`;
 };
 
-export default function Renovaciones({ sales, setSales, clientes, currentUser, onRenovar }) {
+export default function Renovaciones({ sales, setSales, inmobiliarias, cargarInmobiliarias, currentUser, onRenovar }) {
   const esVendedor = currentUser.role === "vendedor";
   const [grupo, setGrupo] = useState("pendientes");
   const [vendedor, setVendedor] = useState("todos");
   const [gestionando, setGestionando] = useState(null);
 
-  const aCargo = useMemo(() => new Map(clientes.map(c => [c.id, c.ejecutivo])), [clientes]);
+  // también cuentan las ventas de las inmobiliarias a cargo del vendedor (aunque la venta la haya cargado otro)
+  useEffect(() => { if (!inmobiliarias) cargarInmobiliarias(); }, []);
+  const aCargo = useMemo(() => new Map((inmobiliarias || []).map(l => [l.id, l.asignadoA])), [inmobiliarias]);
   const todas = useMemo(() => renovaciones(sales).filter(r => {
-    const resp = [r.venta.ejecutivo, aCargo.get(r.venta.cliente_id)];
+    const resp = [r.venta.ejecutivo, aCargo.get(r.venta.lead_id)];
     if (esVendedor) return resp.includes(currentUser.id);
     return vendedor === "todos" || resp.includes(vendedor);
   }), [sales, aCargo, esVendedor, vendedor, currentUser.id]);

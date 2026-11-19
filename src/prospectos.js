@@ -44,13 +44,13 @@ export const asignar = async (l, vendedorId, porId) => {
   return cambios;
 };
 
-// Gestión de un vendedor (WhatsApp, llamada…). "Interesada" la deja como interesada ya presentada
-// (el vendedor ya está en contacto); "No interesada" la cierra sin que el agente vuelva a escribirle.
+// Gestión de un vendedor (WhatsApp, llamada, reunión…). Queda en el historial de la inmobiliaria y alimenta los KPIs.
+// "No interesada" la marca así; cualquier otra gestión posterior la vuelve a prospecto.
 export const registrarGestion = async (l, gestion) => {
   const g = { ...gestion, fecha: new Date().toISOString() };
   const cambios = { gestiones: [...(l.gestiones||[]), g], ultimaGestion: g };
-  if(g.resultado==="interesada") Object.assign(cambios, { estado:"derivado", presentado:true, reintentarEn:null });
   if(g.resultado==="no_interesada") Object.assign(cambios, { estado:"no_interesado", reintentarEn:null });
+  else if(l.estado==="no_interesado") Object.assign(cambios, { estado:"manual" });
   await updateItem(COL_PROSPECTOS, l.id, cambios);
   return cambios;
 };

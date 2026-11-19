@@ -1,100 +1,77 @@
-import { C, fmt, USERS, getWeekDates, pct } from "../constants";
-import { Card, Btn, Field, inp } from "../components/UI";
+import { useEffect, useMemo } from "react";
+import { C, USERS, getWeekDates } from "../constants";
+import { Card, Btn, Spinner } from "../components/UI";
+import { fmtMoneda, enPesos } from "../moneda";
 
-const SELLERS = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
+// KPIs semanales calculados solos, sin carga manual:
+// - contactos y reuniones salen de las gestiones que cada vendedor registra en las inmobiliarias,
+// - ventas y montos, de las ventas cargadas esa semana (las de dólares, en pesos al tipo de cambio de la venta).
+const VENDEDORES = USERS.filter(u => u.role === "vendedor");
+const enSemana = (fecha, w) => { const f = String(fecha || "").slice(0, 10); return f >= w.inicio && f <= w.fin; };
 
-export default function KPIs({ currentUser, kpis, kpiForm, setKpiForm, kpiWeekOffset, setKpiWeekOffset, onSave }) {
-  const week = getWeekDates(kpiWeekOffset);
-  const myKpi = (uid, week) => kpis.find(k => k.ejecutivo === uid && k.semana === week) || {};
+export const kpisDe = (uid, w, gestiones, ventas) => {
+  const g = gestiones.filter(x => x.por === uid && enSemana(x.fecha, w));
+  const contactadas = new Set(g.map(x => x.leadId));
+  const efectivas = new Set(g.filter(x => x.resultado !== "sin_respuesta").map(x => x.leadId));
+  const vs = ventas.filter(v => v.ejecutivo === uid && v.estado !== "cancelada" && enSemana(v.created_at || v.fecha_venta, w));
+  const monto = vs.reduce((a, v) => a + enPesos(v.total, v), 0);
+  return {
+    contactadas: contactadas.size, efectivas: efectivas.size,
+    agendadas: g.filter(x => x.resultado === "reunion_agendada").length,
+    realizadas: g.filter(x => x.resultado === "reunion_realizada").length,
+    interesadas: g.filter(x => x.resultado === "interesada").length,
+    ventas: vs.length, monto, ticket: vs.length ? monto / vs.length : 0,
+    concrecion: efectivas.size ? Math.round(vs.length / efectivas.size * 100) : 0,
+  };
+};
 
-  const Nav = () => (
-    <div style={{display:"flex",gap:6,alignItems:"center"}}>
-      <Btn size="sm" onClick={()=>setKpiWeekOffset(w=>w-1)}>←</Btn>
-      <span style={{fontSize:12,color:C.gray500,minWidth:130,textAlign:"center",fontWeight:500}}>{week.label}</span>
-      <Btn size="sm" onClick={()=>setKpiWeekOffset(w=>Math.min(w+1,0))}>→</Btn>
-    </div>
-  );
+const CAMPOS = [
+  ["contactadas", "Inmobiliarias contactadas"], ["efectivas", "Contactos efectivos"], ["agendadas", "Reuniones agendadas"],
+  ["realizadas", "Reuniones realizadas"], ["interesadas", "Pidieron propuesta"], ["ventas", "Ventas"],
+  ["monto", "Vendido", fmtMoneda], ["ticket", "Ticket promedio", fmtMoneda], ["concrecion", "Concreción", v => `${v}%`],
+];
 
-  if (currentUser.role === "gerente") return (
-    <div style={{padding:"1.5rem",maxWidth:960}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-        <div style={{fontSize:20,fontWeight:800,color:C.black}}>KPIs del Equipo</div>
-        <Nav/>
+export default function KPIs({ currentUser, kpiWeekOffset, setKpiWeekOffset, prospectos, cargar, cargando, sales }) {
+  useEffect(() => { if (!prospectos && !cargando) cargar(); }, []);
+  const w = getWeekDates(kpiWeekOffset);
+  const gestiones = useMemo(() => (prospectos || []).flatMap(l => (l.gestiones || []).map(g => ({ ...g, leadId: l.id }))), [prospectos]);
+  const personas = currentUser.role === "vendedor" ? VENDEDORES.filter(u => u.id === currentUser.id) : VENDEDORES;
+
+  if (cargando || !prospectos) return <Spinner />;
+  const filas = personas.map(u => ({ u, k: kpisDe(u.id, w, gestiones, sales) }));
+  const total = Object.fromEntries(CAMPOS.map(([c]) => [c, filas.reduce((a, f) => a + f.k[c], 0)]));
+  total.ticket = total.ventas ? total.monto / total.ventas : 0;
+  total.concrecion = total.efectivas ? Math.round(total.ventas / total.efectivas * 100) : 0;
+
+  const Bloque = ({ titulo, k }) => (
+    <Card style={{ marginBottom: 12 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{titulo}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(140px,100%),1fr))", gap: 8 }}>
+        {CAMPOS.map(([c, label, f]) => (
+          <div key={c} style={{ background: C.gray50, borderRadius: 8, padding: "10px 12px", border: `1px solid ${C.gray100}` }}>
+            <div style={{ fontSize: 10, color: C.gray500, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 600 }}>{label}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: C.gray900 }}>{f ? f(k[c]) : k[c]}</div>
+          </div>
+        ))}
       </div>
-      {SELLERS.filter(s=>s.id!=="lucas").map(s=>{
-        const k=myKpi(s.id,kpiWeekOffset);
-        return(
-          <Card key={s.id} style={{marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <div style={{width:34,height:34,borderRadius:9,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700}}>{s.avatar}</div>
-              <div style={{fontWeight:600,fontSize:14}}>{s.name}</div>
-              {k.fecha_inicio&&<span style={{fontSize:11,color:C.gray400,marginLeft:"auto"}}>Sem. {k.fecha_inicio}</span>}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(140px,100%),1fr))",gap:8}}>
-              {[["Contactados",k.contactados||0,"contactados"],["C. efectivos",k.contactados_efectivos||0,"contactados_efectivos"],["R. agendadas",k.reuniones_agendadas||0,"reuniones_agendadas"],["R. efectivas",k.reuniones_efectivas||0,"reuniones_efectivas"],["Concreción",`${k.concrecion||0}%`,null],["Ticket prom.",fmt(k.ticket_promedio||0),null],["Pos. concreción",fmt(k.posible_concrecion||0),null],["Control",k.control_calidad||"—",null]].map(([lbl,v,nk])=>(
-                <div key={lbl} style={{background:C.gray50,borderRadius:8,padding:"10px 12px",border:`1px solid ${C.gray100}`}}>
-                  <div style={{fontSize:9,color:C.gray400,marginBottom:3,textTransform:"uppercase",letterSpacing:0.3,fontWeight:500}}>{lbl}</div>
-                  <div style={{fontWeight:600,fontSize:13,color:C.gray900}}>{v}</div>
-                  {nk&&k[nk+"_nombres"]&&<div style={{fontSize:9,color:C.gray500,marginTop:3,borderTop:`1px solid ${C.gray200}`,paddingTop:3,lineHeight:1.3}}>{k[nk+"_nombres"]}</div>}
-                </div>
-              ))}
-            </div>
-          </Card>
-        );
-      })}
-    </div>
+    </Card>
   );
-
-  const cur = myKpi(currentUser.id, kpiWeekOffset);
-  const fields = [
-    ["contactados","Contactados"],
-    ["contactados_efectivos","Contactados efectivos"],
-    ["reuniones_agendadas","Reuniones agendadas"],
-    ["reuniones_efectivas","Reuniones efectivas"],
-    ["concrecion","Concreción (%)"],
-    ["ticket_promedio","Ticket promedio"],
-    ["posible_concrecion","Posible concreción"],
-    ["control_calidad","Control calidad"],
-  ];
-  const nameFields = ["contactados","contactados_efectivos","reuniones_agendadas","reuniones_efectivas"];
 
   return (
-    <div style={{padding:"1.5rem",maxWidth:700}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-        <div style={{fontSize:20,fontWeight:800,color:C.black}}>Mis KPIs</div>
-        <Nav/>
+    <div style={{ padding: "1.5rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: C.black }}>{currentUser.role === "vendedor" ? "Mis KPIs" : "KPIs del equipo"}</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <Btn size="sm" onClick={() => setKpiWeekOffset(x => x - 1)}>←</Btn>
+          <span style={{ fontSize: 12, color: C.gray500, minWidth: 130, textAlign: "center", fontWeight: 500 }}>Semana {w.label}</span>
+          <Btn size="sm" onClick={() => setKpiWeekOffset(x => Math.min(x + 1, 0))}>→</Btn>
+        </div>
       </div>
-      <Card>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:"12px 20px",marginBottom:14}}>
-          {fields.map(([f,lbl])=>(
-            <Field key={f} label={lbl}>
-              <input
-                type="text"
-                inputMode={f==="control_calidad"?undefined:"numeric"}
-                value={kpiForm[f]!==undefined?kpiForm[f]:cur[f]||""}
-                onChange={e=>{const v=f==="control_calidad"?e.target.value:e.target.value.replace(/[^\d.]/g,"");setKpiForm(p=>({...p,[f]:v}));}}
-                style={inp}
-                placeholder="0"
-              />
-              {nameFields.includes(f)&&(
-                <textarea
-                  value={kpiForm[f+"_nombres"]!==undefined?kpiForm[f+"_nombres"]:cur[f+"_nombres"]||""}
-                  onChange={e=>setKpiForm(p=>({...p,[f+"_nombres"]:e.target.value}))}
-                  style={{...inp,height:52,resize:"none",marginTop:4,fontSize:11}}
-                  placeholder="Ej: García Props, Del Rey..."
-                />
-              )}
-            </Field>
-          ))}
-        </div>
-        <div style={{padding:"10px 14px",background:C.gray50,borderRadius:8,fontSize:13,marginBottom:14,border:`1px solid ${C.gray100}`}}>
-          <span style={{color:C.gray400}}>% Contactos efectivos: </span>
-          <strong>{pct(parseInt(kpiForm.contactados_efectivos||cur.contactados_efectivos)||0,parseInt(kpiForm.contactados||cur.contactados)||0)}%</strong>
-        </div>
-        <Btn variant="primary" onClick={onSave} style={{width:"100%",justifyContent:"center"}}>
-          Guardar KPIs — {week.label}
-        </Btn>
-      </Card>
+      <div style={{ fontSize: 13, color: C.gray500, marginBottom: 16 }}>
+        Se calculan solos con las gestiones registradas en cada inmobiliaria (WhatsApp, llamadas, reuniones) y con las ventas cargadas.
+      </div>
+      {personas.length > 1 && <Bloque titulo="Equipo" k={total} />}
+      {filas.map(({ u, k }) => <Bloque key={u.id} titulo={u.name} k={k} />)}
     </div>
   );
 }

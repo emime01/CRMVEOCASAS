@@ -2,10 +2,11 @@ import { useState } from "react";
 import { CRMS, PRODUCTS, PLANS, USERS, C } from "../constants";
 import { Field, Grid2, Sec, Modal, ModalHeader, ModalBody, ModalFooter, Btn, inp } from "./UI";
 import { armarDetalle } from "../cuotas";
+import { MONEDAS, TIPO_CAMBIO_DEFECTO, fmtMoneda } from "../moneda";
 
 const SELLERS_FOR_FORM = USERS.filter(u=>["vendedor","inactivo","gerente"].includes(u.role));
 
-export default function SaleForm({ initialData, onSave, onClose, currentUser, clientes = [] }) {
+export default function SaleForm({ initialData, onSave, onClose, currentUser, inmobiliarias = [] }) {
   const blank = {
     inmobiliaria:"", razon_social:"", rut:"", mail:"", telefono:"",
     direccion:"", crm:"SIN CRM", ejecutivo: currentUser?.id||"sebastian",
@@ -16,22 +17,25 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, cl
     subtipo_cuotas:"contrato", num_cuotas:1,
     valor_mensual:0, subtotal:0,
     productos_seleccionados:[], estado:"activa", cobrado:false,
+    moneda:"UYU", tipo_cambio:"", comision_crm:false, comision_crm_pct:6,
     solicitud_modificacion:false, modificacion_aprobada:false,
   };
   // un borrador desde un prospecto trae solo algunos campos: el resto sale de blank
   const [form, setForm] = useState(initialData ? { ...blank, ...initialData } : blank);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
-  // Al escribir el nombre de un cliente que ya tiene ficha, se completan sus datos y la venta queda vinculada.
-  // Si se cambia el nombre por otro, la venta deja de apuntar a esa ficha (al guardar se busca o se crea la que corresponda).
+  // Al escribir el nombre de una inmobiliaria de la base, se completan sus datos y la venta queda vinculada a ella.
+  // Si se cambia el nombre por otro, deja de apuntar a esa (al guardar se busca o se agrega la que corresponda).
   const setInmobiliaria = nombre => {
-    const c = clientes.find(x => (x.nombre||"").trim().toLowerCase() === nombre.trim().toLowerCase());
+    const c = inmobiliarias.find(x => (x.nombre||"").trim().toLowerCase() === nombre.trim().toLowerCase());
     setForm(f => c ? {
-      ...f, inmobiliaria:nombre, cliente_id:c.id,
+      ...f, inmobiliaria:nombre, lead_id:c.id,
       razon_social:c.razon_social||f.razon_social, rut:c.rut||f.rut, mail:c.email||f.mail,
-      telefono:c.telefono||f.telefono, direccion:c.direccion||f.direccion, crm:c.crm||f.crm,
-    } : { ...f, inmobiliaria:nombre, cliente_id: f.cliente_id && clientes.find(x=>x.id===f.cliente_id)?.nombre===nombre ? f.cliente_id : null });
+      telefono:c.telefono||f.telefono, direccion:c.direccion||f.direccion, crm:c.crm_usa||f.crm,
+    } : { ...f, inmobiliaria:nombre, lead_id: f.lead_id && inmobiliarias.find(x=>x.id===f.lead_id)?.nombre===nombre ? f.lead_id : null });
   };
-  const fichaVinculada = form.cliente_id && clientes.find(x=>x.id===form.cliente_id);
+  const fichaVinculada = form.lead_id && inmobiliarias.find(x=>x.id===form.lead_id);
+  const usd = form.moneda==="USD";
+  const conCrm = form.crm && form.crm!=="SIN CRM";
   const toggle = p => setForm(f=>({...f,productos_seleccionados:(f.productos_seleccionados||[]).includes(p)?(f.productos_seleccionados||[]).filter(x=>x!==p):[...(f.productos_seleccionados||[]),p]}));
 
   const subtotal = parseFloat(form.subtotal)||0;
@@ -42,6 +46,9 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, cl
     const nc = form.tipo_pago==="contado" ? 1 : parseInt(form.num_cuotas)||1;
     const cuotas_detalle = armarDetalle(form, total, nc);
     onSave({ ...form, total, subtotal, cuotas_detalle,
+      tipo_cambio: form.moneda==="USD" ? (parseFloat(form.tipo_cambio)||TIPO_CAMBIO_DEFECTO) : null,
+      comision_crm: Boolean(form.comision_crm && form.crm && form.crm!=="SIN CRM"),
+      comision_crm_pct: parseFloat(form.comision_crm_pct)||6,
       metodo_pago: form.tipo_pago==="contado"
         ? form.subtipo_contado
         : `${form.subtipo_cuotas} (${form.num_cuotas} cuotas)`,
@@ -59,9 +66,9 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, cl
       <ModalBody>
         <Sec title="Datos de la Inmobiliaria">
           <Grid2>
-            <Field label="Nombre Inmobiliaria" hint={fichaVinculada ? "Cliente con ficha: datos completados" : form.inmobiliaria ? "Cliente nuevo: se crea su ficha al guardar" : ""}>
+            <Field label="Nombre Inmobiliaria" hint={fichaVinculada ? "Está en la base: datos completados" : form.inmobiliaria ? "No está en la base: se agrega al guardar" : ""}>
               <input value={form.inmobiliaria} onChange={e=>setInmobiliaria(e.target.value)} list="clientes-ficha" style={inp} placeholder="Ej: García Propiedades"/>
-              <datalist id="clientes-ficha">{clientes.map(c=><option key={c.id} value={c.nombre}/>)}</datalist>
+              <datalist id="clientes-ficha">{inmobiliarias.map(c=><option key={c.id} value={c.nombre}/>)}</datalist>
             </Field>
             <Field label="Razón Social"><input value={form.razon_social} onChange={e=>set("razon_social",e.target.value)} style={inp}/></Field>
             <Field label="RUT"><input value={form.rut} onChange={e=>set("rut",e.target.value)} style={inp} placeholder="XX.XXX.XXX-X"/></Field>
@@ -161,14 +168,36 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, cl
 
         <Sec title="Valores">
           <Grid2>
+            <Field label="Moneda">
+              <select value={form.moneda||"UYU"} onChange={e=>set("moneda",e.target.value)} style={inp}>
+                {MONEDAS.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </Field>
+            {usd&&<Field label="Tipo de cambio del día" hint="Para sumarla en pesos en totales y objetivos."><input type="text" inputMode="decimal" value={form.tipo_cambio||""} onChange={e=>set("tipo_cambio",e.target.value.replace(/[^\d.,]/g,"").replace(",","."))} style={inp} placeholder={String(TIPO_CAMBIO_DEFECTO)}/></Field>}
                           <Field label="Valor mensual (plan)"><input type="text" inputMode="numeric" value={form.valor_mensual||""} onChange={e=>{const v=e.target.value.replace(/[^\d]/g,"");set("valor_mensual",v===""?0:parseInt(v));}} style={inp} placeholder="0"/></Field>
             <Field label="Subtotal sin IVA"><input type="text" inputMode="numeric" value={form.subtotal||""} onChange={e=>{const v=e.target.value.replace(/[^\d]/g,"");set("subtotal",v===""?0:parseInt(v));}} style={inp} placeholder="0"/></Field>
-            <Field label="Total con IVA (22%)"><input readOnly value={total} style={{...inp,background:C.gray50,fontWeight:600}}/></Field>
+            <Field label="Total con IVA (22%)"><input readOnly value={fmtMoneda(total,form.moneda)} style={{...inp,background:C.gray50,fontWeight:600}}/></Field>
             {form.tipo_pago==="cuotas"&&form.num_cuotas>1&&(
-              <Field label={`Por cuota (${form.num_cuotas} pagos)`}><input readOnly value={Math.round(total/form.num_cuotas)} style={{...inp,background:C.gray50}}/></Field>
+              <Field label={`Por cuota (${form.num_cuotas} pagos)`}><input readOnly value={fmtMoneda(Math.round(total/form.num_cuotas),form.moneda)} style={{...inp,background:C.gray50}}/></Field>
             )}
           </Grid2>
         </Sec>
+
+        {conCrm&&(
+          <Sec title="Comisión del CRM">
+            <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer",marginBottom:10}}>
+              <input type="checkbox" checked={Boolean(form.comision_crm)} onChange={e=>set("comision_crm",e.target.checked)} style={{accentColor:C.red}}/>
+              El cliente es de {form.crm}: se le paga comisión sobre lo cobrado
+            </label>
+            {form.comision_crm&&(
+              <Grid2>
+                <Field label="Porcentaje" hint="Se calcula sobre cada pago cobrado (cuota o contado), no sobre lo facturado.">
+                  <input type="text" inputMode="decimal" value={form.comision_crm_pct??6} onChange={e=>set("comision_crm_pct",e.target.value.replace(/[^\d.,]/g,"").replace(",","."))} style={{...inp,width:100}}/>
+                </Field>
+              </Grid2>
+            )}
+          </Sec>
+        )}
       </ModalBody>
       <ModalFooter>
         <Btn onClick={onClose}>Cancelar</Btn>

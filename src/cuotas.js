@@ -34,6 +34,7 @@ export const cuotasDe = venta => {
   return Array.from({ length: nc }, (_, i) => {
     const d = detalle[i] || {};
     return {
+      ...d, // datos de facturación y cobro de la cuota (fecha_factura, medio_pago, crm_pagado…)
       numero: i + 1,
       fecha: d.fecha || sumarMeses(venta.fecha_inicio, i),
       monto: d.monto || montoBase,
@@ -62,6 +63,7 @@ export const armarDetalle = (venta, total, nc) => {
     const prev = previas[i] || {};
     const fija = prev.pagada || prev.gestionado || prev.nro_factura;
     return {
+      ...prev, // conserva los datos de facturación, cobro y comisión de cada cuota
       numero: i + 1,
       fecha: (fija && prev.fecha) || sumarMeses(venta.fecha_inicio, i) || prev.fecha || "",
       monto: fija ? prev.monto || montoCuota : montoCuota,

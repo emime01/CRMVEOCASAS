@@ -32,7 +32,10 @@ export const datosDemo = () => {
       subtipo_contado: "transferencia", metodo_pago: nc > 1 ? `contrato (${nc} cuotas)` : "transferencia",
       valor_mensual: Math.round(subtotal / meses), subtotal, total, cuotas_detalle: cuotas,
       estado: i === 7 ? "cancelada" : "activa", facturado: nc === 1 && i % 2 === 0, cobrado: nc === 1 ? i % 3 === 0 : undefined,
-      cliente_id: i < 10 ? `c${i}` : undefined, created_at: inicio,
+      lead_id: `l${i}`, created_at: i % 6 === 0 ? dia(-2) : inicio,
+      moneda: i === 5 ? "USD" : "UYU", tipo_cambio: i === 5 ? 40 : null,
+      comision_crm: i % 3 !== 2, comision_crm_pct: 6,
+      ...(i === 3 ? { solicitud_modificacion: true, solicitud_motivo: "Cambió de plan Standard a Premium" } : {}),
     });
   });
   const clientes = ventas.slice(0, 10).map((v, i) => ({
@@ -41,13 +44,20 @@ export const datosDemo = () => {
     contactos: i % 2 ? [] : [{ nombre: "Laura Pérez", cargo: "Dueña", email: "laura@ejemplo.uy", telefono: "099 111 222" }],
   }));
   const estados = ["listo", "en_secuencia", "derivado", "sin_respuesta", "no_interesado", "sin_email", "manual", "cliente", "ex_cliente"];
-  const prospeccion_leads = Array.from({ length: 60 }, (_, i) => ({
+  const fichas = NOMBRES.map((nombre, i) => ({
+    id: `l${i}`, nombre, estado: "cliente", asignadoA: VENDEDORES[i % 4], departamento: ["Montevideo", "Maldonado"][i % 2],
+    telefono: `09${pad(i)} 100 200`, email: `info@cliente${i}.uy`,
+    gestiones: i % 2 ? [] : [{ canal: "WhatsApp", resultado: i % 4 ? "reunion_agendada" : "contactado", nota: "Habló con la dueña", fecha: dia(-1) + "T15:00:00", por: VENDEDORES[i % 4] }],
+  }));
+  const prospeccion_leads = fichas.concat(Array.from({ length: 60 }, (_, i) => ({
     id: `p${i}`, nombre: `Inmobiliaria Prueba ${i + 1}`, email: i % 4 ? `info${i}@prueba.uy` : "", telefono: `09${pad(i % 90)} 123 456`,
     whatsapp: i % 3 ? `5989${pad(i % 90)}123456`.slice(0, 11) : "", departamento: ["Montevideo", "Maldonado", "Canelones", "Colonia", ""][i % 5],
     web: `www.prueba${i}.com.uy`, estado: estados[i % estados.length], fuentes: ["maps"], score: (i * 13) % 100,
     resumenIA: i % 9 === 2 ? "Pidió precios y quiere una llamada esta semana." : "",
-    asignadoA: i % 9 === 6 || i % 9 === 2 && i > 20 ? VENDEDORES[i % 4] : null,
-  }));
+    asignadoA: i % 3 === 0 ? null : VENDEDORES[i % 4],
+    gestiones: i % 5 === 1 ? [{ canal: "Llamada", resultado: "sin_respuesta", fecha: dia(0) + "T11:00:00", por: VENDEDORES[i % 4], proximoContacto: dia(0) }] : [],
+    ultimaGestion: i % 5 === 1 ? { canal: "Llamada", resultado: "sin_respuesta", fecha: dia(0) + "T11:00:00", proximoContacto: dia(0) } : null,
+  })));
   return {
     ventas, clientes, prospeccion_leads,
     kpis: [], producciones: [], posts_social: [], facturas: [], comisiones: [], runs: [], documentos: [], presentaciones: [],
