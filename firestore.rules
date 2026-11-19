@@ -54,10 +54,11 @@ service cloud.firestore {
       allow write: if rol(['gerente', 'gerente_general']);
     }
 
-    // Prospectos del agente: el CRM los lee y actualiza (asignación, gestiones); los crea el agente.
+    // Base de inmobiliarias (la armó el agente y se cargó la base oficial): el CRM las lee, las edita, asigna
+    // vendedores y agrega nuevas. No se borran.
     match /prospeccion_leads/{id} {
-      allow read, update: if activo();
-      allow create, delete: if false;
+      allow read, create, update: if activo();
+      allow delete: if false;
     }
 
     // Resto de las pantallas del CRM
