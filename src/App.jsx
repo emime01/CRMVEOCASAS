@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { enPesos, fmtMoneda } from "./moneda";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil, DEMO } from "./firebase";
-import { C, fmt, USERS, TABS, daysUntil, getWeekDates } from "./constants";
+import { C, fmt, USERS, TABS, daysUntil, getWeekDates, cantidadDe } from "./constants";
 import CambiarClave from "./components/CambiarClave";
 import Layout from "./components/Layout";
 import { cuotasDelMes, mesActual } from "./cuotas";
@@ -40,6 +40,8 @@ const fmtDate = iso => {
 };
 const siNo = v => v ? "Sí" : "No";
 const hasProduct = (sale, name) => (sale.productos_seleccionados || []).includes(name);
+// En el Excel: la cantidad si se cargó, si no Sí/No
+const prod = (sale, name, extra) => hasProduct(sale, name) || extra ? (Number(cantidadDe(sale, name)) || "Sí") : "No";
 
 const exportVentasExcel = async (sales) => {
   const XLSX = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs");
@@ -54,13 +56,13 @@ const exportVentasExcel = async (sales) => {
     "Destacadas": s.destacadas_q || 0,
     "Superdestacadas": s.superdestacadas_q || 0,
     "Producción": s.produccion_q || 0,
-    "Índice": siNo(s.indice || hasProduct(s, "Índice")),
-    "Dest. Home Venta": siNo(s.destacadas_home || hasProduct(s, "Destacada Home Venta")),
-    "SD Home Venta": siNo(hasProduct(s, "Super destacada Home Venta")),
-    "Dest. Home Alquiler": siNo(hasProduct(s, "Destacada Home Alquiler")),
-    "SD Home Alquiler": siNo(hasProduct(s, "Super destacada Home Alquiler")),
-    "Banner": siNo(hasProduct(s, "Banner")),
-    "Desarrollos": siNo(hasProduct(s, "Desarrollos")),
+    "Índice": prod(s, "Índice", s.indice),
+    "Dest. Home Venta": prod(s, "Destacada Home Venta", s.destacadas_home),
+    "SD Home Venta": prod(s, "Super destacada Home Venta"),
+    "Dest. Home Alquiler": prod(s, "Destacada Home Alquiler"),
+    "SD Home Alquiler": prod(s, "Super destacada Home Alquiler"),
+    "Banner": prod(s, "Banner"),
+    "Desarrollos": prod(s, "Desarrollos"),
     "Subtotal": s.subtotal || 0,
     "Total (IVA inc.)": s.total || 0,
     "Método de pago": s.metodo_pago || s.subtipo_contado || "",

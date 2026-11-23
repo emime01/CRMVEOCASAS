@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CRMS, PRODUCTS, PLANS, USERS, C } from "../constants";
+import { CRMS, PRODUCTS, PLANS, USERS, C, cantidadDe, conCantidad } from "../constants";
 import { Field, Grid2, Sec, Modal, ModalHeader, ModalBody, ModalFooter, Btn, inp } from "./UI";
 import { armarDetalle } from "../cuotas";
 import { MONEDAS, TIPO_CAMBIO_DEFECTO, fmtMoneda } from "../moneda";
@@ -45,7 +45,9 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, in
   const handleSave = () => {
     const nc = form.tipo_pago==="contado" ? 1 : parseInt(form.num_cuotas)||1;
     const cuotas_detalle = armarDetalle(form, total, nc);
-    onSave({ ...form, total, subtotal, cuotas_detalle,
+    const cantidades = Object.fromEntries(Object.entries(form.cantidades || {}).map(([p, n]) => [p, parseInt(n) || 0]));
+    onSave({ ...form, total, subtotal, cuotas_detalle, cantidades,
+      destacadas_q: parseInt(form.destacadas_q) || 0, superdestacadas_q: parseInt(form.superdestacadas_q) || 0, produccion_q: parseInt(form.produccion_q) || 0,
       tipo_cambio: form.moneda==="USD" ? (parseFloat(form.tipo_cambio)||TIPO_CAMBIO_DEFECTO) : null,
       comision_crm: Boolean(form.comision_crm && form.crm && form.crm!=="SIN CRM"),
       comision_crm_pct: parseFloat(form.comision_crm_pct)||6,
@@ -110,10 +112,10 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, in
               <label key={p} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,padding:"6px 10px",borderRadius:7,background:(form.productos_seleccionados||[]).includes(p)?C.redLight:C.gray50,border:`1px solid ${(form.productos_seleccionados||[]).includes(p)?C.red:C.gray200}`,transition:"all 0.15s"}}>
                 <input type="checkbox" checked={(form.productos_seleccionados||[]).includes(p)} onChange={()=>toggle(p)} style={{accentColor:C.red}}/>
                 <span style={{flex:1,fontSize:12}}>{p}</span>
-                {(form.productos_seleccionados||[]).includes(p)&&["Destacadas","Superdestacadas","Producción"].includes(p)&&(
-                  <input type="text" inputMode="numeric" placeholder="Cant." style={{...inp,width:52,padding:"3px 6px",fontSize:11}}
-                    value={p==="Destacadas"?form.destacadas_q:p==="Superdestacadas"?form.superdestacadas_q:form.produccion_q}
-                    onChange={e=>{const v=e.target.value.replace(/\D/g,"");set(p==="Destacadas"?"destacadas_q":p==="Superdestacadas"?"superdestacadas_q":"produccion_q",v);}}
+                {(form.productos_seleccionados||[]).includes(p)&&(
+                  <input type="text" inputMode="numeric" placeholder="Cant." aria-label={`Cantidad de ${p}`} style={{...inp,width:52,padding:"3px 6px",fontSize:11}}
+                    value={cantidadDe(form,p)}
+                    onChange={e=>{const v=e.target.value.replace(/\D/g,"");setForm(f=>conCantidad(f,p,v));}}
                     onClick={e=>e.stopPropagation()}/>
                 )}
               </label>

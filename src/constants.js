@@ -62,6 +62,18 @@ export const PRODUCTS = [
   "Índice","Producción","Banner","Desarrollos"
 ];
 
+// Cantidad de cada producto de una venta. Propiedades, Destacadas, Superdestacadas y Producción tienen su
+// campo propio (los usan reportes y producciones); el resto va en venta.cantidades[producto].
+export const CAMPO_CANTIDAD = { Propiedades:"propiedades", Destacadas:"destacadas_q", Superdestacadas:"superdestacadas_q", "Producción":"produccion_q" };
+export const cantidadDe = (v, p) => (CAMPO_CANTIDAD[p] ? v[CAMPO_CANTIDAD[p]] : v.cantidades?.[p]) || "";
+export const conCantidad = (v, p, n) => CAMPO_CANTIDAD[p] ? { ...v, [CAMPO_CANTIDAD[p]]: n } : { ...v, cantidades: { ...(v.cantidades || {}), [p]: n } };
+// Productos de una venta con su cantidad (incluye ventas viejas con cantidad cargada sin el producto marcado)
+export const productosDe = v => {
+  const sel = v.productos_seleccionados || [];
+  const viejos = Object.keys(CAMPO_CANTIDAD).filter(p => p !== "Propiedades" && !sel.includes(p) && Number(cantidadDe(v, p)) > 0);
+  return [...sel, ...viejos].map(p => ({ producto: p, cantidad: Number(cantidadDe(v, p)) || 0 }));
+};
+
 export const PLANES = ["50","Standard","Premium","Elite","Unique","A medida"];
 export const PLANS = PLANES; // backward compat
 

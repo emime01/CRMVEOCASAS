@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, fmt, daysUntil, USERS } from "../constants";
+import { C, fmt, daysUntil, USERS, productosDe } from "../constants";
 import { cuotasDe } from "../cuotas";
 import { Badge, Btn, Modal, ModalHeader, ModalBody, ModalFooter, Card } from "./UI";
 
@@ -112,13 +112,10 @@ export function SaleDetailModal({ sale, onClose, canEdit, canDelete, onEdit, onD
         )}
         {tab==="productos"&&(
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-            {(sale.productos_seleccionados||[]).map(p=>(
-              <span key={p} style={{padding:"5px 12px",borderRadius:20,fontSize:12,background:C.gray100,color:C.gray700,fontWeight:500}}>{p}</span>
+            {productosDe(sale).map(({producto,cantidad})=>(
+              <span key={producto} style={{padding:"5px 12px",borderRadius:20,fontSize:12,background:cantidad>0?C.redLight:C.gray100,color:cantidad>0?C.red:C.gray700,fontWeight:500}}>{producto}{cantidad>0?` ×${cantidad}`:""}</span>
             ))}
-            {sale.destacadas_q>0&&<span style={{padding:"5px 12px",borderRadius:20,fontSize:12,background:C.redLight,color:C.red,fontWeight:500}}>Destacadas ×{sale.destacadas_q}</span>}
-            {sale.superdestacadas_q>0&&<span style={{padding:"5px 12px",borderRadius:20,fontSize:12,background:C.redLight,color:C.red,fontWeight:500}}>Superdest. ×{sale.superdestacadas_q}</span>}
-            {sale.produccion_q>0&&<span style={{padding:"5px 12px",borderRadius:20,fontSize:12,background:C.redLight,color:C.red,fontWeight:500}}>Producción ×{sale.produccion_q}</span>}
-            {!(sale.productos_seleccionados?.length||sale.destacadas_q||sale.superdestacadas_q||sale.produccion_q)&&(
+            {!productosDe(sale).length&&(
               <div style={{color:C.gray400,fontSize:13}}>Sin productos detallados</div>
             )}
           </div>
