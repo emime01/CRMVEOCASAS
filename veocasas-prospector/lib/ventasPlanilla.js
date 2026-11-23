@@ -52,7 +52,7 @@ export async function importarVentasPlanilla(ventas, { aplicar = false, cancelar
     const s = slugNombre(l.nombre); if (s && !porNombre.has(s)) porNombre.set(s, doc);
   }
 
-  const res = { ventas: ventas.length, actualizadas: 0, creadas: 0, inmobiliariasNuevas: 0, inmobiliariasAsignadas: 0, conservadoDelCRM: [], canceladas: [], noListadasEnPlanilla: [] };
+  const res = { ventas: ventas.length, actualizadas: 0, creadas: 0, inmobiliariasNuevas: 0, nuevasNombres: [], inmobiliariasAsignadas: 0, conservadoDelCRM: [], canceladas: [], noListadasEnPlanilla: [] };
   const usadas = new Set();
   const ops = [];
   const ahora = new Date().toISOString();
@@ -73,6 +73,15 @@ export async function importarVentasPlanilla(ventas, { aplicar = false, cancelar
         ops.push([lead.ref, patch, 'update']);
       } else {
         const ref = d.collection(COL).doc(`venta_${s || clave(v.inmobiliaria)}`);
+        const ya = await ref.get();
+        if (ya.exists) {  // ya se agregó en una carga anterior (y puede tener gestiones): no se pisa
+          const l = ya.data();
+          res.nuevasNombres.push(`${v.inmobiliaria} (ya estaba: ${l.nombre} · ${l.estado})`);
+          porNombre.set(s, ya);
+          leadId = ref.id;
+          if (vigente && !['cliente', 'duplicado', 'descartado'].includes(l.estado)) ops.push([ref, { estado: 'cliente', actualizado: FieldValue.serverTimestamp() }, 'update']);
+        } else {
+        res.nuevasNombres.push(v.inmobiliaria);
         ops.push([ref, {
           nombre: v.inmobiliaria, keys: s ? [`nm:${s}`] : [], fuentes: ['planilla_ventas'], estado: vigente ? 'cliente' : 'ex_cliente',
           asignadoA: ACTIVOS.includes(v.ejecutivo) ? v.ejecutivo : null, asignadoSugerido: ACTIVOS.includes(v.ejecutivo) ? null : v.ejecutivo,
@@ -83,6 +92,7 @@ export async function importarVentasPlanilla(ventas, { aplicar = false, cancelar
         porNombre.set(s, { id: ref.id, ref, data: () => ({ asignadoA: v.ejecutivo, estado: 'cliente' }) });
         leadId = ref.id;
         res.inmobiliariasNuevas++;
+        }
       }
     }
     const datos = { ...v, ...(leadId ? { lead_id: leadId } : {}), importado_planilla: ahora };
