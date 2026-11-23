@@ -191,7 +191,7 @@ export default function SaleForm({ initialData, onSave, onClose, currentUser, in
             </label>
             {form.comision_crm&&(
               <Grid2>
-                <Field label="Porcentaje" hint="Se calcula sobre cada pago cobrado (cuota o contado), no sobre lo facturado.">
+                <Field label="Porcentaje" hint="Se calcula sobre cada pago cobrado (cuota o contado), sin IVA, no sobre lo facturado.">
                   <input type="text" inputMode="decimal" value={form.comision_crm_pct??6} onChange={e=>set("comision_crm_pct",e.target.value.replace(/[^\d.,]/g,"").replace(",","."))} style={{...inp,width:100}}/>
                 </Field>
               </Grid2>

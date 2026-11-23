@@ -12,7 +12,27 @@ const ACTIVOS = ['paty', 'sebastian', 'stefano', 'juanba', 'mika'];
 const clave = n => slugNombre(n) || String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const hoy = () => new Date().toISOString().slice(0, 10);
 
-export async function importarVentasPlanilla(ventas, { aplicar = false } = {}) {
+// Lo que se marca en el CRM (cobros, facturas, avisos, pagos al CRM) no se pisa al volver a cargar la planilla:
+// queda lo que ya esté marcado en cualquiera de los dos.
+const SEGUIMIENTO_CUOTA = ['pagada', 'fecha_pago', 'medio_pago', 'gestionado', 'nro_factura', 'facturada', 'fecha_factura', 'crm_pagado', 'crm_pagado_fecha'];
+const SEGUIMIENTO_CONTADO = ['cobrado', 'fecha_pago', 'medio_pago_cobro', 'gestionado', 'facturado', 'nro_factura', 'fecha_factura', 'crm_pagado', 'crm_pagado_fecha'];
+const unir = (crm, planilla, campos) => {
+  const r = { ...planilla };
+  for (const c of campos) if (crm?.[c]) r[c] = crm[c];
+  return r;
+};
+function conLoDelCRM(previa, v) {
+  const r = { ...v };
+  if (previa.estado) r.estado = previa.estado;  // una venta cancelada en el CRM sigue cancelada
+  if (Array.isArray(v.cuotas_detalle)) {
+    const antes = previa.cuotas_detalle || [];
+    r.cuotas_detalle = v.cuotas_detalle.map((c, i) => unir(antes.find(a => a.numero === c.numero) || antes[i], c, SEGUIMIENTO_CUOTA));
+  } else Object.assign(r, unir(previa, v, SEGUIMIENTO_CONTADO));
+  return r;
+}
+
+// cancelar: nombres exactos de ventas del CRM que no están en la planilla y hay que cancelar (ventas de prueba).
+export async function importarVentasPlanilla(ventas, { aplicar = false, cancelar = [] } = {}) {
   const d = db();
   const [existentes, leadsSnap] = await Promise.all([
     d.collection(VENTAS).get(),
@@ -32,7 +52,7 @@ export async function importarVentasPlanilla(ventas, { aplicar = false } = {}) {
     const s = slugNombre(l.nombre); if (s && !porNombre.has(s)) porNombre.set(s, doc);
   }
 
-  const res = { ventas: ventas.length, actualizadas: 0, creadas: 0, inmobiliariasNuevas: 0, inmobiliariasAsignadas: 0, noListadasEnPlanilla: [] };
+  const res = { ventas: ventas.length, actualizadas: 0, creadas: 0, inmobiliariasNuevas: 0, inmobiliariasAsignadas: 0, conservadoDelCRM: [], canceladas: [], noListadasEnPlanilla: [] };
   const usadas = new Set();
   const ops = [];
   const ahora = new Date().toISOString();
@@ -68,7 +88,11 @@ export async function importarVentasPlanilla(ventas, { aplicar = false } = {}) {
     const datos = { ...v, ...(leadId ? { lead_id: leadId } : {}), importado_planilla: ahora };
     if (existente) {
       usadas.add(existente.id);
-      ops.push([existente.ref, datos, 'merge']);
+      const previa = existente.data();
+      const unido = conLoDelCRM(previa, datos);
+      if (JSON.stringify(unido.cuotas_detalle) !== JSON.stringify(datos.cuotas_detalle) || SEGUIMIENTO_CONTADO.some(c => unido[c] !== datos[c]) || unido.estado !== datos.estado)
+        res.conservadoDelCRM.push(v.inmobiliaria);
+      ops.push([existente.ref, unido, 'merge']);
       res.actualizadas++;
     } else {
       ops.push([d.collection(VENTAS).doc(), { ...datos, created_at: `${v.fecha_venta || v.fecha_inicio || hoy()}T12:00:00.000Z` }, 'merge']);
@@ -78,6 +102,11 @@ export async function importarVentasPlanilla(ventas, { aplicar = false } = {}) {
   // ventas del CRM que no están en la planilla (se dejan como están: pueden ser historial anterior o repetidas)
   for (const doc of existentes.docs) if (!usadas.has(doc.id)) {
     const v = doc.data();
+    if (cancelar.includes(v.inmobiliaria) && v.estado !== 'cancelada') {
+      ops.push([doc.ref, { estado: 'cancelada', cancelada_en: ahora, motivo_cancelacion: 'Venta de prueba', modificacion_aprobada: false, solicitud_modificacion: false }, 'merge']);
+      res.canceladas.push(`${v.inmobiliaria} · ${v.fecha_inicio || 'sin fecha'}`);
+      continue;
+    }
     res.noListadasEnPlanilla.push(`${v.inmobiliaria} · ${v.fecha_inicio || 'sin fecha'} → ${v.fecha_fin || ''} · ${v.estado || 'activa'}`);
   }
   res.noListadasEnPlanilla.sort();

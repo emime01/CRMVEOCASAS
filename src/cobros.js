@@ -36,5 +36,8 @@ export const todosLosPagos = ventas => ventas.flatMap(v => pagosDe(v)
   .filter(p => v.estado !== "cancelada" || p.pagada)
   .map(p => ({ ...p, venta: v, moneda: v.moneda || "UYU", clave: `${v.id}_${p.numero}` })));
 
-// Comisión del CRM: si el cliente es del CRM, un porcentaje (6% por defecto) de cada pago cobrado
-export const comisionCRM = p => p.venta.comision_crm && p.pagada ? Math.round(p.monto * (Number(p.venta.comision_crm_pct) || 6)) / 100 : 0;
+// Comisión del CRM: si el cliente es del CRM, un porcentaje (6% por defecto) de cada pago cobrado, sin el IVA
+// (el pago incluye IVA; la base es la parte proporcional del subtotal de la venta).
+export const baseSinIVA = p => { const { subtotal, total } = p.venta; return subtotal > 0 && total > 0 ? p.monto * subtotal / total : p.monto; };
+export const comisionDe = p => p.venta.comision_crm ? Math.round(baseSinIVA(p) * (Number(p.venta.comision_crm_pct) || 6)) / 100 : 0;
+export const comisionCRM = p => p.pagada ? comisionDe(p) : 0;

@@ -16,8 +16,8 @@ export async function POST(req) {
     // base oficial (planilla de los vendedores), ya cruzada: body {filas:[...]}; ?aplicar=1 para escribir
     // ventas de la planilla del equipo comercial, ya en formato del CRM: body {ventas:[...]}; ?aplicar=1 para escribir
     if (paso === 'ventas_planilla') {
-      const { ventas } = await req.json();
-      return Response.json(await importarVentasPlanilla(ventas || [], { aplicar: new URL(req.url).searchParams.get('aplicar') === '1' }));
+      const { ventas, cancelar } = await req.json();
+      return Response.json(await importarVentasPlanilla(ventas || [], { aplicar: new URL(req.url).searchParams.get('aplicar') === '1', cancelar: cancelar || [] }));
     }
     if (paso === 'base_oficial') {
       const { filas } = await req.json();

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { C, CRMS } from "../constants";
 import { Card, Btn, Badge, Stat, EmptyState, inp } from "../components/UI";
 import { hoyISO, mesDe } from "../cuotas";
-import { todosLosPagos, comisionCRM, cambiosDePago } from "../cobros";
+import { todosLosPagos, comisionCRM, comisionDe, baseSinIVA, cambiosDePago } from "../cobros";
 import { fmtMoneda, fmtTotales, sumarPorMoneda } from "../moneda";
 
 // Comisiones de los CRM: cuando el cliente es del CRM (Tera, Tokko, Casasweb…), se le paga un porcentaje (6% por
@@ -30,7 +30,7 @@ export default function ComisionesCRM({ sales, currentUser, onUpdateSale }) {
       crm: c, clientes: new Set(conComision.filter(v => v.crm === c).map(v => v.inmobiliaria)).size,
       pendiente: sumarPorMoneda(ps.filter(p => !p.crm_pagado), p => p.comision),
       pagado: sumarPorMoneda(ps.filter(p => p.crm_pagado), p => p.comision),
-      futuro: sumarPorMoneda(aCobrar.filter(p => p.venta.crm === c), p => Math.round(p.monto * (Number(p.venta.comision_crm_pct) || 6)) / 100),
+      futuro: sumarPorMoneda(aCobrar.filter(p => p.venta.crm === c), comisionDe),
     };
   }).filter(x => x.clientes);
 
@@ -57,7 +57,7 @@ export default function ComisionesCRM({ sales, currentUser, onUpdateSale }) {
       const XLSX = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs");
       const filas = lista.map(p => ({
         CRM: p.venta.crm, Inmobiliaria: p.venta.inmobiliaria, Pago: p.contado ? "Contado" : `Cuota ${p.numero}/${p.venta.num_cuotas}`,
-        "Fecha de cobro": p.fecha_pago || p.fecha, Moneda: p.moneda, "Monto cobrado": p.monto, "%": Number(p.venta.comision_crm_pct) || 6,
+        "Fecha de cobro": p.fecha_pago || p.fecha, Moneda: p.moneda, "Monto cobrado": p.monto, "Base sin IVA": Math.round(baseSinIVA(p)), "%": Number(p.venta.comision_crm_pct) || 6,
         Comisión: p.comision, "Pagado al CRM": p.crm_pagado ? `Sí (${p.crm_pagado_fecha})` : "No",
       }));
       const wb = XLSX.utils.book_new();
@@ -73,7 +73,7 @@ export default function ComisionesCRM({ sales, currentUser, onUpdateSale }) {
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: C.black }}>Comisiones CRM</div>
           <div style={{ fontSize: 13, color: C.gray500, marginTop: 2, maxWidth: 720 }}>
-            Cuando el cliente es de un CRM, se le paga un porcentaje de cada pago cobrado. Lo pendiente se acumula hasta que se le paga al CRM.
+            Cuando el cliente es de un CRM, se le paga un porcentaje de cada pago cobrado, sin IVA. Lo pendiente se acumula hasta que se le paga al CRM.
             Qué ventas pagan comisión se marca en la venta.
           </div>
         </div>
