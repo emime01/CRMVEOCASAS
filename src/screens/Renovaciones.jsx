@@ -3,6 +3,8 @@ import { C, fmt, USERS, CANALES_GESTION, MENSAJE_RENOVACION } from "../constants
 import { Card, Btn, Badge, Field, Grid2, Stat, Modal, ModalHeader, ModalBody, ModalFooter, EmptyState, inp } from "../components/UI";
 import { numeroWhatsapp, nombreUsuario, fechaCorta } from "../prospectos";
 import { hoyISO } from "../cuotas";
+import { linkCalendario } from "../seguimientos";
+import { BotonCalendario } from "./Inmobiliarias";
 import { renovaciones, registrarGestionRenovacion, ESTADOS_RENOVACION, RESULTADOS_RENOVACION, MOTIVOS_NO_RENUEVA, DIAS_ANTES, DIAS_DESPUES } from "../renovaciones";
 
 // Ventas que vencen o vencieron hace poco: el vendedor contacta, registra cómo va y crea la venta de renovación.
@@ -122,6 +124,8 @@ function Tarjeta({ r, usuario, onGestion, onRenovar }) {
         <div style={{ fontSize: 11, color: vencido && abierta ? C.red : C.gray500, marginTop: 8 }}>
           Última: {ug.canal} · {RESULTADOS_RENOVACION.find(x => x.id === ug.resultado)?.label} · {fechaCorta(ug.fecha)}
           {ug.proximoContacto && abierta && ` · volver el ${fechaCorta(ug.proximoContacto)}`}
+          {ug.proximoContacto && abierta && ug.proximoContacto >= hoyISO() &&
+            <a href={linkCalendario({ nombre: v.inmobiliaria, fecha: ug.proximoContacto, telefono: v.telefono, nota: ug.nota, tipo: "renovacion", vendedor: v.ejecutivo })} target="_blank" rel="noreferrer" style={{ marginLeft: 6, color: C.red, fontWeight: 600, textDecoration: "none" }}>📅 Agendar</a>}
           {ug.nota && <div style={{ color: C.gray600, marginTop: 2 }}>“{ug.nota}”</div>}
         </div>
       )}
@@ -172,9 +176,10 @@ function ModalGestion({ r, onClose, onGuardar }) {
         </div>
         {["contactado", "volver", "renueva"].includes(f.resultado) && (
           <div style={{ marginTop: 12 }}>
-            <Field label="Próximo contacto" hint="La tarjeta se marca en rojo cuando llega la fecha.">
+            <Field label="Próximo contacto" hint="Ese día aparece en tu panel y la tarjeta se marca en rojo.">
               <input type="date" value={f.proximoContacto} min={hoyISO()} onChange={set("proximoContacto")} style={inp} />
             </Field>
+            {f.proximoContacto && <div style={{ marginTop: 8 }}><BotonCalendario href={linkCalendario({ nombre: r.venta.inmobiliaria, fecha: f.proximoContacto, telefono: r.venta.telefono, nota: f.nota, tipo: "renovacion", vendedor: r.venta.ejecutivo })} /></div>}
           </div>
         )}
         {f.resultado === "renueva" && (

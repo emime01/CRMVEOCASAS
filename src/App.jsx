@@ -5,7 +5,7 @@ import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuar
 import { C, fmt, USERS, TABS, daysUntil, getWeekDates, cantidadDe } from "./constants";
 import CambiarClave from "./components/CambiarClave";
 import Layout from "./components/Layout";
-import { cuotasDelMes, mesActual } from "./cuotas";
+import { cuotasDelMes, mesActual, hoyISO } from "./cuotas";
 import Inmobiliarias from "./screens/Inmobiliarias";
 import Renovaciones from "./screens/Renovaciones";
 import { borradorRenovacion, marcarRenovada } from "./renovaciones";
@@ -27,7 +27,8 @@ import Competencias from "./screens/Competencias";
 import Metricas from "./screens/Metricas";
 import KPIs, { kpisDe } from "./screens/KPIs";
 import Producciones from "./screens/Producciones";
-import { COL_PROSPECTOS, marcarCliente } from "./prospectos";
+import { COL_PROSPECTOS, marcarCliente, fechaCorta, nombreUsuario } from "./prospectos";
+import { pendientes } from "./seguimientos";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -153,6 +154,8 @@ export default function App() {
   const [prospectos, setProspectos] = useState(null);
   const [cargandoProspectos, setCargandoProspectos] = useState(false);
   const [saleDraft, setSaleDraft] = useState(null); // venta nueva precargada desde un prospecto
+  const [inmoFiltro, setInmoFiltro] = useState(null); // Inmobiliarias abre filtrada al venir desde el aviso del panel
+  const irA = (id, filtro = null) => { setInmoFiltro(filtro); setTab(id); window.scrollTo(0, 0); };
   const cargarProspectos = async () => {
     setCargandoProspectos(true);
     const p = await getAll(COL_PROSPECTOS);
@@ -254,6 +257,14 @@ export default function App() {
   const getObjetivosVendedor = (uid) => objetivos.filter(o=>o.ejecutivo===uid&&o.anio===currentAnio).sort((a,b)=>a.q-b.q);
   const myObjetivo = (uid) => objetivos.find(o=>o.ejecutivo===uid&&o.q===currentQ&&o.anio===currentAnio)?.objetivo||0;
   // KPIs automáticos (src/screens/KPIs.jsx): salen de las gestiones de las inmobiliarias y de las ventas
+  // Seguimientos con fecha que ya llegó: el vendedor ve los suyos, la gerencia los de todos
+  const seguimientos = useMemo(() => user && prospectos && ["vendedor","gerente"].includes(user.role)
+    ? pendientes(sales, prospectos, user.role === "vendedor" ? user.id : null) : [], [user, prospectos, sales]);
+  const avisos = useMemo(() => ({
+    inmobiliarias: seguimientos.filter(s => s.tipo === "inmobiliaria").length,
+    renovaciones: seguimientos.filter(s => s.tipo === "renovacion").length,
+  }), [seguimientos]);
+  const hoyLocal = hoyISO();
   const gestionesTodas = useMemo(()=>(prospectos||[]).flatMap(l=>(l.gestiones||[]).map(g=>({...g,leadId:l.id}))),[prospectos]);
   const myKpi = (uid,week) => {
     const k = kpisDe(uid,getWeekDates(week),gestionesTodas,sales);
@@ -503,6 +514,64 @@ export default function App() {
     );
   };
 
+
+  // Vendedor: lo que tiene para contactar hoy (o atrasado)
+  const ParaContactarHoy = () => {
+    if (!prospectos) return null;
+    if (!seguimientos.length) return (
+      <Card style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 20 }}>✅</span><span style={{ fontSize: 13, color: C.gray600 }}>No tenés seguimientos pendientes para hoy.</span>
+      </Card>
+    );
+    const atrasados = seguimientos.filter(s => s.fecha < hoyLocal).length;
+    return (
+      <Card style={{ marginBottom: 20, border: `1px solid ${C.red}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: C.black }}>📞 Para contactar hoy: {seguimientos.length}{atrasados > 0 && <span style={{ color: C.red, fontWeight: 600, fontSize: 13 }}> · {atrasados} atrasado{atrasados !== 1 ? "s" : ""}</span>}</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {avisos.inmobiliarias > 0 && <Btn size="sm" variant="primary" onClick={() => irA("inmobiliarias", { vista: "hoy" })}>Ver inmobiliarias ({avisos.inmobiliarias})</Btn>}
+            {avisos.renovaciones > 0 && <Btn size="sm" onClick={() => irA("renovaciones")}>Ver renovaciones ({avisos.renovaciones})</Btn>}
+          </div>
+        </div>
+        {seguimientos.slice(0, 8).map(s => (
+          <div key={`${s.tipo}_${s.id}`} onClick={() => irA(s.tipo === "renovacion" ? "renovaciones" : "inmobiliarias", s.tipo === "renovacion" ? null : { vista: "hoy" })}
+            style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "7px 0", borderTop: `1px solid ${C.gray100}`, cursor: "pointer", fontSize: 13 }}>
+            <div style={{ minWidth: 0 }}>
+              <strong>{s.nombre}</strong>{s.tipo === "renovacion" && <span style={{ marginLeft: 6 }}><Badge color="amber">Renovación</Badge></span>}
+              {s.nota && <div style={{ fontSize: 12, color: C.gray500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{s.nota}”</div>}
+            </div>
+            <div style={{ fontSize: 12, whiteSpace: "nowrap", color: s.fecha < hoyLocal ? C.red : C.gray600, fontWeight: s.fecha < hoyLocal ? 600 : 400 }}>{s.fecha < hoyLocal ? `desde el ${fechaCorta(s.fecha)}` : "hoy"}</div>
+          </div>
+        ))}
+        {seguimientos.length > 8 && <div style={{ fontSize: 12, color: C.gray500, paddingTop: 6 }}>y {seguimientos.length - 8} más…</div>}
+      </Card>
+    );
+  };
+
+  // Gerencia: cuántos seguimientos tiene pendientes cada vendedor
+  const SeguimientosEquipo = () => {
+    if (!prospectos || !seguimientos.length) return null;
+    const porVendedor = [...seguimientos.reduce((m, s) => m.set(s.vendedor || "", [...(m.get(s.vendedor || "") || []), s]), new Map())]
+      .sort((a, b) => b[1].length - a[1].length);
+    return (
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: C.gray700, marginBottom: 10 }}>📞 Seguimientos para hoy del equipo: {seguimientos.length}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {porVendedor.map(([uid, l]) => {
+            const atr = l.filter(s => s.fecha < hoyLocal).length;
+            return (
+              <button key={uid || "sin"} onClick={() => irA("inmobiliarias", { vista: "hoy", vendedor: uid || "sin" })}
+                style={{ border: `1px solid ${atr ? C.red : C.gray200}`, background: C.white, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.black }}>{uid ? nombreUsuario(uid) : "Sin vendedor"}: {l.length}</div>
+                {atr > 0 && <div style={{ fontSize: 11, color: C.red }}>{atr} atrasado{atr !== 1 ? "s" : ""}</div>}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+    );
+  };
+
   // ── SCREENS ───────────────────────────────────────────────
   const DashboardVendedor = () => {
     const lastKpi=myKpi(user.id,0);
@@ -521,6 +590,7 @@ export default function App() {
           <Stat label="Facturación total" value={fmt(totalVentas)}/>
           <Stat label="Concreción" value={`${lastKpi.concrecion||0}%`} sub="Esta semana"/>
         </div>
+        <ParaContactarHoy/>
 
         {/* Objetivos Q */}
         {qAsignados.length>0?(
@@ -649,6 +719,7 @@ export default function App() {
           <Stat label="Modificaciones pendientes" value={pending.length} color={pending.length>0?C.amber:C.green} alert={pending.length>0}/>
           <Stat label="Alertas vencimiento" value={alertas.length} color={alertas.length>0?C.red:C.green} alert={alertas.length>0}/>
         </div>
+        <SeguimientosEquipo/>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:16,marginBottom:24}}>
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Facturación por semana</div><BarChart data={weeklyTeam} height={110}/></Card>
           <Card>
@@ -893,7 +964,7 @@ export default function App() {
     comisiones:<Comisiones sales={sales} comisiones={comisiones} onUpdateComision={updateComision} currentUser={user}/>,
     facturacion:<CobrosFacturacion sales={sales} currentUser={user} onUpdateSale={handleUpdateSale}/>,
     renovaciones:<Renovaciones sales={sales} setSales={setSales} inmobiliarias={prospectos} cargarInmobiliarias={cargarProspectos} currentUser={user} onRenovar={v=>setSaleDraft(borradorRenovacion(v))}/>,
-    inmobiliarias:<Inmobiliarias currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos} sales={sales} onCrearVenta={crearVentaDesde}/>,
+    inmobiliarias:<Inmobiliarias currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos} sales={sales} onCrearVenta={crearVentaDesde} vistaInicial={inmoFiltro?.vista} vendedorInicial={inmoFiltro?.vendedor}/>,
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
     reportes:<Reportes sales={sales} vistaInicial={user.role==="admin"?"administracion":"comercial"}/>,
@@ -907,7 +978,7 @@ export default function App() {
 
   return (
     <div style={{fontFamily:"'Montserrat', sans-serif"}}>
-      <Layout tabs={currentTabs} tab={tab} setTab={setTab} user={user} onPassword={()=>setCambiandoClave(true)} onLogout={logout}>
+      <Layout tabs={currentTabs} tab={tab} setTab={id=>irA(id)} avisos={avisos} user={user} onPassword={()=>setCambiandoClave(true)} onLogout={logout}>
         {loading?<Spinner/>:(screens[tab]||<EmptyState icon="🔍" title="Sección no encontrada"/>)}
       </Layout>
       {detailSale&&(

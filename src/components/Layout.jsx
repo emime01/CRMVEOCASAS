@@ -22,7 +22,8 @@ const agrupar = tabs => {
   return [...grupos, { titulo: "Otros", items: otros }].filter(g => g.items.length);
 };
 
-export default function Layout({ tabs, tab, setTab, user, onPassword, onLogout, children }) {
+// avisos: { idDePestaña: cantidad } → número rojo al lado (ej. seguimientos para hoy)
+export default function Layout({ tabs, tab, setTab, user, onPassword, onLogout, children, avisos = {} }) {
   const [abierto, setAbierto] = useState(false);
   const grupos = agrupar(tabs);
   const actual = tabs.find(t => t.id === tab);
@@ -40,11 +41,13 @@ export default function Layout({ tabs, tab, setTab, user, onPassword, onLogout, 
               return (
                 <button key={t.id} onClick={() => ir(t.id)} className="vc-item"
                   style={{
-                    display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 8, border: "none",
+                    width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 8, border: "none",
                     background: activo ? "rgba(242,0,0,0.16)" : "transparent", color: activo ? "#ff4d4d" : "rgba(255,255,255,0.75)",
                     fontSize: 13, fontWeight: activo ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
                   }}>
-                  {t.label}
+                  <span>{t.label}</span>
+                  {avisos[t.id] > 0 && <span title="Para contactar hoy" style={{ background: C.red, color: C.white, borderRadius: 10, fontSize: 10, fontWeight: 700, padding: "1px 7px", minWidth: 18, textAlign: "center" }}>{avisos[t.id]}</span>}
                 </button>
               );
             })}

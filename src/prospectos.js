@@ -10,10 +10,11 @@ const A_MANUAL = ["nuevo","listo","sin_email","sin_respuesta","no_interesado","e
 
 export const fechaCorta = v => {
   if(!v) return "";
-  const d = typeof v.toDate === "function" ? v.toDate() : new Date(v);
+  // "2026-11-23" sola se toma como fecha local (new Date la lee en UTC y en Uruguay daría el día anterior)
+  const d = typeof v.toDate === "function" ? v.toDate() : /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T12:00:00`) : new Date(v);
   return isNaN(d) ? "" : d.toLocaleDateString("es-UY",{day:"numeric",month:"short"});
 };
-export const hoyISO = () => new Date().toISOString().split("T")[0];
+export const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }; // fecha local
 export const nombreUsuario = id => USERS.find(u=>u.id===id)?.name || id || "";
 
 // WhatsApp: el número guardado o un celular uruguayo del teléfono (09X XXX XXX)

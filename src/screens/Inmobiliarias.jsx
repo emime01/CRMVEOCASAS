@@ -5,6 +5,7 @@ import { asignar, registrarGestion, linkWhatsapp, fechaCorta, nombreUsuario } fr
 import { ESTADOS_COMERCIALES, indexarVentas, ventasDe, estadoComercial, guardarFicha, crearInmobiliaria } from "../inmobiliarias";
 import { hoyISO } from "../cuotas";
 import { fmtMoneda } from "../moneda";
+import { linkCalendario } from "../seguimientos";
 
 // Base de inmobiliarias: todas en una lista, con su vendedor y su estado (cliente, ex cliente, prospecto).
 // La gerente ve todas, asigna y reasigna; cada vendedor ve las suyas. Al abrir una se ve su ficha completa.
@@ -14,15 +15,16 @@ const POR_PAGINA = 100;
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const proximo = l => l.ultimaGestion?.proximoContacto || "";
 
-export default function Inmobiliarias({ currentUser, prospectos, setProspectos, cargar, cargando, sales, onCrearVenta }) {
+// vistaInicial / vendedorInicial: para llegar filtrado desde el aviso del panel ("para contactar hoy")
+export default function Inmobiliarias({ currentUser, prospectos, setProspectos, cargar, cargando, sales, onCrearVenta, vistaInicial = "todas", vendedorInicial = "" }) {
   const esGerente = currentUser.role === "gerente";
   const esVendedor = currentUser.role === "vendedor";
   const puedeEditar = esGerente || esVendedor;
   const [q, setQ] = useState("");
   const [estado, setEstado] = useState("");
-  const [vendedor, setVendedor] = useState(esVendedor ? currentUser.id : "");
+  const [vendedor, setVendedor] = useState(esVendedor ? currentUser.id : vendedorInicial);
   const [depto, setDepto] = useState("");
-  const [vista, setVista] = useState("todas"); // todas | hoy | sin_gestion
+  const [vista, setVista] = useState(vistaInicial); // todas | hoy | sin_gestion
   const [sel, setSel] = useState(new Set());
   const [destino, setDestino] = useState(ASIGNABLES[0]);
   const [pagina, setPagina] = useState(1);
@@ -278,13 +280,19 @@ function Ficha({ x, currentUser, puedeEditar, esGerente, onClose, onCambios, onC
               <Field label="Nota"><input value={g.nota} onChange={e => setG(v => ({ ...v, nota: e.target.value }))} style={inp} placeholder="Qué te dijeron, con quién hablaste…" /></Field>
               <Field label="Volver a contactar el"><input type="date" value={g.proximoContacto} min={hoyISO()} onChange={e => setG(v => ({ ...v, proximoContacto: e.target.value }))} style={inp} /></Field>
             </Grid2>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}><Btn size="sm" variant="primary" disabled={guardando} onClick={gestionar}>Registrar gestión</Btn></div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              {g.proximoContacto && <BotonCalendario href={linkCalendario({ nombre: l.nombre, fecha: g.proximoContacto, telefono: l.telefono, nota: g.nota, vendedor: l.asignadoA })} />}
+              <Btn size="sm" variant="primary" disabled={guardando} onClick={gestionar}>Registrar gestión</Btn>
+            </div>
           </div>
         )}
         {[...(l.gestiones || [])].reverse().map((h, i) => (
           <div key={i} style={{ fontSize: 12, color: C.gray600, padding: "4px 0", borderBottom: `1px solid ${C.gray100}` }}>
             <strong>{fechaCorta(h.fecha)}</strong> · {h.canal} · {RESULTADOS_GESTION.find(r => r.id === h.resultado)?.label} · {nombreUsuario(h.por)}
             {h.nota && <span style={{ color: C.gray500 }}> — “{h.nota}”</span>}
+            {h.proximoContacto && <span> · volver el {fechaCorta(h.proximoContacto)}</span>}
+            {h.proximoContacto && h.proximoContacto >= hoyISO() && i === 0 &&
+              <a href={linkCalendario({ nombre: l.nombre, fecha: h.proximoContacto, telefono: l.telefono, nota: h.nota, vendedor: l.asignadoA })} target="_blank" rel="noreferrer" style={{ marginLeft: 6, color: C.red, fontWeight: 600, textDecoration: "none" }}>📅 Agendar</a>}
           </div>
         ))}
         {!(l.gestiones || []).length && <div style={{ fontSize: 12, color: C.gray400 }}>Sin gestiones todavía.</div>}
@@ -302,6 +310,13 @@ function Ficha({ x, currentUser, puedeEditar, esGerente, onClose, onCambios, onC
     </Modal>
   );
 }
+
+// Abre Google Calendar con el recordatorio armado: el vendedor lo guarda y Google le avisa ese día
+export const BotonCalendario = ({ href }) => (
+  <a href={href} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }} title="Abre tu Google Calendar con el recordatorio armado">
+    <Btn size="sm">📅 Agregar a Google Calendar</Btn>
+  </a>
+);
 
 function NuevaInmobiliaria({ currentUser, esGerente, onClose, onCreada }) {
   const [f, setF] = useState({ nombre: "", telefono: "", email: "", departamento: "", asignadoA: esGerente ? "" : currentUser.id });
