@@ -23,7 +23,6 @@ import Presentaciones from "./screens/Presentaciones";
 import DashboardGeneral from "./screens/DashboardGeneral";
 import Ventas from "./screens/Ventas";
 import Reportes from "./screens/Reportes";
-import Competencias from "./screens/Competencias";
 import Metricas from "./screens/Metricas";
 import KPIs, { kpisDe } from "./screens/KPIs";
 import Producciones from "./screens/Producciones";
@@ -146,7 +145,6 @@ export default function App() {
   const [tareas, setTareas] = useState([]);
   const [documentos, setDocumentos] = useState([]);
   const [presentaciones, setPresentaciones] = useState([]);
-  const [competencias, setCompetencias] = useState([]);
   const [metricas, setMetricas] = useState([]);
   const [dispModal, setDispModal] = useState(null);
   const [editingProd, setEditingProd] = useState(new Set());
@@ -182,16 +180,16 @@ export default function App() {
   // ── LOGIN / LOGOUT ────────────────────────────────────────
   const login = async (u) => {
     setUser(u); setTab(defaultTab(u.role)); setLoading(true);
-    const [s,av,k,pr,po,inv,obj,com,rn,tk,tar,doc,pres,comp,met] = await Promise.all([
+    const [s,av,k,pr,po,inv,obj,com,rn,tk,tar,doc,pres,met] = await Promise.all([
       getAll("ventas","created_at"), getAll("disponibilidad"), getAll("kpis"),
       getAll("producciones","created_at"), getAll("posts_social","fecha"),
       getAll("facturas","created_at"), getAll("objetivos"), getAll("comisiones"), getAll("runs"),
       getAll("tickets","created_at"), getAll("tareas","created_at"), getAll("documentos","created_at"),
-      getAll("presentaciones","created_at"), getAll("competencias","fecha"), getAll("metricas_ads","created_at"),
+      getAll("presentaciones","created_at"), getAll("metricas_ads","created_at"),
     ]);
     setSales(s); setKpis(k); setProductions(pr); setPosts(po); setInvoices(inv);
     setObjetivos(obj); setRuns(rn||[]); setTickets(tk||[]); setTareas(tar||[]);
-    setDocumentos(doc||[]); setPresentaciones(pres||[]); setCompetencias(comp||[]); setMetricas(met||[]);
+    setDocumentos(doc||[]); setPresentaciones(pres||[]); setMetricas(met||[]);
     if(com.length>0){const c=com[0];setComisiones({vendedores:c.vendedores||{},gerente:c.gerente||0,crm:c.crm||0});}
     if(av.length===0){for(const d of INIT_DISP) await upsertItem("disponibilidad",d.id,d);setAvailability(INIT_DISP);}
     else setAvailability(av);
@@ -235,7 +233,7 @@ export default function App() {
     setUser(null); setSales([]); setAvailability([]); setKpis([]);
     setProductions([]); setPosts([]); setInvoices([]); setObjetivos([]); setRuns([]);
     setTickets([]); setTareas([]); setDocumentos([]); setPresentaciones([]);
-    setCompetencias([]); setMetricas([]); setProspectos(null); setSaleDraft(null);
+    setMetricas([]); setProspectos(null); setSaleDraft(null);
   };
 
   // ── HELPERS ───────────────────────────────────────────────
@@ -968,8 +966,7 @@ export default function App() {
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
     reportes:<Reportes sales={sales} vistaInicial={user.role==="admin"?"administracion":"comercial"}/>,
-    reportes_ggeneral:<Reportes sales={sales}/>,
-    competencias:<Competencias competencias={competencias} setCompetencias={setCompetencias} currentUser={user}/>,
+    reportes_ggeneral:<Reportes sales={sales} soloComercial/>,
     tickets:<Tickets tickets={tickets} setTickets={setTickets} currentUser={user}/>,
     tareas:<Tareas tareas={tareas} setTareas={setTareas} currentUser={user}/>,
     documentos:<Documentos documentos={documentos} setDocumentos={setDocumentos} currentUser={user}/>,

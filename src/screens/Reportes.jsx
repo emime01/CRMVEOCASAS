@@ -14,7 +14,8 @@ function qRange(q,anio=currentAnio){
   return [new Date(anio,(q-1)*3,1).toISOString().split("T")[0], new Date(anio,q*3,0).toISOString().split("T")[0]];
 }
 
-export default function Reportes({ sales, vistaInicial = "comercial" }) {
+// soloComercial: el gerente general ve ventas por vendedor y trimestre, no la parte de administración
+export default function Reportes({ sales, vistaInicial = "comercial", soloComercial = false }) {
   const [vista, setVista] = useState(vistaInicial);
   const [anio, setAnio] = useState(currentAnio);
   const [lastExport, setLastExport] = useState(null);
@@ -108,12 +109,12 @@ export default function Reportes({ sales, vistaInicial = "comercial" }) {
         </div>}
       </div>
 
-      <div style={{display:"flex",gap:6,marginBottom:16}}>
+      {!soloComercial&&<div style={{display:"flex",gap:6,marginBottom:16}}>
         {[["comercial","Comercial"],["administracion","Administración"]].map(([k,l])=>(
           <Btn key={k} size="sm" variant={vista===k?"primary":"outline"} onClick={()=>setVista(k)}>{l}</Btn>
         ))}
-      </div>
-      {vista==="administracion" ? <ReportesAdmin sales={sales}/> : <>
+      </div>}
+      {vista==="administracion"&&!soloComercial ? <ReportesAdmin sales={sales}/> : <>
 
       {/* Q chart */}
       <Card style={{marginBottom:20}}>

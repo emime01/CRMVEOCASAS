@@ -61,7 +61,7 @@ export const datosDemo = () => {
   return {
     ventas, clientes, prospeccion_leads,
     kpis: [], producciones: [], posts_social: [], facturas: [], comisiones: [], runs: [], documentos: [], presentaciones: [],
-    competencias: [], metricas_ads: [], disponibilidad: [],
+    metricas_ads: [], disponibilidad: [],
     objetivos: VENDEDORES.map((v, i) => ({ id: `o${i}`, ejecutivo: v, objetivo: 400000, q: Math.ceil((hoy.getMonth() + 1) / 3), anio: hoy.getFullYear() })),
     tickets: [{ id: "t1", titulo: "Cuota lista para facturar", descripcion: "Cuota 2/3 de García Propiedades.", de: "paty", para: "admin", estado: "pendiente", created_at: dia(-2) }],
     tareas: [{ id: "ta1", titulo: "Llamar a Casas del Sur", asignado: "sebastian", estado: "pendiente", fecha: dia(2), created_at: dia(-1) }],
