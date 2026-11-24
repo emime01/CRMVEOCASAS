@@ -388,7 +388,7 @@ export default function App() {
   if(!user) return (
     <div style={{minHeight:"100vh",background:C.white,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
       <div style={{marginBottom:"2rem",textAlign:"center"}}>
-        <div style={{fontSize:36,fontWeight:800,color:C.red,letterSpacing:"-0.5px",marginBottom:4}}>veocasas</div>
+        <img src="/logo-veocasas.png" alt="veocasas" style={{display:"block",width:240,maxWidth:"70vw",height:"auto",margin:"0 auto 12px"}}/>
         <div style={{color:C.gray500,fontSize:14,fontWeight:400}}>CRM Comercial</div>
       </div>
       <form onSubmit={entrar} style={{background:C.white,borderRadius:16,padding:"2rem",width:"100%",maxWidth:380,border:`1px solid ${C.gray200}`,display:"flex",flexDirection:"column",gap:14}}>

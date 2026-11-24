@@ -31,7 +31,7 @@ export default function Layout({ tabs, tab, setTab, user, onPassword, onLogout, 
 
   const menu = (
     <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "18px 20px 14px", fontSize: 20, fontWeight: 800, color: C.red, letterSpacing: "-0.5px" }}>veocasas</div>
+      <div style={{ padding: "20px 20px 16px" }}><img src="/logo-veocasas.png" alt="veocasas" style={{ display: "block", width: 128, height: "auto" }} /></div>
       <div style={{ flex: 1, overflowY: "auto", padding: "0 10px 12px" }}>
         {grupos.map(g => (
           <div key={g.titulo} style={{ marginBottom: 14 }}>
@@ -94,7 +94,7 @@ export default function Layout({ tabs, tab, setTab, user, onPassword, onLogout, 
         <header className="vc-barra" style={{ position: "sticky", top: 0, zIndex: 50, height: 52, background: "#1c1c1c", alignItems: "center", gap: 12, padding: "0 12px" }}>
           <button onClick={() => setAbierto(true)} aria-label="Abrir menú"
             style={{ width: 36, height: 36, border: "none", borderRadius: 8, background: "rgba(255,255,255,0.08)", color: C.white, fontSize: 18, cursor: "pointer" }}>☰</button>
-          <span style={{ fontSize: 16, fontWeight: 800, color: C.red, letterSpacing: "-0.5px" }}>veocasas</span>
+          <img src="/logo-veocasas.png" alt="veocasas" style={{ display: "block", width: 96, height: "auto", flexShrink: 0 }} />
           <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{actual?.label}</span>
         </header>
         <main className="vc-pantalla">{children}</main>
