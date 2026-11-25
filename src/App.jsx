@@ -7,6 +7,7 @@ import CambiarClave from "./components/CambiarClave";
 import Layout from "./components/Layout";
 import { cuotasDelMes, mesActual, hoyISO } from "./cuotas";
 import Inmobiliarias from "./screens/Inmobiliarias";
+import Gestiones from "./screens/Gestiones";
 import Renovaciones from "./screens/Renovaciones";
 import { borradorRenovacion, marcarRenovada } from "./renovaciones";
 import { buscarInmobiliaria, crearInmobiliaria } from "./inmobiliarias";
@@ -1020,6 +1021,7 @@ export default function App() {
     facturacion:<CobrosFacturacion sales={sales} currentUser={user} onUpdateSale={handleUpdateSale}/>,
     renovaciones:<Renovaciones sales={sales} setSales={setSales} inmobiliarias={prospectos} cargarInmobiliarias={cargarProspectos} currentUser={user} onRenovar={v=>setSaleDraft(borradorRenovacion(v))}/>,
     inmobiliarias:<Inmobiliarias currentUser={user} prospectos={prospectos} setProspectos={setProspectos} cargar={cargarProspectos} cargando={cargandoProspectos} sales={sales} onCrearVenta={crearVentaDesde} vistaInicial={inmoFiltro?.vista} vendedorInicial={inmoFiltro?.vendedor}/>,
+    gestiones:<Gestiones currentUser={user} prospectos={prospectos} cargar={cargarProspectos} cargando={cargandoProspectos} sales={sales}/>,
     assets:<EmptyState icon="📁" title="Assets" desc="En desarrollo"/>,
     metricas:<Metricas metricas={metricas} setMetricas={setMetricas} currentUser={user}/>,
     reportes:<Reportes sales={sales} vistaInicial={user.role==="admin"?"administracion":"comercial"}/>,

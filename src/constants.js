@@ -100,6 +100,7 @@ export const TABS = {
     {id:"dashboard",label:"Dashboard"},
     {id:"ventas",label:"Mis ventas"},
     {id:"inmobiliarias",label:"Mis inmobiliarias"},
+    {id:"gestiones",label:"Mis gestiones"},
     {id:"renovaciones",label:"Renovaciones"},
     {id:"cobros",label:"Mis cobros"},
     {id:"kpis",label:"KPIs"},
@@ -114,6 +115,7 @@ export const TABS = {
     {id:"dashboard_gerente",label:"Dashboard"},
     {id:"ventas",label:"Ventas"},
     {id:"inmobiliarias",label:"Inmobiliarias"},
+    {id:"gestiones",label:"Gestiones"},
     {id:"renovaciones",label:"Renovaciones"},
     {id:"kpis",label:"KPIs"},
     {id:"facturacion",label:"Cobros y facturación"},
@@ -147,6 +149,7 @@ export const TABS = {
     {id:"dashboard_ggeneral",label:"Dashboard"},
     {id:"ventas_ggeneral",label:"Ventas"},
     {id:"inmobiliarias",label:"Inmobiliarias"},
+    {id:"gestiones",label:"Gestiones"},
     {id:"reportes_ggeneral",label:"Reportes"}, // solo la vista comercial: cobros, facturación y comisiones son de Administración y Mika
   ],
 };

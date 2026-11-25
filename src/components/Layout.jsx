@@ -4,7 +4,7 @@ import { C } from "../constants";
 // Estructura de todas las pantallas: menú lateral agrupado por área (en el celular, un menú desplegable)
 // y el contenido centrado con un ancho máximo común.
 const AREAS = [
-  { titulo: "Comercial", ids: ["dashboard", "dashboard_gerente", "dashboard_ggeneral", "ventas", "ventas_ggeneral", "inmobiliarias", "renovaciones", "kpis", "reportes_ggeneral"] },
+  { titulo: "Comercial", ids: ["dashboard", "dashboard_gerente", "dashboard_ggeneral", "ventas", "ventas_ggeneral", "inmobiliarias", "gestiones", "renovaciones", "kpis", "reportes_ggeneral"] },
   { titulo: "Administración", ids: ["facturacion", "cobros", "comisiones_crm", "comisiones", "reportes", "correccion_fechas"] },
   { titulo: "Marketing y operaciones", ids: ["producciones", "disponibilidad", "social", "assets", "metricas", "presentaciones", "documentos"] },
   { titulo: "Equipo", ids: ["tareas", "tickets"] },

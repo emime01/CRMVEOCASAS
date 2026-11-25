@@ -46,7 +46,7 @@ export const datosDemo = () => {
   const estados = ["listo", "en_secuencia", "derivado", "sin_respuesta", "no_interesado", "sin_email", "manual", "cliente", "ex_cliente"];
   const fichas = NOMBRES.map((nombre, i) => ({
     id: `l${i}`, nombre, estado: "cliente", asignadoA: VENDEDORES[i % 4], departamento: ["Montevideo", "Maldonado"][i % 2],
-    telefono: `09${pad(i)} 100 200`, email: `info@cliente${i}.uy`,
+    telefono: `09${pad(i)} 100 200`, email: `info@cliente${i}.uy`, crm_usa: ["Tokko", "Tera", ""][i % 3],
     gestiones: i % 2 ? [] : [{ canal: "WhatsApp", resultado: i % 4 ? "reunion_agendada" : "contactado", nota: "Habló con la dueña", fecha: dia(-1) + "T15:00:00", por: VENDEDORES[i % 4] }],
   }));
   const prospeccion_leads = fichas.concat(Array.from({ length: 60 }, (_, i) => ({
