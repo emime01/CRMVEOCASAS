@@ -4,6 +4,7 @@ import { Card, Btn, Badge, Stat, EmptyState, inp } from "../components/UI";
 import { hoyISO, mesActual, mesDe } from "../cuotas";
 import { todosLosPagos, estadoPago, ESTADOS_PAGO, cambiosDePago } from "../cobros";
 import { fmtMoneda, fmtTotales, sumarPorMoneda } from "../moneda";
+import { crearAutomatica, cerrarAutomaticas } from "../tareas";
 
 // Cobros y facturación: una sola lista con todo lo que hay que cobrar (cuotas y ventas al contado).
 // Administración carga el número de factura y marca lo cobrado; la gerencia consulta; cada vendedor ve sus
@@ -58,7 +59,16 @@ export default function CobrosFacturacion({ sales, currentUser, onUpdateSale }) 
   const guardar = async (p, cambios) => {
     setGuardando(p.clave);
     await onUpdateSale(p.venta.id, cambiosDePago(p.venta, p, cambios));
+    await tareaDePago(p, cambios).catch(console.error);
     setGuardando(null);
+  };
+  // Tarea automática: el vendedor avisa que el cliente pagó → tarea para Administración, que pasa sola a Listo al marcarlo cobrado
+  const tareaDePago = async (p, cambios) => {
+    if (cambios.gestionado === true)
+      await crearAutomatica({ tipo: "aviso_pago", ref: p.clave, asignada_a: USERS.find(u => u.role === "admin")?.id, creada_por: currentUser.id,
+        titulo: `Confirmar pago de ${p.venta.inmobiliaria}${p.contado ? "" : ` (cuota ${p.numero})`}`,
+        descripcion: `${currentUser.name} avisó que el cliente pagó ${fmtMoneda(p.monto, p.moneda)}. Revisalo y marcalo cobrado en Cobros y facturación.` });
+    if (cambios.pagada === true) await cerrarAutomaticas("aviso_pago", p.clave, currentUser.id, "Pago confirmado");
   };
   // varias a la vez: se agrupan por venta para no pisar el detalle de cuotas
   const enGrupo = async cambios => {
@@ -70,6 +80,7 @@ export default function CobrosFacturacion({ sales, currentUser, onUpdateSale }) 
       let v = ps[0].venta, cambiosVenta = {};
       for (const p of ps) { const c = cambiosDePago(v, p, cambios); cambiosVenta = { ...cambiosVenta, ...c }; v = { ...v, ...c }; }
       await onUpdateSale(v.id, cambiosVenta);
+      for (const p of ps) await tareaDePago(p, cambios).catch(console.error);
     }
     setSel(new Set()); setGuardando(null);
   };

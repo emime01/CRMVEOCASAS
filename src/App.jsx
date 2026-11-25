@@ -28,7 +28,7 @@ import KPIs, { kpisDe } from "./screens/KPIs";
 import Producciones from "./screens/Producciones";
 import { COL_PROSPECTOS, marcarCliente, fechaCorta, nombreUsuario } from "./prospectos";
 import { pendientes } from "./seguimientos";
-import { porHacerDe, abierta, atrasada, frenada, estadoDe } from "./tareas";
+import { porHacerDe, abierta, atrasada, frenada, estadoDe, crearAutomatica, cerrarAutomaticas } from "./tareas";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -312,12 +312,37 @@ export default function App() {
       if(vieja){ const c=await marcarRenovada(vieja,data.id); setSales(prev=>prev.map(s=>s.id===vieja.id?{...s,...c}:s)); }
       if(parseInt(form.produccion_q)>0){
         const pd=await addItem("producciones",{cliente:form.inmobiliaria,ejecutivo:form.ejecutivo,produccion_q:parseInt(form.produccion_q),fecha:"",confirmado:false,venta_id:data.id});
-        if(pd) setProductions(prev=>[pd,...prev]);
+        if(pd){
+          setProductions(prev=>[pd,...prev]);
+          crearAutomatica({ tipo:"produccion", ref:pd.id, titulo:`Coordinar producción de ${form.inmobiliaria} (×${parseInt(form.produccion_q)})`,
+            descripcion:"Poné fecha, ciudad y comentario en Producciones y confirmala.", asignada_a:USERS.find(u=>u.role==="marketing")?.id, creada_por:form.ejecutivo }).catch(console.error);
+        }
       }
     }
     setSaving(false); setShowSaleForm(false);
   };
-  const handleUpdateSale = async (id,changes) => { await updateItem("ventas",id,changes); setSales(prev=>prev.map(s=>s.id===id?{...s,...changes}:s)); };
+  const handleUpdateSale = async (id,changes) => {
+    const antes = sales.find(s=>s.id===id);
+    await updateItem("ventas",id,changes); setSales(prev=>prev.map(s=>s.id===id?{...s,...changes}:s));
+    tareasDeVenta(antes,changes).catch(console.error);
+  };
+  // Tareas automáticas de los cambios en ventas: pedido de cambio → tarea para Mika; aprobado → tarea para el
+  // vendedor de hacer el cambio. Cada una pasa sola a Listo cuando se resuelve (o si se cancela la venta).
+  const tareasDeVenta = async (antes,c) => {
+    if(!antes) return;
+    const nombre = antes.inmobiliaria, gerente = USERS.find(u=>u.role==="gerente")?.id;
+    if(c.solicitud_modificacion===true && !antes.solicitud_modificacion)
+      await crearAutomatica({ tipo:"cambio_venta", ref:antes.id, titulo:`Revisar cambio en la venta de ${nombre}`,
+        descripcion:c.solicitud_motivo||"", asignada_a:gerente, creada_por:c.solicitud_por||user.id });
+    if(antes.solicitud_modificacion && !antes.modificacion_aprobada && (c.modificacion_aprobada===true||c.solicitud_modificacion===false||c.estado==="cancelada")){
+      await cerrarAutomaticas("cambio_venta", antes.id, user.id, c.estado==="cancelada"?"Venta cancelada":c.modificacion_aprobada?"Cambio aprobado":"Cambio rechazado");
+      if(c.modificacion_aprobada===true && c.estado!=="cancelada")
+        await crearAutomatica({ tipo:"editar_venta", ref:antes.id, titulo:`Hacer el cambio aprobado en la venta de ${nombre}`,
+          descripcion:antes.solicitud_motivo||"", asignada_a:antes.solicitud_por||antes.ejecutivo, creada_por:user.id });
+    }
+    if(antes.modificacion_aprobada && (c.modificacion_aprobada===false||c.estado==="cancelada"))
+      await cerrarAutomaticas("editar_venta", antes.id, user.id, c.estado==="cancelada"?"Venta cancelada":"Cambio guardado");
+  };
   const handleCancelSale = async (sale) => {
     if(!window.confirm(`¿Cancelar la venta de ${sale.inmobiliaria}?`)) return;
     await handleUpdateSale(sale.id,{estado:"cancelada",modificacion_aprobada:false,solicitud_modificacion:false});
@@ -718,7 +743,7 @@ export default function App() {
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {mySales.slice(0,3).map(s=>(
             <SaleCard key={s.id} sale={s} onClick={setDetailSale} showActions
-              onRequestEdit={id=>handleUpdateSale(id,{solicitud_modificacion:true})}/>
+              onRequestEdit={id=>pedirCambio(mySales.find(s=>s.id===id))}/>
           ))}
           {!mySales.length&&<EmptyState icon="📊" title="Sin ventas" desc="Registrá tu primera venta"/>}
         </div>

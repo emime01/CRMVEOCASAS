@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { updateItem, deleteItem } from "../firebase";
+import { cerrarAutomaticas } from "../tareas";
 import { C, USERS, CIUDADES } from "../constants";
 import { Card, Btn, Badge, EmptyState, inp, Modal, ModalHeader, ModalBody } from "../components/UI";
 
@@ -23,7 +24,10 @@ export default function Producciones({ currentUser, productions, setProductions,
   const puedeBorrar = p => ["marketing", "gerente"].includes(currentUser.role) || p.ejecutivo === currentUser.id;
   const borrar = async p => {
     if (!window.confirm(`¿Borrar la producción de ${p.cliente}${p.fecha ? ` del ${p.fecha}` : ""}? No se puede deshacer; la venta no cambia.`)) return;
-    if (await deleteItem("producciones", p.id)) setProductions(prev => prev.filter(x => x.id !== p.id));
+    if (await deleteItem("producciones", p.id)) {
+      setProductions(prev => prev.filter(x => x.id !== p.id));
+      cerrarAutomaticas("produccion", p.id, currentUser.id, "Producción borrada").catch(console.error);
+    }
     else window.alert("No se pudo borrar. Revisá la conexión y probá de nuevo.");
   };
 
@@ -78,7 +82,7 @@ export default function Producciones({ currentUser, productions, setProductions,
                     <input type="date" value={p.fecha||""} onChange={async e=>{await updateItem("producciones",p.id,{fecha:e.target.value});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,fecha:e.target.value}:x));}} style={{...inp,width:140,fontSize:12,padding:"6px 10px"}}/>
                   )}
                   {currentUser.role==="marketing"&&!p.confirmado&&(
-                    <Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>
+                    <Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));cerrarAutomaticas("produccion",p.id,currentUser.id,"Producción confirmada").catch(console.error);}}>Confirmar</Btn>
                   )}
                   {puedeBorrar(p)&&(
                     <button onClick={()=>borrar(p)} title="Borrar producción" style={{fontSize:11,color:C.red,background:"none",border:`1px solid ${C.red}`,borderRadius:6,cursor:"pointer",padding:"3px 8px",fontFamily:"'Montserrat',sans-serif"}}>Borrar</button>

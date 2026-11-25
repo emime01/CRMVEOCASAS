@@ -1,3 +1,5 @@
+import { buscar, addItem, updateItem } from "./firebase";
+
 // Tareas: tablero (kanban) con tres columnas. Al pasar a "Listo" la tarea sale del tablero y va al histórico.
 // Cada movimiento queda registrado en t.historial ({estado, por, at}) para que Mika vea quién movió qué y cuándo.
 
@@ -35,3 +37,27 @@ export const puedeEditar = (t, u) => t.creada_por === u.id || u.role === "gerent
 
 // Para el número rojo del menú: tareas mías que todavía no empecé
 export const porHacerDe = (tareas, uid) => (tareas || []).filter(t => t.asignada_a === uid && estadoDe(t) === "pendiente").length;
+
+// ── Tareas automáticas ──
+// El CRM crea una tarea cuando pasa algo que alguien tiene que resolver, y la pasa sola a Listo cuando se resuelve.
+// Cada una lleva auto (el tipo) y ref (qué la originó: la producción, la venta o el pago), para no duplicarlas.
+export const AUTOMATICAS = {
+  produccion:   { label: "Producción",       cierre: "cuando Marketing confirma la producción" },
+  cambio_venta: { label: "Cambio en venta",  cierre: "cuando Mika aprueba o rechaza el cambio" },
+  editar_venta: { label: "Cambio aprobado",  cierre: "cuando se guarda el cambio en la venta" },
+  aviso_pago:   { label: "Aviso de pago",    cierre: "cuando Administración marca el pago como cobrado" },
+};
+
+export const crearAutomatica = async ({ tipo, ref, titulo, descripcion = "", asignada_a, creada_por, prioridad = "normal" }) => {
+  if (!asignada_a || (await buscar("tareas", { auto: tipo, ref: String(ref) })).some(abierta)) return null;
+  const at = new Date().toISOString();
+  return addItem("tareas", {
+    titulo, descripcion, asignada_a, creada_por: creada_por || asignada_a, prioridad, vence: "", estado: "pendiente",
+    movida_at: at, historial: [], auto: tipo, ref: String(ref),
+  });
+};
+
+export const cerrarAutomaticas = async (tipo, ref, por, comentario) => {
+  for (const t of await buscar("tareas", { auto: tipo, ref: String(ref) }))
+    if (abierta(t)) await updateItem("tareas", t.id, cambiosAlMover(t, LISTA, por, comentario));
+};

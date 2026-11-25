@@ -5,7 +5,7 @@ import { addItem, updateItem, deleteItem } from "../firebase";
 import { fechaCorta } from "../prospectos";
 import {
   COLUMNAS, LISTA, ESTADO_LABEL, DIAS_FRENADA, abierta, estadoDe, ultimoMovimiento, diasDesde, atrasada, frenada,
-  cambiosAlMover, puedeMover, puedeEditar,
+  cambiosAlMover, puedeMover, puedeEditar, AUTOMATICAS,
 } from "../tareas";
 
 // Tareas en tablero: Por hacer → En curso → En espera → Listo. Las listas salen del tablero y van al Histórico.
@@ -113,6 +113,7 @@ export default function Tareas({ tareas, setTareas, currentUser, vistaInicial })
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6, fontSize: 11, color: C.gray500 }}>
           {mostrarAsignada && <span>👤 <strong style={{ color: C.gray700 }}>{nombre(t.asignada_a)}</strong></span>}
           {t.creada_por && t.creada_por !== t.asignada_a && <span>de {nombre(t.creada_por)}</span>}
+          {t.auto && <Badge color="blue" style={{ padding: "1px 7px", fontSize: 10 }}>⚙ {AUTOMATICAS[t.auto]?.label || "Automática"}</Badge>}
           {t.prioridad === "alta" && <Badge color="red" style={{ padding: "1px 7px", fontSize: 10 }}>Urgente</Badge>}
           {t.vence && <span style={{ color: atr ? C.red : C.gray500, fontWeight: atr ? 600 : 400 }}>📅 {atr ? "venció " : ""}{fechaCorta(t.vence)}</span>}
           {fren && <span style={{ color: C.amber }} title="Hace mucho que no cambia de columna">⏸ {diasDesde(ultimoMovimiento(t))} días sin moverse</span>}
@@ -327,6 +328,11 @@ export default function Tareas({ tareas, setTareas, currentUser, vistaInicial })
               {det.vence && <Badge color={atrasada(det) ? "red" : "gray"}>Para el {fechaCorta(det.vence)}</Badge>}
               {frenada(det) && <Badge color="amber">{diasDesde(ultimoMovimiento(det))} días sin moverse</Badge>}
             </div>
+            {det.auto && (
+              <div style={{ background: C.blueLight, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.blue, marginBottom: 12 }}>
+                ⚙ La creó el CRM. Pasa sola a Listo {AUTOMATICAS[det.auto]?.cierre || "cuando se resuelve"}.
+              </div>
+            )}
             {det.descripcion && <p style={{ fontSize: 13, color: C.gray700, lineHeight: 1.6, margin: "0 0 12px", whiteSpace: "pre-wrap" }}>{det.descripcion}</p>}
             {det.comentario_completado && (
               <div style={{ background: C.greenLight, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.green, marginBottom: 12 }}>
