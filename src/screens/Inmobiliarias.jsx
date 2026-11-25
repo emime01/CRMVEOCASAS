@@ -24,7 +24,7 @@ export default function Inmobiliarias({ currentUser, prospectos, setProspectos, 
   const [estado, setEstado] = useState("");
   const [vendedor, setVendedor] = useState(esVendedor ? currentUser.id : vendedorInicial);
   const [depto, setDepto] = useState("");
-  const [vista, setVista] = useState(vistaInicial); // todas | hoy | sin_gestion
+  const [vista, setVista] = useState(vistaInicial); // todas | hoy | proximos (fecha de volver a contactar de hoy en adelante) | sin_gestion
   const [sel, setSel] = useState(new Set());
   const [destino, setDestino] = useState(ASIGNABLES[0]);
   const [pagina, setPagina] = useState(1);
@@ -48,9 +48,12 @@ export default function Inmobiliarias({ currentUser, prospectos, setProspectos, 
     (!vendedor || (vendedor === "sin" ? !l.asignadoA : l.asignadoA === vendedor)) &&
     (!depto || (depto === "sin" ? !l.departamento : l.departamento === depto)) &&
     (vista !== "hoy" || (proximo(l) && proximo(l) <= hoy)) &&
+    (vista !== "proximos" || proximo(l) >= hoy) &&
     (vista !== "sin_gestion" || !(l.gestiones || []).length) &&
     (!q || norm(`${l.nombre} ${l.email} ${l.telefono} ${l.razon_social} ${l.rut}`).includes(norm(q))))
-    .sort((a, b) => vista === "hoy" ? proximo(a.l).localeCompare(proximo(b.l)) : String(a.l.nombre).localeCompare(String(b.l.nombre), "es"));
+    .sort((a, b) => ["hoy", "proximos"].includes(vista)
+      ? proximo(a.l).localeCompare(proximo(b.l)) || String(a.l.nombre).localeCompare(String(b.l.nombre), "es")
+      : String(a.l.nombre).localeCompare(String(b.l.nombre), "es"));
   const cuenta = f => visibles.filter(f).length;
 
   const actualizar = (id, cambios) => setProspectos(prev => prev.map(l => l.id === id ? { ...l, ...cambios } : l));
@@ -115,6 +118,7 @@ export default function Inmobiliarias({ currentUser, prospectos, setProspectos, 
         <select value={vista} onChange={e => setVista(e.target.value)} style={{ ...inp, width: "auto" }}>
           <option value="todas">Todas</option>
           <option value="hoy">Para volver a contactar hoy</option>
+          <option value="proximos">Próximos contactos (agendados)</option>
           <option value="sin_gestion">Nunca contactadas</option>
         </select>
       </div>
@@ -167,7 +171,7 @@ export default function Inmobiliarias({ currentUser, prospectos, setProspectos, 
                     </td>
                     <td style={{ padding: "8px 12px", fontSize: 12, color: vence ? C.red : C.gray500 }}>
                       {l.ultimaGestion ? `${RESULTADOS_GESTION.find(r => r.id === l.ultimaGestion.resultado)?.label || ""} · ${fechaCorta(l.ultimaGestion.fecha)}` : "—"}
-                      {proximo(l) && <div>volver el {fechaCorta(proximo(l))}</div>}
+                      {proximo(l) && <div style={vista === "proximos" ? { fontWeight: 700, color: vence ? C.red : C.gray800 } : undefined}>volver el {fechaCorta(proximo(l))}</div>}
                     </td>
                   </tr>
                 );

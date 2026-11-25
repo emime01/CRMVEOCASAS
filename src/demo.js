@@ -55,8 +55,8 @@ export const datosDemo = () => {
     web: `www.prueba${i}.com.uy`, estado: estados[i % estados.length], fuentes: ["maps"], score: (i * 13) % 100,
     resumenIA: i % 9 === 2 ? "Pidió precios y quiere una llamada esta semana." : "",
     asignadoA: i % 3 === 0 ? null : VENDEDORES[i % 4],
-    gestiones: i % 5 === 1 ? [{ canal: "Llamada", resultado: "sin_respuesta", fecha: dia(0) + "T11:00:00", por: VENDEDORES[i % 4], proximoContacto: dia(0) }] : [],
-    ultimaGestion: i % 5 === 1 ? { canal: "Llamada", resultado: "sin_respuesta", fecha: dia(0) + "T11:00:00", proximoContacto: dia(0) } : null,
+    gestiones: i % 5 === 1 ? [{ canal: "Llamada", resultado: "sin_respuesta", fecha: dia(0) + "T11:00:00", por: VENDEDORES[i % 4], proximoContacto: dia([0, 3, 8, -2][Math.floor(i / 5) % 4]) }] : [],
+    ultimaGestion: i % 5 === 1 ? { canal: "Llamada", resultado: "sin_respuesta", fecha: dia(0) + "T11:00:00", proximoContacto: dia([0, 3, 8, -2][Math.floor(i / 5) % 4]) } : null,
   })));
   return {
     ventas, clientes, prospeccion_leads,
