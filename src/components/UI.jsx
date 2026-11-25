@@ -89,26 +89,26 @@ export const Btn = ({children,onClick,variant="outline",size="md",disabled,style
   );
 };
 
-export const PieChart = ({value,max,label,color=C.red,size=110}) => {
-  const r=46,cx=size/2,cy=size/2;
-  const p=max>0?Math.min(value/max,1):0;
-  const angle=p*2*Math.PI;
-  const x=cx+r*Math.sin(angle),y=cy-r*Math.cos(angle);
-  const large=angle>Math.PI?1:0;
-  const path=p>=1?`M ${cx} ${cy-r} A ${r} ${r} 0 1 1 ${cx-0.01} ${cy-r} Z`
-    :`M ${cx} ${cy-r} A ${r} ${r} 0 ${large} 1 ${x} ${y} L ${cx} ${cy} Z`;
+// Aro de avance hacia un objetivo. Se dibuja dentro de su tamaño (antes el círculo era más grande que el
+// cuadro y se veía cortado). showValues=false cuando la tarjeta ya muestra los montos.
+export const PieChart = ({value,max,label,color=C.red,size=110,showValues=true}) => {
+  const grosor = Math.max(6, Math.round(size*0.1));
+  const r = (size-grosor)/2 - 1, c = size/2, circ = 2*Math.PI*r;
+  const sinObjetivo = !(max>0);
+  const p = sinObjetivo ? 0 : Math.min(value/max,1);
+  const pctTxt = sinObjetivo ? "—" : `${Math.round((value/max)*100)}%`;
   return (
     <div style={{textAlign:"center"}}>
-      <svg width={size} height={size} style={{maxWidth:"100%"}}>
-        <circle cx={cx} cy={cy} r={r} fill={C.gray100}/>
-        {p>0&&<path d={path} fill={color} opacity="0.9"/>}
-        <circle cx={cx} cy={cy} r={30} fill={C.white}/>
-        <text x={cx} y={cy-4} textAnchor="middle" fontSize="13" fontWeight="700" fill={C.gray900}>{Math.round(p*100)}%</text>
-        <text x={cx} y={cy+10} textAnchor="middle" fontSize="9" fill={C.gray400}>objetivo</text>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{maxWidth:"100%",display:"block",margin:"0 auto"}}>
+        <circle cx={c} cy={c} r={r} fill="none" stroke={C.gray200} strokeWidth={grosor}/>
+        {p>0&&<circle cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth={grosor} strokeLinecap="round"
+          strokeDasharray={`${circ*p} ${circ}`} transform={`rotate(-90 ${c} ${c})`}/>}
+        <text x={c} y={c+(sinObjetivo?2:-1)} textAnchor="middle" dominantBaseline="middle" fontSize={Math.round(size*0.17)} fontWeight="700" fill={sinObjetivo?C.gray400:C.gray900}>{pctTxt}</text>
+        <text x={c} y={c+size*0.16} textAnchor="middle" dominantBaseline="middle" fontSize={Math.max(8,Math.round(size*0.1))} fill={C.gray400}>{sinObjetivo?"sin objetivo":"objetivo"}</text>
       </svg>
-      <div style={{fontSize:12,color:C.gray500,marginTop:2,fontWeight:500}}>{label}</div>
-      <div style={{fontSize:13,fontWeight:700,color}}>{fmt(value)}</div>
-      <div style={{fontSize:10,color:C.gray400}}>de {fmt(max)}</div>
+      {label&&<div style={{fontSize:12,color:C.gray500,marginTop:2,fontWeight:500}}>{label}</div>}
+      {showValues&&<div style={{fontSize:13,fontWeight:700,color}}>{fmt(value)}</div>}
+      {showValues&&!sinObjetivo&&<div style={{fontSize:10,color:C.gray400}}>de {fmt(max)}</div>}
     </div>
   );
 };

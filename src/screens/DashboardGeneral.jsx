@@ -157,7 +157,7 @@ export default function DashboardGeneral({ sales, invoices, objetivos, onNavigat
               <Card key={s.id} style={{textAlign:"center",border:`1px solid ${done?C.green:C.gray200}`}}>
                 <div style={{width:36,height:36,borderRadius:9,background:done?C.green:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:11,fontWeight:700,margin:"0 auto 8px"}}>{s.avatar}</div>
                 <div style={{fontWeight:600,fontSize:13,color:C.black,marginBottom:6}}>{s.name}</div>
-                <PieChart value={total} max={obj||total||1} label="" color={done?C.green:C.red} size={80}/>
+                <PieChart value={total} max={obj||0} label="" color={done?C.green:C.red} size={84} showValues={false}/>
                 <div style={{fontSize:12,fontWeight:700,color:done?C.green:C.red,marginTop:6}}>{fmt(total)}</div>
                 <div style={{fontSize:11,color:C.gray500}}>{sv.length} venta{sv.length!==1?"s":""}</div>
                 {done&&<div style={{fontSize:11,color:C.green,fontWeight:600,marginTop:4}}>🎉 Meta cumplida</div>}

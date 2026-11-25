@@ -8,7 +8,7 @@ import { slugNombre } from './normalize.js';
 // Además queda vinculada a su inmobiliaria de la base (lead_id): si no estaba, se agrega, y si no tenía vendedor,
 // queda a cargo del vendedor de la venta.
 const VENTAS = 'ventas';
-const ACTIVOS = ['paty', 'sebastian', 'stefano', 'juanba', 'mika'];
+const ACTIVOS = ['paty', 'sebastian', 'mika']; // Lucas, Juanba y Stefano ya no están
 const clave = n => slugNombre(n) || String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const hoy = () => new Date().toISOString().slice(0, 10);
 

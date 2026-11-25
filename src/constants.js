@@ -1,9 +1,9 @@
 export const USERS = [
   { id:"mika",      name:"Mika",           role:"gerente",        avatar:"MI" },
   { id:"sebastian", name:"Sebastian",       role:"vendedor",       avatar:"SE" },
-  { id:"juanba",    name:"Juanba",          role:"vendedor",       avatar:"JB" },
+  { id:"juanba",    name:"Juanba",          role:"inactivo",       avatar:"JB" }, // dado de baja (2026-11-25)
   { id:"paty",      name:"Paty",            role:"vendedor",       avatar:"PA" },
-  { id:"stefano",   name:"Stefano",         role:"vendedor",       avatar:"ST" },
+  { id:"stefano",   name:"Stefano",         role:"inactivo",       avatar:"ST" }, // dado de baja (2026-11-25)
   { id:"mateo",     name:"Mateo",           role:"marketing",      avatar:"MA" },
   { id:"admin",     name:"Administración",  role:"admin",          avatar:"AD" },
   { id:"lucas",     name:"Lucas",           role:"inactivo",       avatar:"LU" },
@@ -11,13 +11,16 @@ export const USERS = [
 ];
 
 export const SELLERS = ["sebastian","juanba","paty","stefano","lucas"];
-export const SELLERS_ACTIVE = ["sebastian","juanba","paty","stefano"];
+export const SELLERS_ACTIVE = ["sebastian","paty"];
 
 // El login usa Firebase Auth: las cuentas se crean con scripts/crear-usuarios.mjs (sin contraseñas en el código).
 
 // ── PROSPECTOS (agente de prospección: veocasas-prospector/, colección prospeccion_leads) ──
 // La gerente asigna prospectos a vendedores; el agente nunca asigna por su cuenta.
-export const ASIGNABLES = ["sebastian","juanba","paty","stefano","mika"];
+export const ASIGNABLES = ["sebastian","paty","mika"];
+// Vendedores dados de baja: no entran al CRM ni se les asigna nada, pero sus ventas y su historial quedan.
+// Para dar de baja a alguien: role "inactivo" en USERS y el paso baja_usuarios del panel del agente.
+export const DADOS_DE_BAJA = USERS.filter(u => u.role === "inactivo").map(u => u.id);
 
 export const ESTADOS_PROSPECTO = {
   nuevo:{label:"Buscando email",color:"gray"},

@@ -779,7 +779,7 @@ export default function App() {
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Facturación por semana</div><BarChart data={weeklyTeam} height={110}/></Card>
           <Card>
             <div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:12}}>KPIs esta semana</div>
-            {SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{const k=myKpi(s.id,0);return(
+            {SELLERS_OBJ.filter(s=>s.role!=="inactivo").map(s=>{const k=myKpi(s.id,0);return(
               <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.gray100}`,fontSize:13}}>
                 <span style={{fontWeight:500}}>{s.name}</span>
                 <span style={{color:C.gray400}}>{k.contactados||0} · {k.concrecion||0}%</span>
@@ -792,7 +792,7 @@ export default function App() {
         {qsAMostrar.map(q=>{
           const isActual=q===currentQ;
           const totalQ=SELLERS_OBJ.reduce((a,s)=>a+totalDeQ(s.id,q),0);
-          const totalObj=SELLERS_OBJ.reduce((a,s)=>a+(objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio)?.objetivo||0),0);
+          const totalObj=SELLERS_OBJ.filter(s=>s.role!=="inactivo").reduce((a,s)=>a+(objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio)?.objetivo||0),0);
           return (
             <div key={q} style={{marginBottom:24}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
@@ -801,16 +801,16 @@ export default function App() {
                 <button onClick={()=>deleteObjetivoQTodos(q)} style={{marginLeft:"auto",fontSize:11,color:C.gray400,background:"none",border:`1px solid ${C.gray200}`,borderRadius:6,padding:"3px 10px",cursor:"pointer"}}>🗑 Borrar Q{q}</button>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:12}}>
-                {SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{
+                {SELLERS_OBJ.filter(s=>s.role!=="inactivo").map(s=>{
                   const obj=objetivos.find(o=>o.ejecutivo===s.id&&o.q===q&&o.anio===currentAnio);
                   const tq=totalDeQ(s.id,q);
                   const done=obj?.objetivo>0&&tq>=obj.objetivo;
                   return (
-                    <Card key={s.id} style={{textAlign:"center",border:`1px solid ${done?C.green:isActual?C.gray200:C.gray100}`,opacity:obj?1:0.55}}>
+                    <Card key={s.id} style={{textAlign:"center",border:`1px solid ${done?C.green:isActual?C.gray200:C.gray100}`}}>
                       <div style={{width:32,height:32,borderRadius:8,background:done?C.green:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:10,fontWeight:700,margin:"0 auto 6px"}}>{s.avatar}</div>
                       <div style={{fontWeight:600,fontSize:12,color:C.black,marginBottom:6}}>{s.name}</div>
-                      <PieChart value={tq} max={obj?.objetivo||0} label="" color={done?C.green:isActual?C.red:C.gray400} size={80}/>
-                      <div style={{fontSize:12,fontWeight:700,color:done?C.green:C.red,marginTop:4}}>{fmt(tq)}</div>
+                      <PieChart value={tq} max={obj?.objetivo||0} label="" color={done?C.green:isActual?C.red:C.gray400} size={84} showValues={false}/>
+                      <div style={{fontSize:13,fontWeight:700,color:done?C.green:obj?C.red:C.gray700,marginTop:6}}>{fmt(tq)}</div>
                       <div style={{fontSize:11,color:C.gray400,marginTop:2}}>{ventasDeQ(s.id,q).length} ventas</div>
                       {obj?(
                         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginTop:4}}>
@@ -820,7 +820,7 @@ export default function App() {
                         </div>
                       ):(
                         <div style={{marginTop:4}}>
-                          <div style={{fontSize:10,color:C.gray300,marginBottom:3}}>Sin objetivo</div>
+                          <div style={{fontSize:10,color:C.gray400,marginBottom:3}}>Sin objetivo para Q{q}</div>
                           <button onClick={()=>{setObjetivoForm({ejecutivo:s.id,objetivo:0,q,anio:currentAnio});setShowObjetivoForm(true);}} style={{fontSize:10,color:C.blue,background:"none",border:`1px solid ${C.blue}`,borderRadius:4,cursor:"pointer",padding:"2px 6px",fontFamily:"'Montserrat',sans-serif"}}>+ Asignar</button>
                         </div>
                       )}
@@ -867,7 +867,7 @@ export default function App() {
                     return (
                       <div key={p.ejecutivo} style={{textAlign:"center",padding:"10px 8px",background:partDone?C.greenLight:C.gray50,borderRadius:8,border:`1px solid ${partDone?C.green:C.gray100}`}}>
                         <div style={{fontWeight:500,fontSize:12,color:partDone?C.green:C.gray700,marginBottom:6}}>{s?.name}</div>
-                        <PieChart value={total} max={p.objetivo||0} label="" color={partDone?C.green:activo?C.red:C.gray400} size={80}/>
+                        <PieChart value={total} max={p.objetivo||0} label="" color={partDone?C.green:activo?C.red:C.gray400} size={84} showValues={false}/>
                         <div style={{fontSize:11,color:C.gray500,marginTop:4}}>{fmt(total)} / {fmt(p.objetivo)}</div>
                         <div style={{fontSize:10,color:C.gray400,marginTop:2}}>{ventasEnPeriodo(p.ejecutivo,run.fecha_inicio,run.fecha_fin).length} ventas</div>
                         {partDone&&<div style={{fontSize:11,color:C.green,fontWeight:600,marginTop:4}}>🎉 ¡Felicitaciones!</div>}
@@ -883,7 +883,7 @@ export default function App() {
         <div style={{fontWeight:600,fontSize:14,color:C.gray800,marginBottom:12}}>KPIs detallados — esta semana</div>
         <Table
           cols={[{key:"v",label:"Vendedor"},{key:"c",label:"Contactados"},{key:"ce",label:"C. efectivos"},{key:"pp",label:"%"},{key:"ra",label:"R. agendadas"},{key:"re",label:"R. efectivas"},{key:"con",label:"Concreción"},{key:"tk",label:"Ticket"},{key:"pc",label:"Vendido"}]}
-          rows={SELLERS_OBJ.filter(s=>s.id!=="lucas").map(s=>{const k=myKpi(s.id,0);return{
+          rows={SELLERS_OBJ.filter(s=>s.role!=="inactivo").map(s=>{const k=myKpi(s.id,0);return{
             v:<div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:6,background:C.red,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:9,fontWeight:700}}>{s.avatar}</div><span style={{fontWeight:500,fontSize:13}}>{s.name}</span></div>,
             c:k.contactados||0,ce:k.contactados_efectivos||0,
             pp:<Badge color={(k.contactados_efectivos||0)>0?"green":"gray"}>{pct(k.contactados_efectivos||0,k.contactados||0)}%</Badge>,

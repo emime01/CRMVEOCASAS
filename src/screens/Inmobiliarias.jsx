@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { C, USERS, ASIGNABLES, CRMS, RESULTADOS_GESTION, CANALES_GESTION } from "../constants";
+import { C, USERS, ASIGNABLES, DADOS_DE_BAJA, CRMS, RESULTADOS_GESTION, CANALES_GESTION } from "../constants";
 import { Card, Btn, Badge, Stat, Field, Grid2, Modal, ModalHeader, ModalBody, ModalFooter, Spinner, EmptyState, inp } from "../components/UI";
 import { asignar, registrarGestion, linkWhatsapp, fechaCorta, nombreUsuario } from "../prospectos";
 import { ESTADOS_COMERCIALES, indexarVentas, ventasDe, estadoComercial, guardarFicha, crearInmobiliaria } from "../inmobiliarias";
@@ -104,7 +104,7 @@ export default function Inmobiliarias({ currentUser, prospectos, setProspectos, 
             <option value="">Todos los vendedores</option>
             <option value="sin">Sin vendedor</option>
             {ASIGNABLES.map(id => <option key={id} value={id}>{nombreUsuario(id)}</option>)}
-            <option value="lucas">Lucas (ya no está)</option>
+            {DADOS_DE_BAJA.map(id => <option key={id} value={id}>{nombreUsuario(id)} (ya no está)</option>)}
           </select>
         )}
         <select value={depto} onChange={e => setDepto(e.target.value)} style={{ ...inp, width: "auto" }}>
@@ -228,7 +228,7 @@ function Ficha({ x, currentUser, puedeEditar, esGerente, onClose, onCambios, onC
             <select value={l.asignadoA || ""} onChange={e => reasignar(e.target.value)} style={{ ...inp, width: "auto", marginLeft: "auto" }}>
               <option value="">Sin vendedor</option>
               {ASIGNABLES.map(id => <option key={id} value={id}>{nombreUsuario(id)}</option>)}
-              {l.asignadoA === "lucas" && <option value="lucas">Lucas</option>}
+              {DADOS_DE_BAJA.includes(l.asignadoA) && <option value={l.asignadoA}>{nombreUsuario(l.asignadoA)} (ya no está)</option>}
             </select>
           )}
         </div>

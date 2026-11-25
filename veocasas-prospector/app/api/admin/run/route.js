@@ -4,6 +4,7 @@ import { fusionarRepetidas } from '@/lib/fusion';
 import { sincronizarClientesCRM } from '@/lib/crm';
 import { importarBaseOficial } from '@/lib/baseOficial';
 import { importarVentasPlanilla } from '@/lib/ventasPlanilla';
+import { bajaUsuarios } from '@/lib/usuarios';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
@@ -18,6 +19,11 @@ export async function POST(req) {
     if (paso === 'ventas_planilla') {
       const { ventas, cancelar } = await req.json();
       return Response.json(await importarVentasPlanilla(ventas || [], { aplicar: new URL(req.url).searchParams.get('aplicar') === '1', cancelar: cancelar || [] }));
+    }
+    // dar de baja usuarios del CRM: body {ids:[...], reasignarA?}; ?aplicar=1 para escribir
+    if (paso === 'baja_usuarios') {
+      const { ids, reasignarA } = await req.json();
+      return Response.json(await bajaUsuarios(ids || [], { aplicar: new URL(req.url).searchParams.get('aplicar') === '1', reasignarA }));
     }
     if (paso === 'base_oficial') {
       const { filas } = await req.json();

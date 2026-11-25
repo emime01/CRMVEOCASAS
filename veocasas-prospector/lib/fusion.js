@@ -21,8 +21,8 @@ const CAMPOS = ['web', 'email', 'telefono', 'whatsapp', 'instagram', 'facebook',
 const DOMINIOS_COMPARTIDOS = ['remax.com.uy', 'century21.com.uy', 'engelvoelkers.com', 'kw.com', 'sites.google.com', 'business.site'];
 const MAX_POR_CLAVE = 3; // una clave en más registros suele ser una franquicia o un email de grupo: no se une
 
-// vendedores que hoy trabajan (Lucas ya no está): ante dos vendedores distintos, gana uno de estos
-const VENDEDORES_ACTIVOS = ['paty', 'sebastian', 'stefano', 'juanba', 'mika'];
+// vendedores que hoy trabajan (Lucas, Juanba y Stefano ya no están): ante dos vendedores distintos, gana uno de estos
+const VENDEDORES_ACTIVOS = ['paty', 'sebastian', 'mika'];
 // núcleo del nombre, sin las palabras de rubro: dos registros del mismo grupo tienen que tener nombres parecidos
 const RUBRO = /\b(inmobiliarias?|negocios inmobiliarios|propiedades|bienes raices|real estate|asesores inmobiliarios|desarrollos inmobiliarios|s\.?r\.?l\.?|s\.?a\.?s?\.?|ltda)\b/g;
 const nucleo = n => String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(RUBRO, ' ').replace(/[^a-z0-9]/g, '');
