@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc, onSnapshot } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -41,6 +41,13 @@ export const getAll = async (col, orderField = null) => {
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) { console.error(e); return []; }
+};
+
+// Escucha una colección y avisa cada vez que alguien la cambia (para que el tablero de tareas se actualice solo).
+// Devuelve la función para dejar de escuchar. En modo demo no hace nada.
+export const escuchar = (col, alCambiar) => {
+  if (DEMO) return () => {};
+  return onSnapshot(collection(db, col), snap => alCambiar(snap.docs.map(d => ({ id: d.id, ...d.data() }))), e => console.error(e));
 };
 
 export const addItem = async (col, data) => {

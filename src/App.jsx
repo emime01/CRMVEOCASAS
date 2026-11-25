@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { enPesos, fmtMoneda } from "./moneda";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil, DEMO } from "./firebase";
+import { getAll, addItem, updateItem, deleteItem, upsertItem, auth, emailDeUsuario, getPerfil, DEMO, escuchar } from "./firebase";
 import { C, fmt, USERS, TABS, daysUntil, getWeekDates, cantidadDe } from "./constants";
 import CambiarClave from "./components/CambiarClave";
 import Layout from "./components/Layout";
@@ -28,6 +28,7 @@ import KPIs, { kpisDe } from "./screens/KPIs";
 import Producciones from "./screens/Producciones";
 import { COL_PROSPECTOS, marcarCliente, fechaCorta, nombreUsuario } from "./prospectos";
 import { pendientes } from "./seguimientos";
+import { porHacerDe, abierta, atrasada, frenada, estadoDe } from "./tareas";
 
 const SELLERS_OBJ = USERS.filter(u => ["vendedor","inactivo"].includes(u.role));
 const getUser = id => USERS.find(u => u.id === id);
@@ -261,7 +262,11 @@ export default function App() {
   const avisos = useMemo(() => ({
     inmobiliarias: seguimientos.filter(s => s.tipo === "inmobiliaria").length,
     renovaciones: seguimientos.filter(s => s.tipo === "renovacion").length,
-  }), [seguimientos]);
+    tareas: user ? porHacerDe(tareas, user.id) : 0, // tareas mías que todavía no empecé
+  }), [seguimientos, tareas, user]);
+  // El tablero de tareas se actualiza solo cuando alguien mueve o crea una (Mika lo ve en vivo)
+  const uid = user?.id;
+  useEffect(() => uid ? escuchar("tareas", l => setTareas(l.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))))) : undefined, [uid]);
   const hoyLocal = hoyISO();
   const gestionesTodas = useMemo(()=>(prospectos||[]).flatMap(l=>(l.gestiones||[]).map(g=>({...g,leadId:l.id}))),[prospectos]);
   const myKpi = (uid,week) => {
@@ -546,6 +551,32 @@ export default function App() {
     );
   };
 
+  // Mika: cómo vienen las tareas del equipo (el detalle está en Tareas → Equipo)
+  const TareasEquipo = () => {
+    const ab = tareas.filter(abierta);
+    if (!ab.length) return null;
+    const datos = [
+      ["Por hacer", ab.filter(t => estadoDe(t) === "pendiente").length, C.gray700],
+      ["En curso", ab.filter(t => estadoDe(t) === "en_curso").length, C.blue],
+      ["En espera", ab.filter(t => estadoDe(t) === "en_espera").length, C.amber],
+      ["Vencidas", ab.filter(atrasada).length, C.red],
+      ["Sin moverse +7 días", ab.filter(frenada).length, C.amber],
+    ];
+    return (
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: C.gray700 }}>🗂️ Tareas del equipo: {ab.length} abiertas</div>
+          <Btn size="sm" onClick={() => irA("tareas", { vista: "equipo" })}>Ver tablero del equipo</Btn>
+        </div>
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+          {datos.map(([l, n, col]) => (
+            <div key={l}><div style={{ fontSize: 20, fontWeight: 700, color: n ? col : C.gray400 }}>{n}</div><div style={{ fontSize: 11, color: C.gray500 }}>{l}</div></div>
+          ))}
+        </div>
+      </Card>
+    );
+  };
+
   // Gerencia: cuántos seguimientos tiene pendientes cada vendedor
   const SeguimientosEquipo = () => {
     if (!prospectos || !seguimientos.length) return null;
@@ -718,6 +749,7 @@ export default function App() {
           <Stat label="Alertas vencimiento" value={alertas.length} color={alertas.length>0?C.red:C.green} alert={alertas.length>0}/>
         </div>
         <SeguimientosEquipo/>
+        <TareasEquipo/>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:16,marginBottom:24}}>
           <Card><div style={{fontWeight:600,fontSize:13,color:C.gray700,marginBottom:14}}>Facturación por semana</div><BarChart data={weeklyTeam} height={110}/></Card>
           <Card>
@@ -968,7 +1000,7 @@ export default function App() {
     reportes:<Reportes sales={sales} vistaInicial={user.role==="admin"?"administracion":"comercial"}/>,
     reportes_ggeneral:<Reportes sales={sales} soloComercial/>,
     tickets:<Tickets tickets={tickets} setTickets={setTickets} currentUser={user}/>,
-    tareas:<Tareas tareas={tareas} setTareas={setTareas} currentUser={user}/>,
+    tareas:<Tareas tareas={tareas} setTareas={setTareas} currentUser={user} vistaInicial={inmoFiltro?.vista}/>,
     documentos:<Documentos documentos={documentos} setDocumentos={setDocumentos} currentUser={user}/>,
     presentaciones:<Presentaciones presentaciones={presentaciones} setPresentaciones={setPresentaciones} currentUser={user}/>,
   };

@@ -129,6 +129,7 @@ export const TABS = {
     {id:"metricas",label:"Métricas"},
     {id:"presentaciones",label:"Presentaciones"},
     {id:"documentos",label:"Documentos"},
+    {id:"tareas",label:"Tareas"},
     {id:"tickets",label:"Tickets"},
   ],
   admin:[
@@ -136,6 +137,7 @@ export const TABS = {
     {id:"comisiones_crm",label:"Comisiones CRM"},
     {id:"reportes",label:"Reportes"},
     {id:"inmobiliarias",label:"Inmobiliarias"},
+    {id:"tareas",label:"Tareas"},
     {id:"tickets",label:"Tickets"},
   ],
   gerente_general:[

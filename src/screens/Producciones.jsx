@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { updateItem } from "../firebase";
+import { updateItem, deleteItem } from "../firebase";
 import { C, USERS, CIUDADES } from "../constants";
 import { Card, Btn, Badge, EmptyState, inp, Modal, ModalHeader, ModalBody } from "../components/UI";
 
@@ -17,6 +17,15 @@ export default function Producciones({ currentUser, productions, setProductions,
     s.has(id) ? s.delete(id) : s.add(id);
     return s;
   });
+
+  // Borrar una producción (ya hecha o cargada por error): Marketing, Mika o el vendedor de la venta.
+  // Solo se borra la tarjeta de producción; la venta no cambia.
+  const puedeBorrar = p => ["marketing", "gerente"].includes(currentUser.role) || p.ejecutivo === currentUser.id;
+  const borrar = async p => {
+    if (!window.confirm(`¿Borrar la producción de ${p.cliente}${p.fecha ? ` del ${p.fecha}` : ""}? No se puede deshacer; la venta no cambia.`)) return;
+    if (await deleteItem("producciones", p.id)) setProductions(prev => prev.filter(x => x.id !== p.id));
+    else window.alert("No se pudo borrar. Revisá la conexión y probá de nuevo.");
+  };
 
   return (
     <div style={{padding:"1.5rem",maxWidth:800}}>
@@ -70,6 +79,9 @@ export default function Producciones({ currentUser, productions, setProductions,
                   )}
                   {currentUser.role==="marketing"&&!p.confirmado&&(
                     <Btn size="sm" variant="primary" onClick={async()=>{await updateItem("producciones",p.id,{confirmado:true});setProductions(prev=>prev.map(x=>x.id===p.id?{...x,confirmado:true}:x));}}>Confirmar</Btn>
+                  )}
+                  {puedeBorrar(p)&&(
+                    <button onClick={()=>borrar(p)} title="Borrar producción" style={{fontSize:11,color:C.red,background:"none",border:`1px solid ${C.red}`,borderRadius:6,cursor:"pointer",padding:"3px 8px",fontFamily:"'Montserrat',sans-serif"}}>Borrar</button>
                   )}
                 </div>
               </div>

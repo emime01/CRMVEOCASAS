@@ -60,10 +60,20 @@ export const datosDemo = () => {
   })));
   return {
     ventas, clientes, prospeccion_leads,
-    kpis: [], producciones: [], posts_social: [], facturas: [], comisiones: [], runs: [], documentos: [], presentaciones: [],
+    kpis: [], posts_social: [], facturas: [], comisiones: [], runs: [], documentos: [], presentaciones: [],
     metricas_ads: [], disponibilidad: [],
     objetivos: VENDEDORES.map((v, i) => ({ id: `o${i}`, ejecutivo: v, objetivo: 400000, q: Math.ceil((hoy.getMonth() + 1) / 3), anio: hoy.getFullYear() })),
     tickets: [{ id: "t1", titulo: "Cuota lista para facturar", descripcion: "Cuota 2/3 de García Propiedades.", de: "paty", para: "admin", estado: "pendiente", created_at: dia(-2) }],
-    tareas: [{ id: "ta1", titulo: "Llamar a Casas del Sur", asignado: "sebastian", estado: "pendiente", fecha: dia(2), created_at: dia(-1) }],
+    tareas: [
+      { id: "ta1", titulo: "Llamar a Casas del Sur", descripcion: "Quieren saber el precio del plan Premium.", asignada_a: "sebastian", creada_por: "mika", estado: "pendiente", vence: dia(2), prioridad: "alta", created_at: dia(-1) + "T10:00:00", movida_at: dia(-1) + "T10:00:00", historial: [] },
+      { id: "ta2", titulo: "Armar presentación para Punta Real Estate", asignada_a: "mateo", creada_por: "sebastian", estado: "en_curso", vence: dia(-1), prioridad: "normal", created_at: dia(-6) + "T09:00:00", movida_at: dia(-4) + "T12:00:00", historial: [{ estado: "en_curso", por: "mateo", at: dia(-4) + "T12:00:00" }] },
+      { id: "ta3", titulo: "Pasar facturas de octubre", asignada_a: "admin", creada_por: "mika", estado: "en_espera", prioridad: "normal", created_at: dia(-12) + "T09:00:00", movida_at: dia(-10) + "T09:00:00", historial: [{ estado: "en_curso", por: "admin", at: dia(-11) + "T09:00:00" }, { estado: "en_espera", por: "admin", at: dia(-10) + "T09:00:00" }] },
+      { id: "ta4", titulo: "Revisar fotos de Pocitos Negocios", asignada_a: "juanba", creada_por: "juanba", estado: "en_curso", prioridad: "normal", created_at: dia(-2) + "T09:00:00", movida_at: dia(-1) + "T09:00:00", historial: [{ estado: "en_curso", por: "juanba", at: dia(-1) + "T09:00:00" }] },
+      { id: "ta5", titulo: "Mandar contrato a Colonia Hogar", asignada_a: "paty", creada_por: "mika", estado: "completada", prioridad: "normal", created_at: dia(-9) + "T09:00:00", movida_at: dia(-3) + "T16:00:00", completada_at: dia(-3) + "T16:00:00", completada_por: "paty", comentario_completado: "Firmado y escaneado en Documentos.", historial: [{ estado: "en_curso", por: "paty", at: dia(-8) + "T09:00:00" }, { estado: "completada", por: "paty", at: dia(-3) + "T16:00:00" }] },
+    ],
+    producciones: [
+      { id: "pr1", cliente: "García Propiedades", ejecutivo: "sebastian", produccion_q: 2, fecha: dia(-5), ciudad: "Montevideo", comentario: "Hecha", confirmado: true, created_at: dia(-20) },
+      { id: "pr2", cliente: "Casas del Sur", ejecutivo: "paty", produccion_q: 1, fecha: "", confirmado: false, created_at: dia(-2) },
+    ],
   };
 };
